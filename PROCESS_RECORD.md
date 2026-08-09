@@ -88,3 +88,57 @@ file (the crit-2 fungi site) that happens to load as a parent-directory
 instruction here. This repo's own `CLAUDE.md` is unchanged and names no stack;
 this repo remains plain Vite/TS. The user is rewriting this repo's `CLAUDE.md`
 to carry art direction, aesthetic and layout.
+
+## 2026-08-10 00:58 — Title scale, 1R limb glow, whiter starfield
+
+**Prompt:**
+
+> Good, and for next, some minor style fixes. First is the BLINDSPOTS title,
+> make it smaller, in all scale. I prefer the first B and last S, they cross the
+> sihouette of Mars of left and right. […ASCII sketch of the title crossing the
+> disc…] The B's left part is outside of the Mars, last S right part is outside
+> of Mars. Second, the reflective sphere cover outside of the Mars. You can
+> refer the effect in /assets/20260806222212_1.jpg, the Starfield style. When
+> the Mars receives the light, then edge emit highlights. The reflective cover,
+> can set to 1R of the Mars, which means the same radius of the 3D model of the
+> Mars. Third, the background Stars. pls make them looks more white and blue,
+> and some blink frequent, some emit strong lights consistently with some Lumen
+> variation. Overall it is good. Lets see the modification, if not ideal, then I
+> will add more instructions.
+
+**Result:** [`4330298`](../../commit/4330298)
+
+- **Title** — `fitTitle()` sizes it by *measuring* rather than by a font ratio:
+  100px probe, read `scrollWidth`, discount the trailing letter-space (not ink),
+  scale once to `1.08 ×` Mars's on-screen diameter. Measuring is what makes the
+  limb crossing hold when Poppins hasn't loaded; re-fits on
+  `document.fonts.ready`. The CSS clamp is now only the no-JS fallback.
+- **Limb glow** — 1.06R warm-gold `BackSide` atmosphere → 1R cool blue-white
+  shell driven by light direction, so only the sunlit limb burns. Required
+  `FrontSide` + `depthTest: false`, not the usual oversized `BackSide` shell: at
+  1R a `BackSide` shell has `dot(N,V) < 0` everywhere, so the fresnel term
+  saturates and floods the whole disc, and a depth-tested same-radius shell
+  z-fights the model it wraps.
+- **Starfield** — white through blue-white, no gold or purple; per-star
+  `rate`/`flicker`/`mag` instead of one shared sine (~8% bright and near-steady
+  with slow lumen variation, ~26% fast blinkers), two detuned sines so the
+  variation isn't a clean loop.
+
+**What happened:** nothing the user flagged, but the rendered page flagged two
+things my code review would not have. Both were invisible at 1920×1080 and only
+appeared in the 390×844 screenshot:
+
+1. The title landed *inside* the limb on the phone. Mars was wider there than
+   `94vw / TITLE_OVERHANG`, so `fitTitle()`'s viewport safety cap bound before
+   the Mars-relative size did — the cap silently won and the design intent
+   silently lost. Fixed by raising the narrow-viewport camera pull-back ceiling
+   1.6 → 1.78, and the lesson is worth keeping: **that ceiling is set by the
+   title, not by Mars.**
+2. Mars was fully unlit in that frame. The sun orbited a full 360°, so the
+   planet sat in shadow for half of every ~70 s cycle — a marker could load the
+   page and find a black disc. `placeSun()` now sweeps a 0.28 rad arc about
+   −1.05 rad, side-lit front-left at all times.
+
+Both are the same class of bug: time- or viewport-dependent state that a static
+read of the diff cannot show. Screenshotting *both* marking viewports is not a
+final check, it is the only way these surface.
