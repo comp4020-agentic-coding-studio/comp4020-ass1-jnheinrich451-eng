@@ -479,3 +479,45 @@ That phase turns out to be the effect's best case: a star cresting a black limb,
 with the composite carrying the entire frame.
 
 Commit: [`a61a470`](../../commit/a61a470)
+
+## 2026-08-10 03:20 — Tangent streak, wider trajectory
+
+**Prompt:**
+
+> Good, the effect itself it good! But haha, the rotation is fixed! We say it has
+> two axes, the top-bottom short axis, and left-right long axis. So I plan to let
+> long axis tangent to limb. So the computation should be, compute the angle of
+> long axis vector, to the norm vector of what we mentioned shadow plane, and
+> make the inner product = 0. It is easiest. And move the trajectory outer,
+> faraway to center of Mars for about 5px, let's see the effect first.
+
+**Result:**
+The streak was drawn at a fixed angle 0 — a straight port of the reference, where
+the star is pinned to the right limb and horizontal is always tangent there. As
+soon as the light point orbits, that constant is wrong everywhere except its
+original position.
+
+The fix needed no new geometry. In screen space the outward normal at the light
+point *is* the radial direction `(dx, dy)` — the same vector `placeFlare` already
+computes for the outset — so `longAxis · normal = 0` is satisfied by
+`atan2(dy, dx) + π/2`. Exactly zero analytically, no projection, no trig on the
+3D vectors. Spikes rotate with the streak: a rotating streak over a fixed
+starburst reads as two artifacts rather than one lens. `FLARE_OUTSET` 5 → 10.
+
+**What happened:** nothing was flagged, but one thing worth keeping.
+
+**A ported constant can encode an assumption that does not travel with it.**
+Angle 0 was correct in HOTSPOT.md because §1 fixes the star at the rightmost
+point of the disc — horizontal *is* the tangent there, so the doc never needed to
+name the rule. Porting the number faithfully carried the value and dropped the
+reason. Every other constant in the file survived the move because it is scale-
+relative; this one was position-relative, and position is the one thing this
+implementation deliberately changed. Worth checking the rest of a ported set for
+the same shape: which constants are only right because of something the source
+held still?
+
+Verified at two sun phases ~35s apart rather than one — a fixed angle and a
+tracking angle look identical in any single frame taken near the original
+position, which is exactly how this survived the first review.
+
+Commit: [`9c44903`](../../commit/9c44903)
