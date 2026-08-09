@@ -122,6 +122,18 @@
              rather than the doc's div+span with an onClick: that snippet is
              prototype markup (§6 even notes it omits focus styling), and an
              anchor is keyboard-reachable and works with JS off. -->
+        <!-- GLITCH.md §2: four code blocks, each a live read of the archive.
+             Filled by glitch.ts — placeholders first, real rows when the JSON
+             lands, never lorem. aria-hidden because they are a texture of the
+             machine talking to itself, not content a screen reader should
+             narrate over the one affordance on the page. -->
+        <div class="glitch-blocks" aria-hidden="true">
+          <pre class="glitch-block" id="glitch-c1"></pre>
+          <pre class="glitch-block" id="glitch-c2"></pre>
+          <pre class="glitch-block" id="glitch-c3"></pre>
+          <pre class="glitch-block" id="glitch-c4"></pre>
+        </div>
+
         <div class="cta-bar">
           <!-- §3.1: three flat bars either side, mirrored, in the scout-trail
                warm-to-cold order. Decoration only — aria-hidden, no hover, no

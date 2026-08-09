@@ -464,6 +464,236 @@ which are squashed radial gradients rather than a conic sweep.
   outline-offset: 3px;
 }
 
+/* GLITCH.md — the four code blocks. --------------------------------------- */
+
+.glitch-blocks {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.glitch-block {
+  position: absolute;
+  margin: 0;
+
+  /* §2. white-space:pre is what makes §2.2's padding do the aligning — one div
+     per line, columns held by spaces rather than by a table. */
+  white-space: pre;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  line-height: 1.55;
+  letter-spacing: 0.02em;
+  color: rgb(228 232 255 / 90%);
+
+  /* §2.3: a 2.4px violet/amber split — a misconverged signal, not the red/cyan
+     RGB-split cliché, which would also collide with the trail palette. Static
+     on purpose: the fringe never animates, so the text stays readable while
+     still reading as transmitted. The two black stops knock out the starfield
+     behind it. */
+  text-shadow:
+    -1.2px 0 rgb(168 85 247 / 70%),
+    1.2px 0 rgb(234 179 8 / 60%),
+    0 0 10px rgb(6 6 14 / 95%),
+    0 0 22px rgb(6 6 14 / 80%);
+
+  /* §4: read-only, unselectable, never interactive. */
+  user-select: none;
+  pointer-events: none;
+
+  /* §1: nothing has been touched yet, so nothing animates. Without this every
+     block plays its EXIT on mount. */
+  opacity: 0;
+  animation: none;
+}
+
+#glitch-c1 {
+  top: 5.5%;
+  left: 2%;
+}
+
+#glitch-c2 {
+  top: 10%;
+  right: 6%;
+  text-align: right;
+}
+
+/* §2.1: c3 and c4 sit beside the globe, so their inset is pushed in from the
+   centre by the globe's radius, the block's own width and a 26px margin. The
+   min() keeps them off the edge on wide screens and the clamp() stops them
+   crossing the globe on narrow ones, so they move when the globe moves and
+   never overlap it. --mars-px is the measured radius hero.ts publishes. */
+#glitch-c3 {
+  top: max(40%, 252px);
+  left: clamp(
+    12px,
+    min(10.5%, calc(50% - (var(--mars-px, 190px) * 1.02 + 200px + 26px))),
+    30%
+  );
+}
+
+#glitch-c4 {
+  top: 54%;
+  right: clamp(
+    12px,
+    min(9.5%, calc(50% - (var(--mars-px, 190px) * 1.02 + 190px + 26px))),
+    30%
+  );
+  text-align: right;
+}
+
+/* §3.1: the visible band walks DOWN the block (top, 8%, 42%, 62%) then jumps
+   back up to 18% before resolving — that out-of-order penultimate frame is what
+   stops it reading as a wipe. Horizontal offsets alternate sign and shrink
+   (-6, +4, -4, +5, -2, 0): a signal settling. steps(1) throughout, because a
+   smoothed clip-path IS a wipe. */
+@keyframes glitch-in-slice {
+  0% {
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+    transform: translate(-6px, 0);
+  }
+
+  12% {
+    opacity: 1;
+    clip-path: inset(0 0 88% 0);
+    transform: translate(-6px, 0);
+  }
+
+  24% {
+    clip-path: inset(8% 0 62% 0);
+    transform: translate(4px, 0);
+  }
+
+  36% {
+    clip-path: inset(42% 0 28% 0);
+    transform: translate(-4px, 0);
+  }
+
+  48% {
+    clip-path: inset(62% 0 8% 0);
+    transform: translate(5px, 0);
+  }
+
+  60% {
+    clip-path: inset(18% 0 48% 0);
+    transform: translate(-2px, 0);
+  }
+
+  72%,
+  100% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+    transform: translate(0, 0);
+  }
+}
+
+/* §3.2: shorter and more violent — offsets grow to ±9px and opacity decays in
+   four steps. It ends on a zero-height band at mid-height, so the block
+   collapses to a line and vanishes. */
+@keyframes glitch-out-slice {
+  0% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+    transform: translate(0, 0);
+  }
+
+  18% {
+    opacity: 1;
+    clip-path: inset(0 0 62% 0);
+    transform: translate(7px, 0);
+  }
+
+  34% {
+    opacity: 0.9;
+    clip-path: inset(38% 0 22% 0);
+    transform: translate(-9px, 0);
+  }
+
+  52% {
+    opacity: 0.75;
+    clip-path: inset(72% 0 4% 0);
+    transform: translate(6px, 0);
+  }
+
+  70% {
+    opacity: 0.4;
+    clip-path: inset(12% 0 74% 0);
+    transform: translate(-4px, 0);
+  }
+
+  100% {
+    opacity: 0;
+    clip-path: inset(48% 0 48% 0);
+    transform: translate(2px, 0);
+  }
+}
+
+/* §3.3: the same walk without the opacity ramp, kept for one-shot disturbances
+   on an already-visible element. Unused in the current build — kept, and
+   deliberately not put on a loop. */
+@keyframes glitch-slice {
+  0%,
+  100% {
+    clip-path: inset(0 0 0 0);
+    transform: translate(0, 0);
+  }
+
+  20% {
+    clip-path: inset(0 0 88% 0);
+    transform: translate(-6px, 0);
+  }
+
+  40% {
+    clip-path: inset(8% 0 62% 0);
+    transform: translate(4px, 0);
+  }
+
+  60%,
+  99% {
+    clip-path: inset(42% 0 28% 0);
+    transform: translate(-4px, 0);
+  }
+}
+
+/* §3.1's per-block delays are 0, 90, 145, 220ms — uneven on purpose. Even
+   spacing reads as one staggered animation; uneven reads as four independent
+   feeds arriving. */
+.cta-hover #glitch-c1 {
+  animation: glitch-in-slice 0.5s steps(1) 0ms 1 forwards;
+}
+
+.cta-hover #glitch-c2 {
+  animation: glitch-in-slice 0.5s steps(1) 90ms 1 forwards;
+}
+
+.cta-hover #glitch-c3 {
+  animation: glitch-in-slice 0.5s steps(1) 145ms 1 forwards;
+}
+
+.cta-hover #glitch-c4 {
+  animation: glitch-in-slice 0.5s steps(1) 220ms 1 forwards;
+}
+
+/* §3.2: a flat 40ms stagger, because leaving is one gesture where arriving is
+   four events. `both`, not `forwards`, so the block is already invisible during
+   its delay. Gated on .cta-touched: §1's null state must never play an exit. */
+.cta-touched:not(.cta-hover) #glitch-c1 {
+  animation: glitch-out-slice 0.42s steps(1) 0ms 1 both;
+}
+
+.cta-touched:not(.cta-hover) #glitch-c2 {
+  animation: glitch-out-slice 0.42s steps(1) 40ms 1 both;
+}
+
+.cta-touched:not(.cta-hover) #glitch-c3 {
+  animation: glitch-out-slice 0.42s steps(1) 80ms 1 both;
+}
+
+.cta-touched:not(.cta-hover) #glitch-c4 {
+  animation: glitch-out-slice 0.42s steps(1) 120ms 1 both;
+}
+
 #observatory {
   display: flex;
   flex-direction: column;
@@ -542,6 +772,23 @@ which are squashed radial gradients rather than a conic sweep.
     padding: 8px 14px;
     font-size: 13px;
   }
+
+  /* Not in GLITCH.md, which never considers a narrow viewport. Two reasons, and
+     the second is the real one:
+
+     1. The blocks are ~40 columns of 10.5px mono, so each is ~300px wide. Four
+        of them in 390px overlap each other and sit straight on top of the
+        title — measured at 390x844, c3 spanned y 371-484 against the title's
+        371-473.
+     2. The trigger is hover, and a touch device has none. `pointerenter` fires
+        on tap, but that same tap navigates to #observatory — so the reveal
+        would flash for one frame on the way out of the page.
+
+     Scaling the type down would fix (1) and not (2). The effect is a
+     pointer-device affordance, so it is absent rather than broken here. */
+  .glitch-blocks {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -558,5 +805,28 @@ which are squashed radial gradients rather than a conic sweep.
   .obs-stars circle,
   .enter-observatory {
     animation: none;
+  }
+
+  /* §4: cross-fade over 200ms instead of the slice. No clip-path, no offsets —
+     the tearing is the whole thing being opted out of. Written against the same
+     IDs the animations use: a .glitch-block class rule cannot override a
+     .cta-hover #glitch-c1 rule, so the reset would have lost. */
+  #glitch-c1,
+  #glitch-c2,
+  #glitch-c3,
+  #glitch-c4 {
+    animation: none;
+    opacity: 0;
+    clip-path: none;
+    transform: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .cta-hover #glitch-c1,
+  .cta-hover #glitch-c2,
+  .cta-hover #glitch-c3,
+  .cta-hover #glitch-c4 {
+    animation: none;
+    opacity: 1;
   }
 }
