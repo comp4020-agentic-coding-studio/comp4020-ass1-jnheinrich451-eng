@@ -422,3 +422,60 @@ screenshots showing the textured GLB, not the fallback sphere. **A red line in
 that buffer is not necessarily a red line now.**
 
 Commit: [`512175b`](../../commit/512175b3d42d14fe96be75064f5cf713f86b62f1)
+
+## 2026-08-10 03:15 — The hot spot, rebuilt from HOTSPOT.md
+
+**Prompt:**
+
+> Perfect, then I have a file for guidance on this Hot-spot, I removed
+> implementation from REFLECTIVE-COVER.md, and now in the new file, and it is
+> experimental, but you can do boldly. Pls find the HOTSPOT.md for details, if we
+> can improve. And if you choose to disable the current plan, please comment out
+> instead of delete the code snippet.
+
+**Result:**
+New `hotspot.ts`: a 2D overlay canvas above the WebGL canvas and below the title,
+drawing HOTSPOT.md layers 2, 3, 8, 9, 10 — halo, ghosts, anamorphic streak,
+spikes, core — at the light point `hero.ts` already projects. §5's split does the
+real work: the globe, fresnel shell and starfield stay in WebGL, so layers 4–7
+(disc stamp, forward scatter, terminator wash, rim bands) have nothing left to
+do. The real globe occludes; the shader already draws the rim on the true
+silhouette.
+
+Sized every ported constant from `U = px / 1.15` — §1's `R = W*1.15` solved for
+`W` — so the doc's numbers go in verbatim instead of being re-derived into a
+"cleaner" set. §4's cold preset throughout. The superseded CSS flare is commented
+out in three files rather than deleted, as asked.
+
+**What happened:** nothing was flagged, but four notes.
+
+1. **I screenshotted the wrong project.** `agent-browser open localhost:5173`
+   returned a completely different site — a fungi page from another repo whose
+   dev server had the port. My own was on 5175. The screenshot was perfectly
+   legible and perfectly irrelevant, and nothing about it announced that. **The
+   rendered page is only ground truth if it is the right page** — check the
+   `<title>` when a port is shared, and prefer the port the server actually
+   printed over the one you assume.
+2. **`mix-blend-mode: screen` is load-bearing, not styling.** The reference
+   paints its `lighter` layers onto an opaque frame. On a transparent overlay
+   composited source-over, an alpha-0.3 white glow *washes* the fan toward white
+   instead of adding to it — same pixels over black, visibly wrong over the
+   stripes. This is the second time in this project that a compositing assumption
+   about a transparent surface has been the whole bug (the first was the additive
+   three.js shell that came out an opaque dark crescent).
+3. **CSS block comments do not nest.** Commenting out the flare rules swallowed
+   the outer comment at the first inner `/* … */`, and the rest of the file
+   became live CSS again. Stripped the two inner delimiters and left a note in
+   place saying why. `pnpm check` would not have caught this: stylelint parsed
+   the result happily.
+4. **Two numbers were not in the doc.** HOTSPOT.md gives the streak's thicknesses
+   and gradient stops but never its length, and the same for the spikes. Chose
+   `U*1.1` per streak unit and `U*0.52`, and said so in the source and the commit
+   rather than letting invented constants sit among ported ones. The distinction
+   matters precisely because everything around them *is* ported.
+
+Verified at the pure-dark phase — the one the user said still needed testing.
+That phase turns out to be the effect's best case: a star cresting a black limb,
+with the composite carrying the entire frame.
+
+Commit: [`a61a470`](../../commit/a61a470)
