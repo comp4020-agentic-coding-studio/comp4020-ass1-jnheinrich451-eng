@@ -469,21 +469,32 @@ which are squashed radial gradients rather than a conic sweep.
 
 /* SCOUT-SHIP.md — the two crossings. -------------------------------------- */
 
-/* §4: the lower route passes BEHIND the globe. Not by z-ordering — by punching
-   a hole in this wrapper at the globe's measured centre. 1.04 rather than 1.00
-   leaves a hairline of clearance so the trail never grazes the silhouette, and
-   the 2px ramp is the only softness: a hard stop aliases badly against the
-   terminator. The upper route needs none of this; it clears the globe. */
+/* §4: the lower route passes BEHIND the globe. Not by z-ordering — by punching a
+   hole in this wrapper.
+
+   The hole is a vertical BAND at the globe's limb x, not a circle. A circular
+   hole cuts the trail at the chord for the route's own y, and that chord sits
+   inside the limb: measured at 1920x1080, the trail vanished at x=579.5 against
+   a limb at 563.6, and returned at 1340.5 against 1356.4 — visibly late in and
+   early out. Cutting at the limb x means it disappears and returns exactly at
+   the sheen, which is the same x the hot spot rides.
+
+   This is sound because the route always crosses the disc: §1 derives it from a
+   title that is itself centred on the globe, so the band and the silhouette
+   always meet. The 2px ramp is the only softness — a hard stop aliases badly. */
 .scout-behind {
   position: absolute;
   inset: 0;
   z-index: 3;
   overflow: hidden;
-  mask-image: radial-gradient(
-    circle at var(--mars-cx, 50%) var(--mars-cy, 50%),
-    transparent 0,
-    transparent calc(var(--mars-px, 190px) * 1.04),
-    #000 calc(var(--mars-px, 190px) * 1.04 + 2px)
+  mask-image: linear-gradient(
+    90deg,
+    #000 0,
+    #000 calc(var(--mars-cx, 50%) - var(--mars-px, 190px)),
+    transparent calc(var(--mars-cx, 50%) - var(--mars-px, 190px) + 2px),
+    transparent calc(var(--mars-cx, 50%) + var(--mars-px, 190px) - 2px),
+    #000 calc(var(--mars-cx, 50%) + var(--mars-px, 190px)),
+    #000 100%
   );
   pointer-events: none;
 }
@@ -668,7 +679,13 @@ which are squashed radial gradients rather than a conic sweep.
      per line, columns held by spaces rather than by a table. */
   white-space: pre;
   font-family: "IBM Plex Mono", monospace;
-  font-size: 10.5px;
+
+  /* §2 sets 10.5px flat, which is the size at the width it was designed for and
+     nothing else: the title and the globe both scale with the viewport while a
+     fixed 10.5px does not, so by ~600px the blocks are proportionally huge and
+     run straight through the word. 0.547vw is 10.5px at 1920 and falls with the
+     window; the 7px floor is where mono stops rendering as text. */
+  font-size: clamp(7px, 0.547vw, 10.5px);
   line-height: 1.55;
   letter-spacing: 0.02em;
   color: rgb(228 232 255 / 90%);
@@ -705,25 +722,35 @@ which are squashed radial gradients rather than a conic sweep.
   text-align: right;
 }
 
-/* §2.1: c3 and c4 sit beside the globe, so their inset is pushed in from the
-   centre by the globe's radius, the block's own width and a 26px margin. The
-   min() keeps them off the edge on wide screens and the clamp() stops them
-   crossing the globe on narrow ones, so they move when the globe moves and
-   never overlap it. --mars-px is the measured radius hero.ts publishes. */
+/* §2.1's shape, with two substitutions.
+
+   The inset is pushed in from the centre by the thing the block can collide
+   with, its own width, and a 26px margin. §2.1 uses the globe's radius for the
+   first term; that was right until the title grew 1/6 longer than a diameter,
+   after which the word overhangs the limb and a block clearing the globe still
+   lands on the letters — measured at 1200px, title 218-982 against a limb of
+   306-894. So the term is the title's measured half-width.
+
+   And the block's own width is in ch, not px. 1ch is one character advance in a
+   monospace face, so 37ch IS c3's longest line plus its margin, at whatever size
+   the type has scaled to — where §2.1's flat 200px silently stopped describing
+   the block the moment the font stopped being 10.5px. */
 #glitch-c3 {
   top: max(40%, 252px);
   left: clamp(
     12px,
-    min(10.5%, calc(50% - (var(--mars-px, 190px) * 1.02 + 200px + 26px))),
+    min(10.5%, calc(50% - var(--title-half-w, 40%) - 37ch - 26px)),
     30%
   );
 }
 
+/* Same substitution. 33ch is c4's longest line (20 for the name column, 12 for
+   the flag matrix) plus its margin. */
 #glitch-c4 {
   top: 54%;
   right: clamp(
     12px,
-    min(9.5%, calc(50% - (var(--mars-px, 190px) * 1.02 + 190px + 26px))),
+    min(9.5%, calc(50% - var(--title-half-w, 40%) - 33ch - 26px)),
     30%
   );
   text-align: right;
@@ -959,22 +986,31 @@ which are squashed radial gradients rather than a conic sweep.
     padding: 8px 14px;
     font-size: 13px;
   }
+}
 
-  /* Not in GLITCH.md, which never considers a narrow viewport. Two reasons, and
-     the second is the real one:
+/* §2.1 pushes c3 and c4 in from the centre by the globe's radius, so they sit
+   BESIDE it. Below this width there is no beside: the title runs to 99% of the
+   viewport, so anything on its row collides with the word however small the type
+   gets. Scaling cannot fix that on its own — the blocks have to leave the
+   title's row.
 
-     1. The blocks are ~40 columns of 10.5px mono, so each is ~300px wide. Four
-        of them in 390px overlap each other and sit straight on top of the
-        title — measured at 390x844, c3 spanned y 371-484 against the title's
-        371-473.
-     2. The trigger is hover, and a touch device has none. `pointerenter` fires
-        on tap, but that same tap navigates to #observatory — so the reveal
-        would flash for one frame on the way out of the page.
+   They anchor to the title band rather than to fixed offsets: --scout-top-y and
+   --scout-bot-y are the two edges scouts.ts already measures just clear of the
+   word, so c3 ends where the upper scout runs and c4 begins where the lower one
+   does. Three components then share one measurement, and if the title reflows
+   they all move together.
 
-     Scaling the type down would fix (1) and not (2). The effect is a
-     pointer-device affordance, so it is absent rather than broken here. */
-  .glitch-blocks {
-    display: none;
+   The horizontal clamps are deliberately left alone. They already bottom out at
+   their 12px floor at these widths, and that floor is a margin from the frame,
+   not a correction to anything. */
+@media (width <= 900px) {
+  #glitch-c3 {
+    top: auto;
+    bottom: calc(100% - var(--scout-top-y, 30%));
+  }
+
+  #glitch-c4 {
+    top: var(--scout-bot-y, 70%);
   }
 }
 

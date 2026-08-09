@@ -89,6 +89,27 @@ describe("glitch reveal (GLITCH.md)", () => {
     }
   });
 
+  // Regression. §2's flat 10.5px is the size at the width it was drawn for and
+  // nothing else: the title and globe both scale with the viewport and a fixed
+  // px size does not, so by ~600px the blocks ran straight through the word.
+  // Everything about these blocks that can be relative now is.
+  it("scales the type with the viewport instead of pinning it to 10.5px", () => {
+    const rule = css.match(/\.glitch-block\{[^}]*\}/)?.[0] ?? "";
+    expect(rule).toMatch(/font-size:clamp\([^)]*vw[^)]*\)/);
+    expect(rule).not.toMatch(/font-size:10\.5px/);
+  });
+
+  // ...and below the width where there is any room beside the globe, they move
+  // out of the title's row entirely — anchored to the same measured edges the
+  // scout routes use, not to fixed offsets.
+  it("anchors the lower two blocks to the title band on narrow viewports", () => {
+    // Range syntax survives minification as written, rather than becoming
+    // max-width.
+    const narrow = css.match(/@media \(width<=900px\)\{[^@]*/)?.[0] ?? "";
+    expect(narrow).toContain("--scout-top-y");
+    expect(narrow).toContain("--scout-bot-y");
+  });
+
   // §2.3: violet/amber, explicitly NOT the red/cyan RGB-split cliché — which
   // would also collide with the trail palette.
   it("splits the fringe violet and amber, not red and cyan", () => {

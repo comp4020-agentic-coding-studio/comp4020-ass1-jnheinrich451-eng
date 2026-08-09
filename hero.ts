@@ -23,8 +23,18 @@ const TITLE_LETTER_SPACING_EM = 0.08;
 
 // How far outside the silhouette the light point sits, in CSS px. The source is
 // occluded by the planet and only tangent to it, so it is never exactly on the
-// limb. 21: out by 5, 6 and 10 from the original 5, then back in by 5.
-const FLARE_OUTSET = 21;
+// limb, as a FRACTION of the globe's radius rather than in CSS px.
+//
+// It was a px constant for five turns and ended at 21px, which is 5% of the
+// radius at 1920x1080 and 12% of it at 390x844 — so the same nudge that looked
+// right on the desktop threw the flare well off the limb on the phone. Any
+// offset from a measured feature has to be measured in the same units as that
+// feature.
+//
+// 0 now: the flare sits exactly on the sheen, which is where buildLimbGlow()'s
+// shader draws the hot core, so the DOM composite and the shader highlight are
+// the same point by construction rather than by tuning.
+const FLARE_OUTSET_R = 0;
 
 // §3.7's azimuth, in degrees, positive counter-clockwise on screen. It rotates
 // the SHADOW axis about the view axis and nothing else: the star, its rim and
@@ -362,18 +372,18 @@ export function initHero(): void {
     const cxPx = ((centre.x + 1) / 2) * w;
     const cyPx = ((1 - centre.y) / 2) * h;
 
-    // The source is BEHIND the planet and only tangent to it, so the visible
-    // sliver sits just outside the silhouette rather than on it. Push the point
-    // FLARE_OUTSET px radially outward from the projected globe centre.
-    const dx = x - cxPx;
-    const dy = y - cyPx;
-    const len = Math.hypot(dx, dy) || 1;
-    x += (dx / len) * FLARE_OUTSET;
-    y += (dy / len) * FLARE_OUTSET;
-
     const px = Number.parseFloat(
       heroSection.style.getPropertyValue("--mars-px") || "190",
     );
+
+    // Any nudge outward from the silhouette is a fraction of the radius, so it
+    // means the same thing at every viewport. At 0 the flare sits exactly on the
+    // sheen — the same point the shader's hot core is drawn at.
+    const dx = x - cxPx;
+    const dy = y - cyPx;
+    const len = Math.hypot(dx, dy) || 1;
+    x += (dx / len) * FLARE_OUTSET_R * px;
+    y += (dy / len) * FLARE_OUTSET_R * px;
 
     // Superseded by HOTSPOT.md's canvas composite below. Kept, not deleted: this
     // is the three-concentric-gradients version, and it is what to fall back to
@@ -486,6 +496,18 @@ export function initHero(): void {
     const rendered = title.getBoundingClientRect().width;
     if (rendered > ceiling) {
       title.style.fontSize = `${Math.max(16, (fitted * ceiling) / rendered)}px`;
+    }
+
+    // The word's half-width, for anything that has to sit clear of it. GLITCH.md
+    // §2.1 derives c3/c4's inset from the GLOBE, which was right until the title
+    // grew 1/6 longer than a diameter — the word now overhangs the limb, so a
+    // block that clears the globe can still land on the letters. The title is
+    // the thing they collide with, so the title is what they measure from.
+    if (heroSection instanceof HTMLElement) {
+      heroSection.style.setProperty(
+        "--title-half-w",
+        `${title.getBoundingClientRect().width / 2}px`,
+      );
     }
 
     // SCOUT-SHIP.md §6: the routes bracket the word, so they have to be

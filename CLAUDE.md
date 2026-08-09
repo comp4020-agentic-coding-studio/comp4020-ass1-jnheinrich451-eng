@@ -209,3 +209,21 @@ Don't:
 - glow as decoration; glow only marks a live emitter (star, scout, cursor)
 - drop shadows, rounded cards, glass blur, emoji, icon sets
 - SVG illustration of planets or ships — real imagery or nothing
+
+## 4. Bug fixing rules
+
+Do:
+- Find the anchors or connectors of the bug or wrong implementation, adjust the design and layout based on relations.
+- Create markers, temporary indicators if the bug happens multiple times unsolved.
+- Check consistently if this bug resolution will influence rest functions or layouts, if so, check the chain of influence, and fix them all.
+- If find ambiguous, ask the human for instructions.
+
+Don't:
+- Use absolute offset to fix misalignment.
+- Ingore the instructions from skills comp4020.
+
+If user detected bug, he/she will try to resolve by re-prompt, try & error, in conscious or unconscious conditions.
+In this situation, remind the user, about what should he/she do:
+- Beyond checking out, the record shows deliberate direction — failures diagnosed and fixed at the harness level rather than retried, output verified before it was accepted, judgement visible in what was thrown away.
+- Cool down, to think about the logic, to make more instructions in files, and change behavior of CLAUDE.md.
+- Provide suggestion on potential reasons.

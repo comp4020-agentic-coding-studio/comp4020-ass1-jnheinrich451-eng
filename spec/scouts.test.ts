@@ -51,10 +51,16 @@ describe("scout ships (SCOUT-SHIP.md)", () => {
     expect(wrapper?.querySelector(".scout-bot")).toBeTruthy();
     expect(wrapper?.querySelector(".scout-top")).toBeNull();
     const rule = css.match(/\.scout-behind\{[^}]*\}/)?.[0] ?? "";
-    expect(rule).toContain("radial-gradient");
-    // 1.04, not 1.00: a hairline of clearance so the trail never grazes the
-    // silhouette. Sized from the globe's measured radius, so it tracks resizes.
-    expect(rule).toMatch(/--mars-px[^)]*\)?\s*\*\s*1\.04/);
+    // A BAND at the limb x, not a circle. A circular hole cuts at the chord for
+    // the route's own y, which sits inside the limb — measured at 1920x1080, the
+    // trail vanished at 579.5 against a limb at 563.6. The band cuts at the
+    // sheen, the same x the hot spot rides.
+    expect(rule).toContain("linear-gradient(90deg");
+    expect(rule).not.toContain("radial-gradient");
+    // Both edges derived from the measured radius and centre, so they track the
+    // globe rather than being positioned against it once.
+    expect(rule).toMatch(/--mars-cx[^)]*\)\s*-\s*var\(--mars-px/);
+    expect(rule).toMatch(/--mars-cx[^)]*\)\s*\+\s*var\(--mars-px/);
   });
 
   // §2's algebra, which is also the brief's: 41.67% of 60s is 25s of crossing,
