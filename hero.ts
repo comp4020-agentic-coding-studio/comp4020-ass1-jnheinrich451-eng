@@ -365,7 +365,10 @@ export function initHero(): void {
     if (!(heroSection instanceof HTMLElement)) return;
     const { clientWidth: w, clientHeight: h } = heroSection;
     if (!w || !h) return;
-    const point = normal.clone().multiplyScalar(marsWorldRadius).project(camera);
+    // The tangent point in the hotspot's direction, not the equator point — the
+    // shader draws its hot core on the actual silhouette, so this is what makes
+    // the DOM composite and the shader highlight the same place.
+    const point = limbPoint(normal).project(camera);
     const centre = new THREE.Vector3(0, 0, 0).project(camera);
     let x = ((point.x + 1) / 2) * w;
     let y = ((1 - point.y) / 2) * h;
@@ -385,13 +388,21 @@ export function initHero(): void {
     x += (dx / len) * FLARE_OUTSET_R * px;
     y += (dy / len) * FLARE_OUTSET_R * px;
 
+    // Published as a marker, per CLAUDE.md §4: the hot spot's position is drawn
+    // into a canvas, so it cannot be read back from the DOM, and inferring it
+    // from canvas pixels kept giving wrong answers — the streak and the lens
+    // ghosts are bright too, so any centroid or extremum over bright pixels
+    // measures them rather than the core. These two make it directly checkable:
+    // hypot(--hot-x - --mars-cx, --hot-y - --mars-cy) must equal --mars-px, or
+    // the flare is not on the silhouette.
+    heroSection.style.setProperty("--hot-x", `${x}px`);
+    heroSection.style.setProperty("--hot-y", `${y}px`);
+
     // Superseded by HOTSPOT.md's canvas composite below. Kept, not deleted: this
     // is the three-concentric-gradients version, and it is what to fall back to
     // if the overlay ever costs too much on a low-end phone — it is three CSS
     // paints against ~12 canvas fills per frame.
     //
-    // flare.style.setProperty("--hot-x", `${x}px`);
-    // flare.style.setProperty("--hot-y", `${y}px`);
     // flare.style.setProperty("--core", `${px * 0.075}px`);
     // flare.style.setProperty("--bloom", `${px * 0.34}px`);
     // flare.style.setProperty("--halo", `${px * 0.8}px`);
@@ -426,11 +437,40 @@ export function initHero(): void {
   const { points: stars, material: starMaterial } = buildStarfield();
   scene.add(stars);
 
+  // The point on the SILHOUETTE in a given screen-plane direction.
+  //
+  // The silhouette of a sphere in perspective is not its equator: it is the
+  // circle where the view rays graze the surface, which sits R^2/d nearer the
+  // camera and has radius R*sqrt(d^2 - R^2)/d. Projected, it is larger than the
+  // equator by d/sqrt(d^2 - R^2) — 4.22% at 1920x1080 (16.7px of a 396px
+  // radius) and 1.28% at 390x844.
+  //
+  // Everything that touches the limb was using the equator: the flare sat 16.7px
+  // inside the shader's own highlight, and the scout's hole cut that far inside
+  // the outline. STRIPE-adjacent docs all define earthPx as "the globe's
+  // on-screen radius", which is this, so this is what --mars-px now publishes.
+  //
+  // Computed by projecting the tangent point rather than by multiplying through
+  // a correction factor, so it stays exact if the camera or the model changes.
+  function limbPoint(direction: THREE.Vector3): THREE.Vector3 {
+    const d = camera.position.length();
+    const R = marsWorldRadius;
+    const k = Math.sqrt(Math.max(d * d - R * R, 1e-6));
+    // Toward the camera, which for a camera looking at the origin is just its
+    // normalised position.
+    const axis = camera.position.clone().normalize();
+    return direction
+      .clone()
+      .multiplyScalar((R * k) / d)
+      .addScaledVector(axis, (R * R) / d);
+  }
+
   function updateMarsPx(): void {
     if (!(heroSection instanceof HTMLElement)) return;
     const { clientWidth: w, clientHeight: h } = heroSection;
     if (!w || !h) return;
-    const edge = new THREE.Vector3(marsWorldRadius, 0, 0).project(camera);
+    // Any screen-plane direction gives the same radius; +X is the convenient one.
+    const edge = limbPoint(new THREE.Vector3(1, 0, 0)).project(camera);
     const centre = new THREE.Vector3(0, 0, 0).project(camera);
     const px = Math.abs(edge.x - centre.x) * 0.5 * w;
     heroSection.style.setProperty("--mars-px", `${Math.max(60, px)}px`);

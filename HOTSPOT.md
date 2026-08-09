@@ -194,6 +194,11 @@ across the world from an angle the star does not account for.
 Note it moves the shadow only. The rim, the scatter falloff and the flare all
 stay anchored to `th`, so the star never detaches from its own highlight.
 
+**Note!** We introduced Azimuth later, later than we defined the terminator and the Hotspot's logic.
+- Current issue, the terminator's direction is misaligned with the sunrise location and the Hotspot. The Hotspot and sunrise location remain the same, yet terminator's plane changes.
+- Potential fix, if can, formulate the trajectory of the terminator. The Hotspot and the sunrise sector collide when the Mars is from pure dark to leak a bit light, like cresent moon. The lit area should be opposite with the shadowed area, it is a fixed and true rule.
+- The hotspot should emerge on the seam of 
+
 ### The terminator
 
 The day/night boundary projects as a **half-ellipse whose x-radius is

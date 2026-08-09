@@ -472,29 +472,28 @@ which are squashed radial gradients rather than a conic sweep.
 /* §4: the lower route passes BEHIND the globe. Not by z-ordering — by punching a
    hole in this wrapper.
 
-   The hole is a vertical BAND at the globe's limb x, not a circle. A circular
-   hole cuts the trail at the chord for the route's own y, and that chord sits
-   inside the limb: measured at 1920x1080, the trail vanished at x=579.5 against
-   a limb at 563.6, and returned at 1340.5 against 1356.4 — visibly late in and
-   early out. Cutting at the limb x means it disappears and returns exactly at
-   the sheen, which is the same x the hot spot rides.
+   The hole is a circle at the globe's measured centre and radius, so the trail
+   meets the outline exactly — it disappears where the disc's edge is at the
+   route's own y, with no gap and no overlap.
 
-   This is sound because the route always crosses the disc: §1 derives it from a
-   title that is itself centred on the globe, so the band and the silhouette
-   always meet. The 2px ramp is the only softness — a hard stop aliases badly. */
+   §4's `1.04` is gone, and it was never the "hairline of clearance" the doc
+   called it. --mars-px used to be the projection of the globe's EQUATOR, which
+   in perspective is smaller than the silhouette by d/sqrt(d^2 - R^2) = 1.0422
+   at 1920x1080. So 1.04 was that correction, found by eye and then explained as
+   something else. hero.ts now publishes the true silhouette radius, so the
+   factor has nothing left to correct.
+
+   The 2px ramp is the only softness — a hard stop aliases badly. */
 .scout-behind {
   position: absolute;
   inset: 0;
   z-index: 3;
   overflow: hidden;
-  mask-image: linear-gradient(
-    90deg,
-    #000 0,
-    #000 calc(var(--mars-cx, 50%) - var(--mars-px, 190px)),
-    transparent calc(var(--mars-cx, 50%) - var(--mars-px, 190px) + 2px),
-    transparent calc(var(--mars-cx, 50%) + var(--mars-px, 190px) - 2px),
-    #000 calc(var(--mars-cx, 50%) + var(--mars-px, 190px)),
-    #000 100%
+  mask-image: radial-gradient(
+    circle at var(--mars-cx, 50%) var(--mars-cy, 50%),
+    transparent 0,
+    transparent var(--mars-px, 190px),
+    #000 calc(var(--mars-px, 190px) + 2px)
   );
   pointer-events: none;
 }
