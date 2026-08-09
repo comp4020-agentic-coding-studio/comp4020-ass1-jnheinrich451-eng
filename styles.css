@@ -136,12 +136,17 @@ section {
   left: 50%;
   z-index: 4;
   margin: 0;
-  max-width: 92vw;
   transform: translate(-50%, -50%);
   text-align: center;
+  white-space: nowrap;
   font-family: Poppins, "Century Gothic", sans-serif;
   font-weight: 700;
-  font-size: clamp(24px, min(calc(var(--mars-px, 190px) * 0.72), 11vw), 220px);
+
+  /* No-JS fallback only. hero.ts measures the rendered text and overrides this
+     inline, because the em-per-character ratio depends on which font actually
+     loaded. 0.285 is the Poppins 700 estimate for "BLINDSPOTS" at ~1.08x Mars's
+     diameter — right in the common case, and never wildly wrong in the others. */
+  font-size: clamp(16px, min(calc(var(--mars-px, 190px) * 0.285), 9vw), 130px);
   letter-spacing: 0.08em;
   color: #fff;
   text-shadow:
