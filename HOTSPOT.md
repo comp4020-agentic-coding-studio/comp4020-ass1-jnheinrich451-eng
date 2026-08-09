@@ -145,32 +145,54 @@ slider; it is a physical state, and five separate quantities are derived from it
 so the whole composite moves together.
 
 ```ts
-lit = pow(p, 1.5)               // non-linear: the dim end falls away fast
-I   = 0.05 + 0.95 * lit         // illumination driver, never quite zero
-SL  = 1.70 - 1.45 * pow(p, 0.7) // streak length multiplier — INVERSE
-RM  = 0.35 + 1.75 * p           // how far the rim glow wraps around the limb
-kT  = 2p - 1                    // terminator ellipse x-radius factor
+lit = pow(p, 1.5)                 // SURFACE illumination — runs WITH phase
+I   = 0.06 + 0.94 * pow(1-p, 1.5) // FLARE intensity — runs AGAINST phase
+SL  = 1.70 - 1.45 * pow(p, 0.7)   // streak length multiplier — INVERSE
+RM  = 0.35 + 1.75 * p             // how far the rim glow wraps the limb
+kT  = 2p - 1                      // terminator ellipse x-radius factor
+tt  = th - azimuth                // shadow axis, independent of the star
 ```
 
-| quantity | at p→0 | at p→1 |
+| quantity | at p→0 (dark Mars) | at p→1 (lit Mars) |
 |---|---|---|
-| halo / core / spike alpha (`× I`) | ~0.05 — nearly extinguished | 1.0 |
+| **halo / core / spike alpha (`× I`)** | **1.0 — blazing** | **0.06 — nearly gone** |
+| **streak length (`× SL`)** | **1.70×, longest** | **0.25×, a point** |
+| day-side glow (`× lit`) | 0.35× | 1.0× |
 | halo radius | `W*0.75` | `W*1.35` |
 | core radius | 0.55× | 1.0× |
-| **streak length (`× SL`)** | **1.70×, longest** | **0.25×, a point** |
 | rim wrap (`× RM`) | 0.35× — a spark on the limb | 2.1× — light around the shoulder |
 | spike length | 1.15× | 0.70× |
 
-### Why the streak runs backwards
+### The two drivers run opposite ways — on purpose
 
-This is the part worth defending. Brightness rises with lit area, but the
-anamorphic smear does the opposite: a sun barely clearing the limb is a
-**point source seen through the deepest slice of atmosphere**, which is exactly
-the condition that produces a long streak. As the face opens up, the source
-becomes broad and high above the horizon, and the smear collapses into the core.
-So the dimmest frame is also the widest one — the flare stretches as the light
-dies. That inversion is what makes the effect read as an event rather than a
-brightness control.
+There are **two** illuminations in this composite and they are inversely
+coupled:
+
+- **The surface** (`lit`) brightens with phase. More of the world faces the
+  star, so the day side widens and glows harder. Obvious.
+- **The flare** (`I`) *dims* with phase. This is the interesting one. The
+  spectacular frame is the nearly-eclipsed one: the star is reduced to a point
+  seen edge-on through the deepest slice of atmosphere, and a point source is
+  exactly what produces a hot core, hard spikes and a long anamorphic smear. As
+  the face opens up the star sits higher and reads as a broad source — the core
+  spreads, the smear collapses, the drama leaks away.
+
+So the darkest Mars gives the brightest, longest hot spot, and a fully lit Mars
+gives an almost flareless one. That inversion is the whole effect: it makes the
+composite read as *an event happening to the camera* rather than as a brightness
+slider.
+
+### Azimuth — rolling the shadow
+
+`azimuth` (−180…180°) rotates the terminator axis **independently of the star**:
+`tt = th − azimuth`, positive = counter-clockwise on screen. Phase controls how
+*wide* the shadow is; azimuth controls where it lies. Leave it at 0 and the
+terminator stays perpendicular to the star direction, which is the physically
+correct case; turn it and you get the cinematic one, where the light rakes
+across the world from an angle the star does not account for.
+
+Note it moves the shadow only. The rim, the scatter falloff and the flare all
+stay anchored to `th`, so the star never detaches from its own highlight.
 
 ### The terminator
 
@@ -192,6 +214,7 @@ side widens and brightens as one motion.
 
 ### Rim exception
 
+
 The hard 1.6 px white rim keeps **alpha 1.0 at every phase**. Physically the limb
 immediately beside the star is fully lit no matter how thin the crescent is;
 only its *extent* should shrink, and `RM` already does that. Fading it as well
@@ -201,7 +224,7 @@ made low phases read as fog rather than as a razor edge.
 
 ## 4. Tunables
 
-`phase` (0–1) · `elevation` (−30…30°) · `bloom` (.3–1.8) · `streak` (0–1.4) · `spikes` (0–10) ·
+`phase` (0–1) · `azimuth` (−180…180°) · `elevation` (−30…30°) · `bloom` (.3–1.8) · `streak` (0–1.4) · `spikes` (0–10) ·
 `scatter` (0–2) · `tone` (cold / neutral / warm) · `stars`.
 
 Working preset (the one to build from): `phase 0.18`, `elevation 3`, `bloom 1.15`,

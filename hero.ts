@@ -22,8 +22,23 @@ const TITLE_LETTER_SPACING_EM = 0.08;
 
 // How far outside the silhouette the light point sits, in CSS px. The source is
 // occluded by the planet and only tangent to it, so it is never exactly on the
-// limb. 16, after two moves outward of 5 and 6px from the original 5.
-const FLARE_OUTSET = 16;
+// limb. 26, after three moves outward of 5, 6 and 10px from the original 5.
+const FLARE_OUTSET = 26;
+
+// §3.7's azimuth, in degrees, positive counter-clockwise on screen. It rotates
+// the SHADOW axis about the view axis and nothing else: the star, its rim and
+// its flare all stay anchored to the true light direction, so the highlight
+// never detaches from the source. 90 puts the terminator perpendicular to the
+// star, which is what turns the day/night boundary into a bar across the globe.
+//
+// Two things follow from rotating about the VIEW axis specifically. It is
+// deliberately non-physical — §3.7 calls this "the cinematic one, where the
+// light rakes across the world from an angle the star does not account for" —
+// and phase is exactly invariant under it, since a rotation about an axis
+// preserves every vector's component along that axis. So azimuth moves where the
+// shadow lies without touching how wide it is, which is the separation §3.7
+// claims. 0 restores the physically correct case.
+const AZIMUTH_DEG = 90;
 
 // How much longer the word runs than the limb rule alone would make it: 7/6, so
 // 1/6 longer. Applied as scaleX in styles.css and targeted here, and the two must
@@ -272,13 +287,24 @@ export function initHero(): void {
   // 6.722e-5: 3% off the 6.93e-5 it ran at, so the terminator crosses the face
   // that much slower. Period is 2*pi/rate, about 93.5 s.
   const SUN_RATE = 0.00006722;
+
+  // Where the star actually is. The DirectionalLight is placed at this rotated
+  // by AZIMUTH_DEG, so the shading terminator rolls; everything belonging to the
+  // star itself — rim, hotspot, flare, phase — reads starDir instead, which is
+  // what keeps the highlight on the source (§3.7's azimuth note).
+  const starDir = new THREE.Vector3();
   function placeSun(time: number): void {
     const angle = time * SUN_RATE;
-    sun.position.set(
-      Math.sin(angle) * SUN_DISTANCE,
-      2,
-      Math.cos(angle) * SUN_DISTANCE,
-    );
+    starDir
+      .set(Math.sin(angle) * SUN_DISTANCE, 2, Math.cos(angle) * SUN_DISTANCE)
+      .normalize();
+    sun.position
+      .copy(starDir)
+      .applyAxisAngle(
+        camera.position.clone().normalize(),
+        -(AZIMUTH_DEG * Math.PI) / 180,
+      )
+      .multiplyScalar(SUN_DISTANCE);
   }
   placeSun(0);
 
@@ -368,7 +394,9 @@ export function initHero(): void {
   }
 
   function syncLightDir(): void {
-    const dir = sun.position.clone().normalize();
+    // starDir, NOT sun.position — the light has been rolled by the azimuth and
+    // the star has not.
+    const dir = starDir.clone();
     // Camera looks at the origin, so its forward axis is just its normalised
     // position. Both shells need it to project the light onto the screen plane.
     const axis = camera.position.clone().normalize();

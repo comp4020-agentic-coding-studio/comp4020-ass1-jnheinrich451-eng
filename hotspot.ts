@@ -44,6 +44,11 @@ const STREAK_LEN = 1.1;
 // length.
 const SPIKE_LEN = 0.52;
 
+// Uniform scale on the whole composite. Applied to U, the unit every size in
+// this file derives from, so halo, streak, spikes and core all shrink together
+// and no proportion in §3 changes — this is a zoom, not a retune.
+const SCALE = 0.5;
+
 // Retina costs a lot here: the halo alone is a radial fill of radius 1.25 U, so
 // at DPR 3 the composite is filling tens of megapixels every frame. Glows carry
 // no high-frequency detail, so 1.5 is indistinguishable and roughly a quarter of
@@ -150,13 +155,19 @@ export function createHotspot(canvas: HTMLCanvasElement): Hotspot | null {
     ctx.clearRect(0, 0, w, h);
     if (px <= 0) return;
 
-    // R = W * 1.15 (§1), solved for the reference's frame unit.
-    const U = px / 1.15;
+    // R = W * 1.15 (§1), solved for the reference's frame unit, then scaled.
+    const U = (px / 1.15) * SCALE;
 
     // §3.7's derivations, verbatim.
     const p = Math.max(0, Math.min(1, phase));
-    const lit = Math.pow(p, 1.5); // the dim end falls away fast
-    const I = 0.05 + 0.95 * lit; // illumination driver, never quite zero
+    // Two illuminations, inversely coupled. `lit` is the SURFACE and runs with
+    // phase; three.js owns that here, so it is not used in this file. `I` is the
+    // FLARE and runs AGAINST it: the nearly-eclipsed frame is the spectacular
+    // one, because a star reduced to a point seen edge-on through the deepest
+    // slice of atmosphere is exactly what makes a hot core, hard spikes and a
+    // long smear. As the face opens the source reads broad and the drama leaks
+    // away. So the darkest Mars gives the brightest, longest hot spot.
+    const I = 0.06 + 0.94 * Math.pow(1 - p, 1.5);
     const SL = 1.7 - 1.45 * Math.pow(p, 0.7); // streak length — INVERSE
     // The two remaining rows of §3.7's table, read off their endpoints: halo
     // radius W*0.75 -> W*1.35 against a base of W*1.25, core radius 0.55x -> 1x,
