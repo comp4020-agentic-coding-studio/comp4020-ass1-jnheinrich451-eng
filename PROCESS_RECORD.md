@@ -916,3 +916,79 @@ radius. So both objects whose entire job is to touch the outline were anchored
    bad measurement, not the fourth.
 
 **Commit:** [`5e48816`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/5e48816)
+
+## 2026-08-10 05:50 — Remaking the process_record skill
+
+**Prompt:**
+
+> Yes, then please remake a /process_record/SKILL.md based on PROCESS_RECORD.md,
+> it is to record each our converation, the commit hash and link. They are
+> actually accumulation of PROCESS.md format.
+
+**Result:**
+The skill did not exist in any usable form. `process_record/SKILL.md` was a
+**0-byte untracked file** at the repo root, and `.claude/` was absent from the
+machine entirely — so it had no content, was not discoverable, and left nothing
+behind. Written now at `.claude/skills/process_record/SKILL.md`, the only path
+Claude Code reads project skills from; the directory name is what becomes the
+slash command.
+
+The obvious move was to write the file where the 00:30 entry said it lived and
+stop. Instead I took "accumulation of PROCESS.md format" literally: the entry
+template maps one-to-one onto `PROCESS.md`'s four jobs, and the citation rule is
+`PROCESS.md`'s own absolute GitHub URL. `check-evidence.ts` takes the sha from
+the link **text**, not the target, so an entry pasted into `PROCESS.md` passes
+`check:evidence` untouched — promotion becomes selection and trimming, never
+reformatting. That is the whole reason to fix the format rather than just fill
+the file.
+
+`.gitignore` line 22 was `.claude/`, which meant the harness the course marks
+would have stayed invisible. Now `.claude/*` with an explicit re-include of
+`.claude/skills/` — git will not descend into an excluded directory, so the
+directory has to be re-included before the files in it can be. Settings, which
+can carry the course API key, stay ignored.
+
+Then normalised all 19 existing entries onto that citation format: six were
+inline relative links on `**Result:**`, eleven were a trailing bare `Commit:`,
+and two had no hash at all. The two with none are the entries about authoring
+this very skill, and they now say `none` with the reason — which is exactly the
+defect this turn fixes.
+
+**Verified:**
+`git check-ignore` in both directions, since a one-way check would have passed
+on a rule that leaked settings: `settings.local.json` still ignored at
+`.gitignore:21`, `SKILL.md` not ignored. After the normalisation: 19 entries
+against 19 `**Commit:**` lines; 18 shas, all 7 characters, all absolute, all
+resolving through `git cat-file -e`; no `../../commit` and no bare `Commit:`
+left. `pnpm check` green 56/56, `check:evidence` green.
+
+**Commit:** [`f66055a`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/f66055a), [`37c224a`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/37c224a)
+
+**What happened:** three things.
+
+1. **The record described a move that never happened.** The 00:30 entry says the
+   skill was moved to `.claude/skills/process_record/`. That directory did not
+   exist, and the root file it was moved *from* was 0 bytes. Both claims were
+   true when written and neither survived, because the destination was
+   gitignored — nothing in version control could preserve it and no check could
+   see it. **A harness file outside version control is a harness file that
+   silently disappears**, and the record is the last thing that will notice,
+   because it only knows what it was told at the time.
+
+2. **I wrote a commit message with PowerShell here-string syntax inside the Bash
+   tool.** `@'…'@` is not a bash construct, so a literal `@` became the commit
+   subject and a second one the last line. Amended before pushing. The
+   environment notes say this explicitly; I reached for the shell I had been
+   using a moment earlier rather than the one I was actually calling.
+
+3. **A verification command silently checked nothing.** `grep -P` is unavailable
+   in this locale, so the sha-resolution loop from the plan iterated over an
+   empty list. It printed `grep: -P supports only unibyte and UTF-8 locales` and
+   then `checked 0 unique shas` — no failure, no missing hash, and at a glance
+   it reads like a pass. Redone in node, which confirmed all 18. **A check that
+   reports nothing wrong is not the same as a check that ran**: print the count
+   it covered, because that is the number that exposes the difference.
+
+Also noted rather than changed: the 02:05 entry sits between 02:48 and 03:15,
+against this file's oldest-first rule. It looks like a typo for 03:05, but the
+timestamp is the user's record of their own session, so it is theirs to correct.
