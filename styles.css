@@ -80,28 +80,13 @@ section {
   height: 100%;
 }
 
-.deco-stripes {
+.deco-fan {
   position: absolute;
-  left: -6%;
-  bottom: -4%;
-  width: min(70vw, 62vh);
-  height: auto;
+  inset: 0;
   z-index: 1;
-  opacity: 0.85;
-  pointer-events: none;
-}
-
-.deco-horizontal {
-  position: absolute;
-  left: 0;
-  bottom: 0;
   width: 100%;
-  height: 6vh;
-  min-height: 40px;
-  object-fit: cover;
-  object-position: bottom;
-  z-index: 1;
-  opacity: 0.55;
+  height: 100%;
+  opacity: 0.3;
   pointer-events: none;
 }
 
@@ -192,12 +177,6 @@ section {
 }
 
 @media (width <= 600px) {
-  .deco-stripes {
-    width: min(48vw, 32vh);
-    left: -10%;
-    bottom: -10%;
-  }
-
   .enter-observatory {
     bottom: 6%;
     padding: 0.7em 1.1em;

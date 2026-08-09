@@ -2,11 +2,16 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
+import { fanBands } from "../fan";
 
 // Contracts for the Hero, not implementation details — these should survive
 // a rewrite of the three.js scene itself. See spec/README.md.
 const doc = new JSDOM(readFileSync(resolve("dist/index.html"), "utf8")).window
   .document;
+
+function numbersIn(d: string): number[] {
+  return (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
+}
 
 describe("hero section", () => {
   it("has a full-viewport hero and an observatory section to scroll to", () => {
@@ -24,9 +29,24 @@ describe("hero section", () => {
     expect(link?.getAttribute("href")).toBe("#observatory");
   });
 
-  it("gives decorative images empty alt text, not missing alt text", () => {
-    for (const img of doc.querySelectorAll(".deco-stripes, .deco-horizontal")) {
-      expect(img.getAttribute("alt")).toBe("");
-    }
+  it("hides the decorative scout-trail fan from assistive tech", () => {
+    const svg = doc.querySelector(".deco-fan");
+    expect(svg?.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("ships the scout-trail fan exactly as fanBands() generates it (STRIPE.md)", () => {
+    const svg = doc.querySelector(".deco-fan");
+    const paths = svg ? Array.from(svg.querySelectorAll("path")) : [];
+    const bands = fanBands(1600, 1000, 6, 1.1, true);
+    expect(paths).toHaveLength(bands.length);
+    paths.forEach((path, i) => {
+      const band = bands[i];
+      expect(numbersIn(path.getAttribute("d") ?? "")).toEqual(
+        numbersIn(band.d).map((n) => expect.closeTo(n, 0)),
+      );
+      expect(path.getAttribute("fill")?.toUpperCase()).toBe(
+        band.fill.toUpperCase(),
+      );
+    });
   });
 });

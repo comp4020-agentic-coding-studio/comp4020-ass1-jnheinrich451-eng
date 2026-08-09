@@ -22,18 +22,40 @@
       <section id="hero" aria-label="Hero">
         <canvas id="hero-canvas" aria-hidden="true"></canvas>
 
-        <img
-          class="deco-stripes"
-          src="./assets/stripes.png"
-          alt=""
+        <!-- The scout-trail fan: generated per STRIPE.md's fanBands(), not
+             drawn. Left-right symmetric about the centre line, full spread
+             across the bottom, rising to a single apex near the top — the
+             site's one recurring graphic device. Never hand-tune these
+             numbers; regenerate them with fan.ts's fanBands(…, flip=true) if
+             W/H/N/P change. -->
+        <svg
+          class="deco-fan"
+          viewBox="0 0 1600 1000"
+          preserveAspectRatio="none"
           aria-hidden="true"
-        />
-        <img
-          class="deco-horizontal"
-          src="./assets/horizontal.png"
-          alt=""
-          aria-hidden="true"
-        />
+        >
+          <path
+            d="M0 1000 L800 0 L1600 1000 L1454.65 1000 L800 181.69 L145.35 1000 Z"
+            fill="#8A1538"
+          />
+          <path
+            d="M145.35 1000 L800 181.69 L1454.65 1000 L1312.17 1000 L800 359.79 L287.83 1000 Z"
+            fill="#E86132"
+          />
+          <path
+            d="M287.83 1000 L800 359.79 L1312.17 1000 L1173.2 1000 L800 533.5 L426.8 1000 Z"
+            fill="#D11F3A"
+          />
+          <path
+            d="M426.8 1000 L800 533.5 L1173.2 1000 L1038.94 1000 L800 701.32 L561.06 1000 Z"
+            fill="#345587"
+          />
+          <path
+            d="M561.06 1000 L800 701.32 L1038.94 1000 L911.4 1000 L800 860.75 L688.6 1000 Z"
+            fill="#D9A83E"
+          />
+          <path d="M688.6 1000 L800 860.75 L911.4 1000 Z" fill="#F1F1EE" />
+        </svg>
 
         <h1 id="hero-title">BLINDSPOTS</h1>
 
