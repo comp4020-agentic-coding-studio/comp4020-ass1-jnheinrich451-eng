@@ -1,8 +1,12 @@
+/* TYPE.md §5. Type is never given a fan colour: the fan is structure, text is
+   instrument. */
 :root {
-  --ground: #05040a;
-  --ink: #f5f3ff;
-  --gold: #e8c86a;
-  --purple: #a06bd8;
+  --ground: #04050a;
+  --ink: #e8ecff;
+  --ink-2: #cfd6f6;
+  --label: #9aa3ca;
+  --arc-ink: #f2f5ff;
+  --lens-ink: #cfe0ff;
 }
 
 * {
@@ -13,11 +17,13 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Space Grotesk is the body default so nothing falls back to a browser font
+   (TYPE.md §2). */
 body {
   margin: 0;
   background: var(--ground);
   color: var(--ink);
-  font-family: Poppins, "Century Gothic", system-ui, sans-serif;
+  font-family: "Space Grotesk", system-ui, sans-serif;
 }
 
 nav {
@@ -28,11 +34,11 @@ nav {
   align-items: center;
   justify-content: space-between;
   padding: 1.25rem 1.75rem;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: "Space Grotesk", sans-serif;
   font-size: 11px;
-  letter-spacing: 0.2em;
+  font-weight: 500;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  background: linear-gradient(to bottom, rgb(5 4 10 / 70%), transparent);
 }
 
 nav a {
@@ -49,8 +55,8 @@ nav a:focus-visible {
 
 nav a.brand {
   opacity: 1;
-  font-weight: 600;
-  letter-spacing: 0.3em;
+  font-weight: 700;
+  letter-spacing: 0.18em;
 }
 
 main {
@@ -75,13 +81,26 @@ section {
   background: #000;
 }
 
+/* Hero stack, bottom to top: 0 fan, 1 cover arc, 2 canvas (globe + stars),
+   3 vignette, 4 scanlines, 6 title and CTA. The arc MUST sit below the canvas:
+   that is what makes the globe occlude its middle span
+   (REFLECTIVE-COVER.md §4). Equal z-index would let DOM order decide, which put
+   the arc in front of the planet. */
 #hero-canvas {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 2;
   display: block;
   width: 100%;
   height: 100%;
+}
+
+/* No z-index on the wrapper: it would create a stacking context of its own.
+   The children layer themselves instead. */
+.cover {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
 .deco-fan {
@@ -111,7 +130,7 @@ section {
 }
 
 #hero::before {
-  z-index: 2;
+  z-index: 3;
   background: radial-gradient(
     ellipse at 50% 45%,
     transparent 42%,
@@ -120,7 +139,7 @@ section {
 }
 
 #hero::after {
-  z-index: 3;
+  z-index: 4;
   background: repeating-linear-gradient(
     to bottom,
     rgb(180 205 255 / 28%) 0 1px,
@@ -130,16 +149,31 @@ section {
   mix-blend-mode: overlay;
 }
 
-#hero-title {
+/* TYPE.md §1.1 — zero-size anchor on the globe's projected centre. The word
+   centres itself with flex, so the float animation owns transform outright
+   instead of having to carry a translate(-50%, -50%). */
+.hero-title-anchor {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  z-index: 4;
+  top: var(--mars-cy, 50%);
+  left: var(--mars-cx, 50%);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+#hero-title {
   margin: 0;
-  transform: translate(-50%, -50%);
-  text-align: center;
   white-space: nowrap;
-  font-family: Poppins, "Century Gothic", sans-serif;
+
+  /* TYPE.md: Avant Garde Bold is licensed and not bundled, so the chain falls
+     through to Poppins 700 — which is what most viewers will actually see. */
+  font-family:
+    "ITC Avant Garde Gothic Bold", "ITC Avant Garde Gothic", "Century Gothic",
+    Poppins, sans-serif;
   font-weight: 700;
 
   /* No-JS fallback only. hero.ts measures the rendered text and overrides this
@@ -154,17 +188,20 @@ section {
     0 0 34px rgb(255 255 255 / 22%),
     0 0 80px rgb(210 225 255 / 16%);
   animation: title-float 9s ease-in-out infinite;
-  pointer-events: none;
 }
 
+/* A slow breath, deliberately out of sync with the 4.6s sheen so the hero never
+   develops a beat (TYPE.md §1.1). */
 @keyframes title-float {
   0%,
   100% {
-    transform: translate(-50%, -50%);
+    transform: translateY(-6px);
+    opacity: 0.94;
   }
 
   50% {
-    transform: translate(-50%, calc(-50% - 6px));
+    transform: translateY(6px);
+    opacity: 1;
   }
 }
 
@@ -172,15 +209,15 @@ section {
   position: absolute;
   left: 50%;
   bottom: 8%;
-  z-index: 4;
+  z-index: 6;
   transform: translateX(-50%);
   padding: 0.85em 1.6em;
   border: 1px solid rgb(255 255 255 / 40%);
-  background: rgb(5 4 10 / 40%);
+  background: rgb(4 5 10 / 55%);
   color: var(--ink);
   font-family: "IBM Plex Mono", monospace;
-  font-size: 12px;
-  letter-spacing: 0.2em;
+  font-size: 15px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   text-decoration: none;
   transition:
@@ -190,8 +227,8 @@ section {
 
 .enter-observatory:hover,
 .enter-observatory:focus-visible {
-  background: rgb(232 200 106 / 15%);
-  border-color: var(--gold);
+  background: rgb(4 5 10 / 80%);
+  border-color: #fff;
 }
 
 #observatory {
@@ -202,8 +239,6 @@ section {
   gap: 0.75rem;
   background: #070812;
   text-align: center;
-  font-family: "IBM Plex Mono", monospace;
-  letter-spacing: 0.08em;
 }
 
 /* Both sit above the fan, which is a positioned z-index:0 layer. */
@@ -215,17 +250,147 @@ section {
 
 #observatory h2 {
   margin: 0;
-  font-family: Poppins, sans-serif;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 19px;
   font-weight: 700;
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: var(--purple);
+  color: var(--ink);
 }
 
 #observatory p {
   margin: 0;
-  color: rgb(245 243 255 / 60%);
+  color: var(--ink-2);
   font-size: 13px;
+  letter-spacing: 0.06em;
+}
+
+/* BELOW the canvas, so the globe occludes the arc's middle span. The panels
+   disappearing at the silhouette is what makes them a ring around the planet
+   rather than a decal on top of it (§4). */
+.cover-arc,
+.cover-arc-text {
+  position: absolute;
+  z-index: 1;
+  top: var(--mars-cy, 50%);
+  left: var(--mars-cx, 50%);
+  width: 0;
+  height: 0;
+
+  /* The squash is the perspective: a ring seen at a shallow angle. */
+  transform: scaleY(0.5);
+}
+
+.cover-panel {
+  position: absolute;
+  left: 0;
+  top: 0;
+  margin-left: -50%;
+
+  /* §2.1 — the vertical gradient IS the panel's curvature: bright top edge
+     falling to near-black. Per §5 this is the only background gradient allowed
+     anywhere in the project; do not copy it onto other panels. */
+  background: linear-gradient(180deg, #3a4668 0%, #161c2e 55%, #0a0d17 100%);
+  border: 1px solid rgb(150 175 255 / 28%);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.cover-sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgb(255 255 255 / 85%) 48%,
+    rgb(255 214 150 / 50%) 54%,
+    transparent 70%
+  );
+  animation: panel-sheen 4.6s ease-in-out infinite;
+}
+
+/* 45% of the cycle is spent off-panel. The arc is dark most of the time and the
+   sweep is an event, not a loop — §2.2 forbids shortening this dead time. */
+@keyframes panel-sheen {
+  0%,
+  45% {
+    transform: translateX(-120%);
+  }
+
+  60%,
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+.cover-arc-text {
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--arc-ink);
+
+  /* Four black knockouts of increasing radius — the text carves its own ground
+     out of the starfield — then a faint blue bloom so the line reads as emitted
+     rather than printed (§2.3). Not a plate. */
+  text-shadow:
+    0 0 2px #04050a,
+    0 0 5px rgb(4 5 10 / 98%),
+    0 0 11px rgb(4 5 10 / 95%),
+    0 0 20px rgb(4 5 10 / 80%),
+    0 0 26px rgb(150 175 255 / 40%);
+}
+
+.cover-arc-text span {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+/* Set by reflective-cover.ts when the viewport is too narrow for the arc to
+   clear the globe: showing two stray glyphs beside the title is worse than
+   showing nothing. */
+.cover.is-cramped .cover-arc,
+.cover.is-cramped .cover-arc-text {
+  display: none;
+}
+
+/* ---------------------------------------------------------------------------
+   STARFIELD.md §B — the observatory's static field.
+   --------------------------------------------------------------------------- */
+
+.obs-stars {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Applied once to the whole group rather than per circle — 190 individually
+   filtered nodes would cost far more for the same result (§B). */
+.obs-stars g {
+  filter:
+    drop-shadow(0 0 1.5px rgb(214 230 255 / 95%))
+    drop-shadow(0 0 5px rgb(150 180 255 / 55%));
+}
+
+.obs-stars circle {
+  fill: #dfe6ff;
+  animation-name: star-twinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+@keyframes star-twinkle {
+  0%,
+  100% {
+    opacity: 0.12;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
 
 @media (width <= 600px) {
@@ -242,6 +407,13 @@ section {
   }
 
   #hero-title {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .cover-sheen,
+  .obs-stars circle {
     animation: none;
   }
 }

@@ -1,8 +1,9 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
 import { fanBands, heroTrails } from "../fan";
+import { inFanGround, observatoryStars } from "../starfield";
 
 // Contracts for the Hero, not implementation details — these should survive
 // a rewrite of the three.js scene itself. See spec/README.md.
@@ -97,5 +98,93 @@ describe("hero section", () => {
       expect(heroD).toContain(`${x} ${H}`);
       expect(obsD).toContain(`${x} 0`);
     }
+  });
+
+});
+
+describe("typography (TYPE.md)", () => {
+  // Read the built bundle, not the source: what ships is what gets marked.
+  const dir = resolve("dist/assets");
+  const cssFile = readdirSync(dir).find((f) => f.endsWith(".css"));
+  const css = cssFile ? readFileSync(resolve(dir, cssFile), "utf8") : "";
+
+  it("sets the title in TYPE.md's face stack, Avant Garde first", () => {
+    // Order matters: Avant Garde is licensed and not bundled, so the chain must
+    // fall through to Poppins 700 without the layout shifting.
+    const stack = css.match(/ITC Avant Garde Gothic Bold[^;}]*/)?.[0] ?? "";
+    expect(stack).toContain("ITC Avant Garde Gothic Bold");
+    expect(stack.indexOf("Century Gothic")).toBeGreaterThan(
+      stack.indexOf("ITC Avant Garde Gothic Bold"),
+    );
+    expect(stack.indexOf("Poppins")).toBeGreaterThan(
+      stack.indexOf("Century Gothic"),
+    );
+  });
+
+  it("makes Space Grotesk the body default so nothing hits a browser font", () => {
+    expect(css).toMatch(/body\{[^}]*Space Grotesk/);
+  });
+
+  it("requests all three faces in one stylesheet link", () => {
+    const href =
+      doc.querySelector<HTMLLinkElement>('link[href*="fonts.googleapis.com/css2"]')
+        ?.getAttribute("href") ?? "";
+    for (const family of ["Space+Grotesk", "Poppins", "IBM+Plex+Mono"]) {
+      expect(href).toContain(family);
+    }
+  });
+
+  // §3: every machine utterance is mono, the CTA included.
+  it("sets the CTA in IBM Plex Mono with bracket grammar", () => {
+    const cta = doc.querySelector(".enter-observatory");
+    expect(cta?.textContent?.trim()).toBe("[ ENTER OBSERVATORY ]");
+    expect(css).toMatch(/\.enter-observatory\{[^}]*IBM Plex Mono/);
+  });
+});
+
+describe("observatory star field (STARFIELD.md §B)", () => {
+  const svg = doc.querySelector(".obs-stars");
+
+  it("ships 190 stars written into the markup, not generated on load", () => {
+    expect(svg?.querySelectorAll("circle")).toHaveLength(190);
+  });
+
+  it("clips them to the two black triangles the fan does not cover", () => {
+    // Same viewBox and preserveAspectRatio as the fan, or the clip drifts off
+    // the stripes as the window changes width.
+    expect(svg?.getAttribute("viewBox")).toBe("0 0 1600 1000");
+    expect(svg?.getAttribute("preserveAspectRatio")).toBe("none");
+    const clip = doc.getElementById("fanGroundClip");
+    const paths = clip ? Array.from(clip.querySelectorAll("path")) : [];
+    expect(paths.map((p) => p.getAttribute("d"))).toEqual([
+      "M0 0 L800 1000 L0 1000 Z",
+      "M1600 0 L800 1000 L1600 1000 Z",
+    ]);
+    expect(svg?.querySelector("g")?.getAttribute("clip-path")).toBe(
+      "url(#fanGroundClip)",
+    );
+  });
+
+  // The clip would hide a stray star anyway, but a star placed on a stripe is
+  // wasted markup and the rule is absolute: no star may ever sit on colour.
+  it("places every star in the fan's ground, never on a stripe", () => {
+    const circles = svg ? Array.from(svg.querySelectorAll("circle")) : [];
+    expect(circles).not.toHaveLength(0);
+    for (const c of circles) {
+      const cx = Number(c.getAttribute("cx"));
+      const cy = Number(c.getAttribute("cy"));
+      expect(inFanGround(cx, cy)).toBe(true);
+    }
+  });
+
+  it("is the same sky every visit — the generator is seeded, not random", () => {
+    expect(observatoryStars()).toEqual(observatoryStars());
+    const shipped = Array.from(
+      svg?.querySelectorAll("circle") ?? [],
+      (c) => `${c.getAttribute("cx")},${c.getAttribute("cy")}`,
+    );
+    expect(shipped).toEqual(
+      observatoryStars().map((s) => `${s.cx},${s.cy}`),
+    );
   });
 });

@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { initReflectiveCover } from "./reflective-cover";
 
 // new URL(..., import.meta.url) lets Vite fingerprint the model and rewrite
 // the path relative to the deployed base — a hard-coded "/assets/..." 404s
@@ -12,7 +13,7 @@ const MARS_MODEL_URL = new URL(
 // Radians of rotation per animation frame (~60fps): a full turn every ~3 minutes.
 const MARS_ROTATION_SPEED = 0.0006;
 const MARS_RADIUS = 2.6;
-const STAR_COUNT = 2200;
+const STAR_COUNT = 2600;
 
 // Title width as a multiple of Mars's on-screen diameter: just over 1, so the
 // B's left stem and the S's right bowl sit outside the silhouette and every
@@ -27,70 +28,52 @@ function clamp(min: number, max: number, value: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function rand(min: number, max: number): number {
-  return min + Math.random() * (max - min);
-}
-
+// STARFIELD.md §A — the hero's live 3D point field. Every constant here is the
+// spec's; the previous version invented its own per-star rate/flicker/mag scheme,
+// which §A.3 supersedes with one shared 0.55 rad/s rate and a per-star twinkle
+// *depth* ("Stars are the calmest thing on the page. Never raise the frequency").
 function buildStarfield(): { points: THREE.Points; material: THREE.ShaderMaterial } {
   const positions = new Float32Array(STAR_COUNT * 3);
+  const sizes = new Float32Array(STAR_COUNT);
   const phases = new Float32Array(STAR_COUNT);
+  const depths = new Float32Array(STAR_COUNT);
   const tints = new Float32Array(STAR_COUNT * 3);
-  // Per-star twinkle character. One shared sine gave every star the same beat,
-  // which reads as a pulsing grid rather than a sky; these three attributes are
-  // what let some stars blink fast and others burn steady.
-  const rates = new Float32Array(STAR_COUNT); // how fast it varies
-  const flickers = new Float32Array(STAR_COUNT); // how much of its light varies
-  const mags = new Float32Array(STAR_COUNT); // base brightness (and size)
-
-  // White through blue-white, weighted towards white — no gold, no purple.
-  const palette = [
-    new THREE.Color(0xffffff),
-    new THREE.Color(0xffffff),
-    new THREE.Color(0xeaf2ff),
-    new THREE.Color(0xeaf2ff),
-    new THREE.Color(0xc6d8ff),
-    new THREE.Color(0x9fc0ff),
-  ];
 
   for (let i = 0; i < STAR_COUNT; i++) {
+    // acos(2u − 1) is the inverse transform for a uniform sphere. A naive
+    // uniform phi puts visible density bands at the poles of every camera angle.
     const r = 30 + Math.random() * 45;
     const theta = Math.random() * Math.PI * 2;
     const phi = Math.acos(2 * Math.random() - 1);
     positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
     positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
     positions[i * 3 + 2] = r * Math.cos(phi);
+
+    // Three-tier size split standing in for a magnitude distribution: a handful
+    // of anchors, a thin second rank, a dense faint floor. §A.2 is explicit that
+    // changing these ratios makes the sky read as generated.
+    const tier = Math.random();
+    if (tier < 0.015) sizes[i] = 4.2 + Math.random() * 2.6;
+    else if (tier < 0.1) sizes[i] = 2.2 + Math.random() * 1.2;
+    else sizes[i] = 0.8 + Math.random() * 1.1;
+
     phases[i] = Math.random() * Math.PI * 2;
+    depths[i] = 0.25 + Math.random() * 0.75;
 
-    const roll = Math.random();
-    if (roll < 0.08) {
-      // Bright and steady: strong constant light, slow lumen variation only.
-      mags[i] = rand(1.9, 2.7);
-      flickers[i] = rand(0.08, 0.2);
-      rates[i] = rand(0.2, 0.55);
-    } else if (roll < 0.34) {
-      // Fast blinkers.
-      mags[i] = rand(0.65, 1.05);
-      flickers[i] = rand(0.5, 0.82);
-      rates[i] = rand(2.2, 4.2);
-    } else {
-      mags[i] = rand(0.75, 1.3);
-      flickers[i] = rand(0.22, 0.45);
-      rates[i] = rand(0.7, 1.7);
-    }
-
-    const tint = palette[Math.floor(Math.random() * palette.length)];
-    tints[i * 3] = tint.r;
-    tints[i * 3 + 1] = tint.g;
-    tints[i * 3 + 2] = tint.b;
+    const hue = Math.random();
+    const tint =
+      hue < 0.18 ? [1, 0.86, 0.72] : hue < 0.38 ? [0.78, 0.86, 1] : [1, 1, 1];
+    tints[i * 3] = tint[0];
+    tints[i * 3 + 1] = tint[1];
+    tints[i * 3 + 2] = tint[2];
   }
 
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute("phase", new THREE.BufferAttribute(phases, 1));
-  geometry.setAttribute("tint", new THREE.BufferAttribute(tints, 3));
-  geometry.setAttribute("rate", new THREE.BufferAttribute(rates, 1));
-  geometry.setAttribute("flicker", new THREE.BufferAttribute(flickers, 1));
-  geometry.setAttribute("mag", new THREE.BufferAttribute(mags, 1));
+  geometry.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
+  geometry.setAttribute("aPhase", new THREE.BufferAttribute(phases, 1));
+  geometry.setAttribute("aTw", new THREE.BufferAttribute(depths, 1));
+  geometry.setAttribute("aTint", new THREE.BufferAttribute(tints, 3));
 
   const material = new THREE.ShaderMaterial({
     uniforms: {
@@ -98,36 +81,37 @@ function buildStarfield(): { points: THREE.Points; material: THREE.ShaderMateria
       uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
     },
     vertexShader: `
-      attribute float phase;
-      attribute vec3 tint;
-      attribute float rate;
-      attribute float flicker;
-      attribute float mag;
+      attribute float aSize;
+      attribute float aPhase;
+      attribute float aTw;
+      attribute vec3 aTint;
       uniform float uTime;
       uniform float uPixelRatio;
       varying vec3 vTint;
-      varying float vLumen;
+      varying float vAlpha;
       void main() {
-        vTint = tint;
-        // Two detuned sines so the variation never reads as a clean loop.
-        float t = uTime * 0.0016 * rate + phase * 6.2831;
-        float wave = 0.5 + 0.5 * (0.72 * sin(t) + 0.28 * sin(t * 2.37 + 1.1));
-        vLumen = mag * (1.0 - flicker + flicker * wave);
+        vTint = aTint;
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        float t = sin(uTime * 0.55 + aPhase) * 0.5 + 0.5;
+        float pulse = mix(1.0 - aTw * 0.8, 1.0, t);
+        vAlpha = clamp(0.28 + pulse * 0.72, 0.0, 1.0);
         gl_Position = projectionMatrix * mv;
-        gl_PointSize = uPixelRatio * (0.8 + vLumen * 1.5) * (60.0 / -mv.z);
+        // Alpha and size twinkle together (+35%), which is what reads as
+        // atmospheric scintillation rather than an opacity loop. 60/-mv.z is
+        // the perspective falloff.
+        gl_PointSize = aSize * uPixelRatio * (1.0 + pulse * 0.35) * (60.0 / -mv.z);
       }
     `,
     fragmentShader: `
       varying vec3 vTint;
-      varying float vLumen;
+      varying float vAlpha;
       void main() {
-        float d = length(gl_PointCoord - 0.5);
-        float core = smoothstep(0.5, 0.0, d);
-        // Squared term concentrates a hot centre inside the soft disc, so the
-        // bright stars read as points of light rather than grey blobs.
-        float a = (core * 0.45 + core * core * core * 0.55) * vLumen;
-        gl_FragColor = vec4(vTint, clamp(a, 0.0, 1.0));
+        vec2 d = gl_PointCoord - vec2(0.5);
+        float r = length(d);
+        if (r > 0.5) discard;
+        float core = smoothstep(0.5, 0.0, r);
+        float glow = pow(core, 3.0) + core * 0.28;
+        gl_FragColor = vec4(vTint * glow, glow * vAlpha);
       }
     `,
     transparent: true,
@@ -220,13 +204,18 @@ export function initHero(): void {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.1;
+  // Pulled back from 1.1: the albedo is inherently orange and a hot exposure
+  // pushed the whole hero warm, against the black/blue/purple/white theme.
+  renderer.toneMappingExposure = 0.92;
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
 
-  scene.add(new THREE.AmbientLight(0x1a1030, 0.6));
-  const sun = new THREE.DirectionalLight(0xfff3e0, 3.4);
+  // Theme is black, blue, purple, white (CLAUDE.md §3) — the fan is the only
+  // permitted warm note. A warm cream sun over a purple ambient made the whole
+  // hero read orange, so the sun is now cool white and the fill is blue-purple.
+  scene.add(new THREE.AmbientLight(0x2a2350, 0.75));
+  const sun = new THREE.DirectionalLight(0xdce7ff, 3.0);
   scene.add(sun);
 
   // The sun sweeps a narrow arc rather than a full orbit. A full orbit put Mars
@@ -253,6 +242,12 @@ export function initHero(): void {
   const limbGlow = buildLimbGlow(MARS_RADIUS);
   const title = document.getElementById("hero-title");
 
+  const coverHost = heroSection.querySelector<HTMLElement>(".cover");
+  const cover = coverHost ? initReflectiveCover(coverHost) : null;
+  function layoutCover(px: number, heroWidth: number): void {
+    cover?.layout(px, heroWidth);
+  }
+
   // The shell's highlight has to follow the sun as it orbits, or the lit limb
   // and the shaded surface drift apart.
   function syncLightDir(): void {
@@ -272,7 +267,14 @@ export function initHero(): void {
     const centre = new THREE.Vector3(0, 0, 0).project(camera);
     const px = Math.abs(edge.x - centre.x) * 0.5 * w;
     heroSection.style.setProperty("--mars-px", `${Math.max(60, px)}px`);
+    // The globe's projected centre, as percentages. REFLECTIVE-COVER.md §1 and
+    // TYPE.md §1.1 both anchor to it rather than to the viewport, so that the
+    // arc stays concentric and the title stays centred on the planet with no
+    // transform maths.
+    heroSection.style.setProperty("--mars-cx", `${((centre.x + 1) / 2) * 100}%`);
+    heroSection.style.setProperty("--mars-cy", `${((1 - centre.y) / 2) * 100}%`);
     fitTitle(px, w);
+    layoutCover(px, w);
   }
 
   // Size the title by measuring it rather than by guessing an em-per-character
@@ -353,7 +355,7 @@ export function initHero(): void {
     if (marsMesh) marsMesh.rotation.y += MARS_ROTATION_SPEED;
     stars.rotation.y = time * 0.0000135;
     stars.rotation.x = Math.sin(time * 0.000021) * 0.05;
-    starMaterial.uniforms.uTime.value = time;
+    starMaterial.uniforms.uTime.value = time / 1000; // §A.3's 0.55 is rad/s
     placeSun(time);
     syncLightDir();
     renderer.render(scene, camera);

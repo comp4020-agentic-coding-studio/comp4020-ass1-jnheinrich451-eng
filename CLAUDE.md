@@ -160,3 +160,52 @@ catching you out, a fact about the stack the agent keeps getting wrong --- write
 it down here. Growing this file is the work of harness engineering, and the gap
 between this boilerplate and your own version is part of what your prototype
 says about the developer you're becoming.
+
+# Blindspots / NASA Exoplanet Archive
+
+## 1. What it is
+
+A three-part scrolling instrument for the NASA Exoplanet Archive. Not a
+dashboard, not a marketing page — **an observatory console**. Every surface should read as something you *operate*, not something you browse. The through line is the title: the archive is a map of where we happen to have been looking, so the design keeps showing the shape of the search, not just the findings.
+
+Three parts, in scroll order:
+
+1. **Hero** — cinematic. Black, scout trails, one word.
+2. **Field** — the working instrument. 6,336 records, four projections.
+3. **System** — a single star system, opened from the field.
+
+---
+
+## 2. Colour
+
+### Structural — from the fan (see STRIPE.md)
+
+Outer → central: `#8A1538` `#E86132` `#D11F3A` `#345587` `#D9A83E` `#F1F1EE`.
+These are the *only* saturated colours in the layout. They are never used for data encoding — mixing chrome colour with data colour destroys the read.
+
+### Grounds — at most two per page
+
+`#000000` hero fan · `#04050a` hero section · `#070812` field section ·
+`#03040a` plot field.
+
+### Accents
+
+`#F1F1EE` (fan white) is the active-HUD accent — the tab you're on, the axis you're reading. `#7a5cc4 / #a184f0` are the search-panel scrollbar only.
+
+
+## 3. Art style
+
+**Analogue instrument, not sci-fi UI.** References are film-scanner overlays, plate-archive furniture, and 1970s mission graphics — not glass, glow, or neon.
+
+**The theme** The theme colors are black, blue, purple, white. Stripes are the breaker to introduce ambient color layer. However, it does not break the theme.
+
+Do:
+
+- flat colour fields with hard boundaries
+
+Don't:
+
+- gradients as backgrounds (gradients exist only inside a trail streak)
+- glow as decoration; glow only marks a live emitter (star, scout, cursor)
+- drop shadows, rounded cards, glass blur, emoji, icon sets
+- SVG illustration of planets or ships — real imagery or nothing
