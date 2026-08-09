@@ -992,3 +992,115 @@ left. `pnpm check` green 56/56, `check:evidence` green.
 Also noted rather than changed: the 02:05 entry sits between 02:48 and 03:15,
 against this file's oldest-first rule. It looks like a typo for 03:05, but the
 timestamp is the user's record of their own session, so it is theirs to correct.
+
+## 2026-08-10 06:45 — The centre seam, and one light instead of two
+
+**Prompt:**
+
+> And one apparent fix, and it is strange. On Macos, I did not find the problem:
+> The stripe in the first page, the middle white stripe, it as a seam vertically
+> in the middle, in macos Chrome, there is no problem […] And after this, check
+> the HOTSPOT.md, line 197 to 201, this is the bug should fixed, and logic
+> within. If you are unclear, ask me!
+
+**Result:**
+
+**The seam.** `heroTrails()` builds each band as a (left, mirrored-right) pair.
+Boundary 0 is `x = cx` at every `u` — `top = cx − GAP·0`, `bottom = cx − cx·0^P`
+— so it is *its own mirror*, and the loop did not notice. The white centre band
+shipped as two halves butted against a shared edge that is not a boundary
+between anything: it is an artifact of mirroring a line onto itself. Two
+independently antialiased fills meeting on one edge each cover ~50% of the pixel
+that edge crosses, and 0.5-over-0.5 composites to ~75%. Fixed by emitting the
+centre band as one spanning path, which is what page 2's `fanBands()` already
+did — that is why page 2 never had the bug. Twelve paths become eleven; the
+other ten are byte-identical.
+
+**The hot spot.** Two bugs, and the second survives even with azimuth off.
+
+`sun.position` was `starDir` rolled by `AZIMUTH_DEG`, while the rim shader, the
+phase and the hot spot all read the *unrolled* `starDir`. Two light directions
+in a scene that physically has one, a quarter turn apart at 90°. Now one
+`lightDir` with the roll folded in, read by everything. Phase is untouched by
+that and provably so: phase is `(1 + axis·dir)/2` and a rotation about an axis
+preserves every vector's component along that axis, so rolling about the *view*
+axis cannot change how wide the shadow is, only where it falls.
+
+Separately, the hot spot was never on the seam. `nHot()` returned `L − V(V·L)`,
+the light projected onto the screen plane — the limb point facing the light most
+directly, the *brightest* point of the lit limb. The terminator meets the
+silhouette where N ⊥ L and N ⊥ V, at `N = ±(L×V)/|L×V|`, a quarter turn away.
+That was the right answer to REFLECTIVE-COVER.md's brief and the wrong one to
+HOTSPOT.md's. The request contained its own diagnosis: a chord midpoint has one
+solution and no side to choose, so being asked for left-or-right means ±(L×V).
+
+**Verified:**
+Predicted the seam angle independently from the orbit constants — rebuild L,
+roll it, solve ±(L×V) by hand — and compared against the published
+`--hot-x`/`--hot-y`, so the check never reads the code it is checking. 0.16° at
+half phase, 0.01° at a thin crescent, ≤0.04° across seven samples spanning phase
+0.030 to 0.773, every one at exactly 1.00000R. A limb scan finds a single
+saturated core at the seam and ordinary rim brightness (151) at the old
+direction. Four loads gave sides +1, −1, +1, −1.
+
+For the fan, decoded the screenshot rather than eyeballing a 1px line: at
+1919×1080 the row through the band read lum 157 at x=959 against 206 either
+side; 1920 was flat; after the fix 1919 is a flat 206 and 391×844 a flat 204.
+`pnpm check` green 56/56 throughout.
+
+**Commit:** [`01d3f2e`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/01d3f2e), [`0da1937`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/0da1937), [`ebe809b`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/ebe809b)
+
+**What happened:** five things, and one of them is a repeat.
+
+1. **I made a bug that is already written down in this file.** I put backticks
+   around `visible` and `edge` in a comment *inside* the fragment shader's
+   template literal, which closed the string mid-shader and threw three syntax
+   errors pointing at `});` ten lines below the real cause. The 03:50 entry
+   records exactly this — "Markdown habits do not survive inside template
+   literals" — and I did it again anyway. Reading the record is not the same as
+   having it to hand while typing. So it went into the harness instead of my
+   memory: `spec/shader.test.ts` scans the template literals for backticks and
+   names the file and line, and a note in the shader says why. Verified by
+   injecting the exact bug — it failed naming `hero.ts:248`, then passed once
+   reverted. Writing it also turned up that `hero.ts` has *two* shader materials,
+   not one, so the scan asserts four literals; I had been about to cover half the
+   file and call it done.
+
+2. **"Strange, only on macOS" was the most useful part of the report.** The fan
+   spans the viewport, so the shared edge sits at `width/2`. On a Retina display
+   the device width is always even, so it lands on a whole pixel and the seam
+   *cannot* appear; at DPR 1 on an odd width, or at 125%/150% Windows scaling,
+   it lands mid-pixel. A platform difference that looks like noise was the whole
+   mechanism — and it made the bug testable: 1919 reproduces, 1920 does not.
+
+3. **My first two measurements measured the wrong thing, in two different
+   ways.** `--viewport 1920x1080` on `open` silently did not apply and I sampled
+   a 1264×625 screenshot at row 972 — outside the image, which returned
+   `undefined` rather than failing. Then I looked for the terminator on a
+   freshly loaded page, where phase is 0.974 and there is no terminator to find.
+   Both looked like results. The fix for the second was the standing rule from
+   02:20: compute *when* the phase you want occurs and go there, rather than
+   sampling and hoping.
+
+4. **Fixing the hot spot forced a change I did not plan for.** The shader
+   derived its own `nHot` and drew a `pow(aim, 96)` core there, so moving only
+   the DOM overlay would have produced two highlights a quarter turn apart —
+   strictly worse than the bug. It takes the seam as a uniform now, the same
+   vector, not a second derivation that agrees. And the seam has `dot(N,L) = 0`
+   by definition, so the core could no longer carry the `visible` gate: the gate
+   that keeps the night limb black would have extinguished the star exactly
+   where it now belongs. Following the chain of influence found that; changing
+   the overlay alone would have shipped it.
+
+5. **A threshold that looks reasonable and never fires.** The obvious re-roll
+   trigger is `phase < 0.02`. Phase here swings by `D/hypot(D,2)` about 0.5, so
+   pure dark is 0.026 — that trigger would never once have fired, and nothing
+   would have reported it. Derived the threshold from the orbit constants
+   instead and then *measured* the crossing: minimum 0.030 against a threshold
+   of 0.0446.
+
+Left undone deliberately: HOTSPOT.md's Note! section stays uncommented. Its own
+line 201 says to comment it out once the user confirms the fix, and confirming
+is theirs, not mine. Also reported and not fixed: the same fan row still dips at
+x=617/1301 where red meets slate blue — real colour boundaries rather than the
+phantom edge, pre-existing, and the user chose to leave them.
