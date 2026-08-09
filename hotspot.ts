@@ -59,7 +59,8 @@ const rgba = (c: RGB, a: number) =>
 export interface Hotspot {
   canvas: HTMLCanvasElement;
   resize(w: number, h: number): void;
-  draw(sx: number, sy: number, px: number): void;
+  /** `angle` is the long axis, in radians. See draw(). */
+  draw(sx: number, sy: number, px: number, angle: number): void;
 }
 
 export function createHotspot(canvas: HTMLCanvasElement): Hotspot | null {
@@ -124,7 +125,10 @@ export function createHotspot(canvas: HTMLCanvasElement): Hotspot | null {
     return v - Math.floor(v);
   };
 
-  function draw(sx: number, sy: number, px: number): void {
+  // `angle` orients the whole lens: the streak's long axis, with the spikes
+  // carried around with it so the artifact stays one coherent object rather
+  // than a rotating streak over a fixed starburst.
+  function draw(sx: number, sy: number, px: number, angle: number): void {
     if (!ctx || !w || !h) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
@@ -182,18 +186,18 @@ export function createHotspot(canvas: HTMLCanvasElement): Hotspot | null {
       [0.4, a * BLOOM * 0.25],
       [1, 0],
     ];
-    squashed(sx, sy, len, 0.055, 0, streakStops(0.3), ATMOS);
-    squashed(sx, sy, len, 0.018, 0, streakStops(0.55), HALO);
-    squashed(sx, sy, len, 0.006, 0, streakStops(1), CORE);
+    squashed(sx, sy, len, 0.055, angle, streakStops(0.3), ATMOS);
+    squashed(sx, sy, len, 0.018, angle, streakStops(0.55), HALO);
+    squashed(sx, sy, len, 0.006, angle, streakStops(1), CORE);
 
     // --- layer 9: spikes (§3.3) ---------------------------------------------
     // +0.22 rad so no spike is axis-aligned, which is what stops it reading as
     // a stock flare. Nearly subliminal by design: if you can count them, they
     // are too bright.
     for (let i = 0; i < SPIKES; i++) {
-      const angle = (i / SPIKES) * Math.PI * 2 + 0.22;
+      const spikeAngle = angle + (i / SPIKES) * Math.PI * 2 + 0.22;
       const spikeLen = U * SPIKE_LEN * (0.7 + jitter(i) * 0.6);
-      squashed(sx, sy, spikeLen, 0.006, angle, streakStops(0.3), CORE);
+      squashed(sx, sy, spikeLen, 0.006, spikeAngle, streakStops(0.3), CORE);
     }
 
     // --- layer 10: core (§2) ------------------------------------------------

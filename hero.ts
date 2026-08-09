@@ -22,8 +22,9 @@ const TITLE_LETTER_SPACING_EM = 0.08;
 
 // How far outside the silhouette the light point sits, in CSS px. The source is
 // occluded by the planet and only tangent to it, so it is never exactly on the
-// limb.
-const FLARE_OUTSET = 5;
+// limb. 10, not the original 5: the whole trajectory moved another 5px out from
+// Mars's centre.
+const FLARE_OUTSET = 10;
 
 // How much longer the word runs than the limb rule alone would make it: 7/6, so
 // 1/6 longer. Applied as scaleX in styles.css and targeted here, and the two must
@@ -348,7 +349,12 @@ export function initHero(): void {
     // flare.style.setProperty("--bloom", `${px * 0.34}px`);
     // flare.style.setProperty("--halo", `${px * 0.8}px`);
 
-    hotspot?.draw(x, y, px);
+    // The streak's long axis, tangent to the limb. In screen space the outward
+    // normal at the light point IS the radial direction (dx, dy) — the same
+    // vector the outset above uses — so the tangent condition
+    // `longAxis . normal = 0` is satisfied by rotating it a quarter turn, with
+    // no extra projection and no trig on the 3D vectors.
+    hotspot?.draw(x, y, px, Math.atan2(dy, dx) + Math.PI / 2);
   }
 
   function syncLightDir(): void {
