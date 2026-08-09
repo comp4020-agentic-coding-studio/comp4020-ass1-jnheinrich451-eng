@@ -320,3 +320,62 @@ keeping.
    `angle = π`, i.e. `t = π/6.93e-5 ≈ 45.3 s` after load. Reload, wait 45 s,
    screenshot. Sampling the ~91 s cycle at intervals had already missed that
    phase four times in a row. Cheaper to solve for the moment than to poll for it.
+
+## 2026-08-10 02:48 — Title to the limb rule and vertically stretched; CTA per CTA.md
+
+**Prompt:**
+
+> Good, and for this hot-spot style, I need to test further. And here some fixes.
+> […] First is for BLINDSPOTS, make then bigger. The sheen of left and right
+> bounds should across vertically to the mid point of B and S, the first and last
+> letter of BLINDSPOTS. And enlonger the font vertically. You can refer the style
+> of video game Control, the white, suppressive big title. […] Make it
+> overwhelming! Keep the central of the Mars. […] And for lower button [ ENTER
+> OBSERVATORY ]. Change to rounded rectangle. And make the background shifting
+> slowly from dark but pure dark, to the setting you are applying. […] even
+> darkest, can see through the background. I added a file CTA.md
+
+**Result:** [`383b9bb`](../../commit/383b9bb)
+
+- **Title** — the sizing rule is now geometric rather than a fudge factor.
+  Because the title is centred on the globe centre, at the title's own vertical
+  centre the limb sits at exactly ±`marsPx`, so "the limb passes through the
+  middle of B and S" means *the two outer glyph centres are one diameter apart*.
+  `TITLE_OVERHANG` deleted. Measured with a `Range` over the individual
+  characters, since where a glyph's centre falls depends on that glyph's own
+  advance — B and S cannot be inferred from an average. Verified numerically at
+  390×844: Mars spans 21→369 and the two centres land on 21 and 369.
+- **Vertical stretch** 1.42× via `scaleY`, not a condensed face: Poppins has no
+  condensed cut, and `scaleY` leaves the horizontal measurement the limb rule
+  just solved for exactly intact.
+- **CTA** — 3px radius, border removed, pointer-events bar so the hit area is the
+  words only, 15px/.18em, one-property hover, real `:focus-visible`. Two
+  deviations flagged in the commit: kept a real `<a href>` over the doc's
+  `div`+`span`+`onClick` (§6 itself treats that snippet as prototype markup), and
+  kept `bottom: 1/28` over §2's `3vh`, since 1/28 was specified directly and
+  satisfies §2's stated reason anyway.
+
+**What happened:** nothing was flagged, but two notes.
+
+1. **I nearly reported a clipped title that wasn't clipped.** The phone
+   screenshot looked cut off at both edges, and my first instinct was to treat it
+   as a bug. Querying the real rect said `left: 2, right: 388` in a 390 viewport
+   — not clipped, just flush. What the measurement *did* reveal was a genuine
+   smaller bug behind it: my viewport cap was computed from a predicted ink width
+   via `scrollWidth`, which disagrees with the client rect for an element inside a
+   zero-width flex anchor, so a 0.98 ceiling was really landing at ~0.995. Fixed
+   by setting the size, then correcting against the box that actually rendered.
+   **Read the numbers off the DOM before believing what a screenshot looks like**
+   — the screenshot found the smell, the rect found the bug, and they were not the
+   same bug.
+2. **Verified the translucency claim instead of asserting it.** "Even at its
+   darkest you can see through it" is checkable: sample the gold fan band beside
+   the plate (173,134,49) and through it (40,39,40) light end, (22,21,20) dark
+   end — about 20% and 7% of the stripe carrying through. Two `background-color`
+   keyframes are easy to write and easy to get wrong by one alpha digit; pixel
+   sampling is the difference between "should be translucent" and "is".
+
+Also worth recording: `transform` is a single property, so adding `scaleY` to a
+title that already animates `translateY` means restating the scale in **every**
+keyframe. A keyframe that sets only `translateY` silently drops the stretch for
+that part of the cycle.
