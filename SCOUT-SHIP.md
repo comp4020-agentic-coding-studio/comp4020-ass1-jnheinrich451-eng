@@ -119,7 +119,19 @@ wrapper: position:absolute; inset:0; z-index:3; overflow:hidden
 
 The 2 px ramp is the only softness — a hard stop aliases badly at the terminator.
 `1.04` (rather than 1.00) leaves a hairline of clearance so the trail never
-grazes the silhouette. The upper route needs no mask; it clears the globe.
+grazes the silhouette.
+
+The upper route takes no mask — but not because it misses the globe. At this
+build's scale it does not: Mars fills most of the frame, and §1's routes bracket
+a title that is itself centred on Mars, so the upper pass necessarily crosses the
+disc. It crosses **in front of** it, and that is the point. The two passes are
+meant to read as opposites — one over the world, one behind it — and the contrast
+is what makes the second crossing land as a different event rather than a repeat.
+Masking the upper route would throw that away.
+
+So the rule is: mask the lower route, never the upper one. If the globe is ever
+made small enough that the upper route genuinely clears it, nothing here changes
+— the pass is in front either way.
 
 ---
 
