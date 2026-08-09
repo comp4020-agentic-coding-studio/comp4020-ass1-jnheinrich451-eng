@@ -197,7 +197,7 @@ stay anchored to `th`, so the star never detaches from its own highlight.
 **Note!** We introduced Azimuth later, later than we defined the terminator and the Hotspot's logic.
 - Current issue, the terminator's direction is misaligned with the sunrise location and the Hotspot. The Hotspot and sunrise location remain the same, yet terminator's plane changes.
 - Potential fix, if can, formulate the trajectory of the terminator. The Hotspot and the sunrise sector collide when the Mars is from pure dark to leak a bit light, like cresent moon. The lit area should be opposite with the shadowed area, it is a fixed and true rule.
-- The hotspot should emerge on the seam of 
+- The hotspot should emerge on the seam of shadowed and sunlight area. You can decide which way (left or right) to go. The senario is we have a break of light and it expands to a bigger light area, but hotspots follows the transient area of light and shadow. Each time you can decide which way to move, maybe use a random number generator, <0.5 then to left, >= 0.5 then to right.
 
 ### The terminator
 
