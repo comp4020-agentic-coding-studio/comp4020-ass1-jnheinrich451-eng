@@ -717,3 +717,58 @@ star, rim, hotspot and phase all keep reading the true direction.
    orbit — rather than quietly shipping 90° and letting the expectation stand.
 
 Commit: [`cff2d2e`](../../commit/cff2d2e)
+
+## 2026-08-10 04:50 — The scout crossings
+
+**Prompt:**
+
+> Good! And let me think. The next, the scout-ship trail. I add another dynamic
+> component, conceptually act as bounds of BLINDSPOTS. The concept is the
+> scout-ship, you can find it in the /assets/scout-ship.png. It will enter from
+> right margin of the window, through from the above of the Mars, and out from
+> left margin. After the complete vanish, including the long trail. After 5
+> seconds, it returns from left to right. This time differs by it enters at the
+> back of the Mars. The trail and itself will be covered by the Mars! And vanish,
+> quit from right margin, and loop the condition. And details include in the
+> SCOUT-SHIP.md.
+
+**Result:**
+Pure DOM per §1: a zero-size anchor translates, five layers hang off it, and
+`scouts.ts` owns only the routes — measured from the title box, since nothing
+else in the component needs anything JavaScript knows.
+
+The brief's timing turned out to *be* §2's, exactly. 41.67% of 60s is 25s of
+crossing; the return starts at 50% = 30s, so the gap is 5s; the second run ends
+at 91.67% = 55s, 5s before the restart. The prompt described the doc without
+either of us having to reconcile them. Wrote the test against the two 5-second
+gaps rather than the three percentages, because the gap is the thing the brief
+specifies and the percentages are how it happens to be spelled.
+
+**What happened:** nothing was flagged, but three things.
+
+1. **The routes were non-deterministic and only arithmetic showed it.** The title
+   floats ±6px on a 9s loop, and `getBoundingClientRect` includes that transform
+   — so the measured route depended on which frame the measurement landed on. The
+   render looked fine. What did not look fine was the arithmetic: the route came
+   out at 375.6 where `titleTop` 408 and a gap of 408/18 predict 385.3. Subtract
+   just the translation and keep the scale (the scale is the word's real size,
+   the float is the noise) and predicted matches actual to 0.1px at both
+   viewports. **Recomputing a measured value by hand is a cheap check that
+   catches things no screenshot will** — a 10px error in a 273px title is
+   invisible and still wrong.
+2. **The doc is wrong about the upper route and still gives the right
+   instruction.** §4 says "the upper route needs no mask; it clears the globe."
+   Ours does not clear it — Mars fills most of the frame and the routes bracket a
+   title centred on it, so the upper pass necessarily crosses the disc. But it
+   crosses *in front*, which is exactly the contrast the brief wants against the
+   lower pass going behind. So the stated reason is false and the instruction it
+   justifies is still correct. Recorded both rather than silently obeying.
+3. **Seeking a CSS animation by `animation-delay` does not work the way it
+   reads.** Setting `-12s` shifts relative to the animation's original start, so
+   it compounds with however long the page has been open — my "seek to 12s" was
+   really "seek to 52s", which parked the ship off-screen, and the first
+   screenshot showed an empty frame that I nearly read as a broken component.
+   `getAnimations()[0].currentTime = 12000` plus `pause()` is exact: the
+   transform then read 390.27px against a hand-computed 390.
+
+Commit: [`3a11398`](../../commit/3a11398)
