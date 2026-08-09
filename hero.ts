@@ -22,8 +22,8 @@ const TITLE_LETTER_SPACING_EM = 0.08;
 
 // How far outside the silhouette the light point sits, in CSS px. The source is
 // occluded by the planet and only tangent to it, so it is never exactly on the
-// limb. 26, after three moves outward of 5, 6 and 10px from the original 5.
-const FLARE_OUTSET = 26;
+// limb. 21: out by 5, 6 and 10 from the original 5, then back in by 5.
+const FLARE_OUTSET = 21;
 
 // §3.7's azimuth, in degrees, positive counter-clockwise on screen. It rotates
 // the SHADOW axis about the view axis and nothing else: the star, its rim and
