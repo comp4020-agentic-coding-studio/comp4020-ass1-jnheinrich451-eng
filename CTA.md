@@ -69,6 +69,31 @@ text-shadow: 0 0 2px #04050a, 0 0 6px rgba(4,5,10,.98)
 - The two text shadows are black knockouts, not glow: they guarantee legibility
   in the moment the plate crosses a bright star or the fan's white centre band.
 
+## 3.1. The wings
+Three flat bars either side of the plate, mirrored, in the scout-trail palette: red #c72138 on top, yellow #ffd966 in the middle, cyan #81d8ff at the bottom — the same warm-to-cold order the trail gradient runs vertically, so the button carries the ships' signature at rest.
+
+bar	    length	       thickness
+red	    132 px	       9 px
+yellow	99 px (0.75)	 6 px
+cyan	  40 px (0.30)	 4 px
+
+Nothing about the set is averaged. Lengths fall 1 : 0.75 : 0.30 — a sharp drop at the last step, not an even taper — and thickness falls with them, so the group reads as a signal decaying rather than a chart. Inner ends are flush against a 10 px gutter (left wing right-aligned, right wing left-aligned), so the taper opens outward, away from the words.
+
+Vertically the group is tied to the button, not to fixed numbers:
+
+row:    display:flex; align-items:center; justify-content:center; gap:10px
+wing:   display:flex; flex-direction:column; align-self:stretch;
+        align-items:flex-end        /* flex-start on the right wing */
+red:    height:9px
+yellow: height:6px;  margin-top:6px
+cyan:   height:4px;  margin-top:auto; margin-bottom:2px
+
+**align-self:stretch** makes each wing exactly as tall as the plate, so the red bar's top edge sits on the button's top edge and the cyan is pushed to the bottom by margin-top:auto. The red→yellow gap is a fixed 6 px; the yellow→cyan gap is simply what remains, which guarantees it stays the larger of the two. The 2 px bottom margin lifts the cyan just inside the lower edge — flush, it looked pinned to the plate rather than floating beside it.
+
+Because the spacing is derived rather than measured, the alignment survives any change to the type size or padding without being re-tuned.
+
+The wings are pointer-events:none — decoration only. They do not participate in the hover state, do not glow, and never animate.
+
 ---
 
 ## 4. Type

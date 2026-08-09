@@ -101,9 +101,28 @@ section {
   opacity: 0.3;
 }
 
+/* HOTSPOT.md §5's overlay: the lens artifacts, above the WebGL canvas and below
+   the title. `screen` is load-bearing, not decoration — the reference composites
+   its `lighter` layers onto an opaque frame, and source-over on a transparent
+   overlay would wash the fan toward white instead of adding to it. */
+#hero-hotspot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  display: block;
+  width: 100%;
+  height: 100%;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
 /* The concentrated light point at the limb. Glow here marks a live emitter,
    which CLAUDE.md §3 permits explicitly — it is the one licensed exception to
-   "no glow as decoration" and to background gradients. */
+   "no glow as decoration" and to background gradients.
+
+   Superseded by #hero-hotspot above; kept, not deleted, as the cheap fallback.
+
 .limb-flare {
   position: absolute;
   top: 0;
@@ -113,8 +132,10 @@ section {
   height: 100%;
   pointer-events: none;
 
-  /* Three concentric falloffs from one origin: white-hot core, bloom, wide
-     halo. Radii scale with the globe so the flare never detaches from it. */
+  (Three concentric falloffs from one origin: white-hot core, bloom, wide
+  halo. Radii scale with the globe so the flare never detaches from it. The
+  delimiters are stripped from this note and the one below because CSS block
+  comments do not nest — an inner one would end the outer block early.)
   background:
     radial-gradient(
       circle var(--core, 26px) at var(--hot-x, 50%) var(--hot-y, 50%),
@@ -135,8 +156,10 @@ section {
     );
 }
 
-/* Radial rays. Masked to a narrow annulus so the starburst reads as light
-   scattering rather than a pinwheel. */
+Radial rays. Masked to a narrow annulus so the starburst reads as light
+scattering rather than a pinwheel. Superseded by HOTSPOT.md §3.3's spikes,
+which are squashed radial gradients rather than a conic sweep.
+
 .flare-rays {
   position: absolute;
   top: var(--hot-y, 50%);
@@ -156,6 +179,7 @@ section {
     transparent 55%
   );
 }
+*/
 
 /* §A.6 (3) vignette and (4) scanlines: what keeps the title readable over a
    full-opacity fan without dimming the fan itself. Separate layers because the

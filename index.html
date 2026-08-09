@@ -96,9 +96,18 @@
              DOM layer rather than a second three.js shell because an additive
              sphere raises the transparent canvas's alpha and blacks out whatever
              is behind it. -->
+        <!-- Superseded by HOTSPOT.md's canvas composite; kept commented rather
+             than deleted so the cheaper three-gradient version can come back.
         <div class="limb-flare" aria-hidden="true">
           <i class="flare-rays"></i>
         </div>
+        -->
+
+        <!-- HOTSPOT.md §5: the lens artifacts only — halo, ghosts, streak,
+             spikes, core. Above the WebGL canvas so the streak crosses the
+             planet (a flare that respects the silhouette reads as a bug), below
+             the title so it never crosses the word. -->
+        <canvas id="hero-hotspot" aria-hidden="true"></canvas>
 
         <!-- TYPE.md §1.1: a zero-size flex box centred on the globe's projected
              centre, so the word stays centred on the planet at any size with no

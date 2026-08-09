@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { createHotspot } from "./hotspot";
 
 // new URL(..., import.meta.url) lets Vite fingerprint the model and rewrite
 // the path relative to the deployed base — a hard-coded "/assets/..." 404s
@@ -282,7 +283,15 @@ export function initHero(): void {
 
   const limbGlow = buildLimbGlow(MARS_RADIUS);
   const title = document.getElementById("hero-title");
-  const flare = heroSection.querySelector<HTMLElement>(".limb-flare");
+  // Host of the superseded CSS flare, kept alongside its commented-out code:
+  // const flare = heroSection.querySelector<HTMLElement>(".limb-flare");
+  const hotspotCanvas = heroSection.querySelector<HTMLCanvasElement>(
+    "#hero-hotspot",
+  );
+  const hotspot =
+    hotspotCanvas instanceof HTMLCanvasElement
+      ? createHotspot(hotspotCanvas)
+      : null;
 
 
   // The shell's highlight has to follow the sun as it orbits, or the lit limb
@@ -305,7 +314,6 @@ export function initHero(): void {
   // there composites correctly over every layer.
   function placeFlare(normal: THREE.Vector3): void {
     // Re-guarded because TypeScript cannot carry the entry check into a closure.
-    if (!(flare instanceof HTMLElement)) return;
     if (!(heroSection instanceof HTMLElement)) return;
     const { clientWidth: w, clientHeight: h } = heroSection;
     if (!w || !h) return;
@@ -325,14 +333,22 @@ export function initHero(): void {
     x += (dx / len) * FLARE_OUTSET;
     y += (dy / len) * FLARE_OUTSET;
 
-    flare.style.setProperty("--hot-x", `${x}px`);
-    flare.style.setProperty("--hot-y", `${y}px`);
     const px = Number.parseFloat(
       heroSection.style.getPropertyValue("--mars-px") || "190",
     );
-    flare.style.setProperty("--core", `${px * 0.075}px`);
-    flare.style.setProperty("--bloom", `${px * 0.34}px`);
-    flare.style.setProperty("--halo", `${px * 0.8}px`);
+
+    // Superseded by HOTSPOT.md's canvas composite below. Kept, not deleted: this
+    // is the three-concentric-gradients version, and it is what to fall back to
+    // if the overlay ever costs too much on a low-end phone — it is three CSS
+    // paints against ~12 canvas fills per frame.
+    //
+    // flare.style.setProperty("--hot-x", `${x}px`);
+    // flare.style.setProperty("--hot-y", `${y}px`);
+    // flare.style.setProperty("--core", `${px * 0.075}px`);
+    // flare.style.setProperty("--bloom", `${px * 0.34}px`);
+    // flare.style.setProperty("--halo", `${px * 0.8}px`);
+
+    hotspot?.draw(x, y, px);
   }
 
   function syncLightDir(): void {
@@ -436,6 +452,7 @@ export function initHero(): void {
     camera.lookAt(0, 0, 0);
     camera.updateProjectionMatrix();
     renderer.setSize(w, h, false);
+    hotspot?.resize(w, h);
     updateMarsPx();
     syncLightDir();
     renderer.render(scene, camera);
