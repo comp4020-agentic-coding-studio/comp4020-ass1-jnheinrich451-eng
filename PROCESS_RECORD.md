@@ -208,3 +208,65 @@ deleted too, and a later pattern spliced a rule into the middle of a comment.
 The tests stayed green throughout, because they assert markup and generator
 output, not layout. Green checks did not mean the page was intact; the
 screenshot did.
+
+## 2026-08-10 01:56 — Parallel top bands, no top bar, lower CTA, concentrated light point
+
+**Prompt:**
+
+> Ty. But I find some thing, oh I know, it is my monitor! It shows in warm theme!
+> Then theme has no problem. Some minor fixes, first remove the top bar:
+> BLINDSPOTS and OBSERVATORY, which collide with the existing components. For
+> center big stripe, the top area, the blue, yellow, blood red, and the orange,
+> except the outer deep red and inner white, they to me is expanding outwards. I
+> think you use math as tools, then make them parallel near to top areas. And
+> remove the button [ ENTER OBSERVATORY ] lower, 1/28 of the height, refer to
+> bottom margin. And for shadow effect, make the speed quicker, + 5% as first
+> trial. […] for edges, emit strong light at a point this point can be computed
+> with shadow. The shadow has a mid point, and get its normal vector, the vector
+> cross with the sheen sihouette becomes brighter. The details I updated in
+> REFLECTIVE-COVER.md line 60.
+
+**Result:** [`a59193b`](../../commit/a59193b)
+
+- **Top bar** — could not simply be deleted: `spec/invariants.test.ts` requires a
+  navigation landmark on every page, and removing it would also take the only
+  keyboard route past the hero. It is a skip link now — off-screen for pointer
+  users, sliding in on focus. Landmark and keyboard path both survive.
+- **Parallel top bands** — the diagnosis was one line of calculus. `p1` is the
+  first Bézier control value, so `B'(0) = 3·p1` *is* the tangent at the top edge.
+  STRIPE.md §A.2's `p1 = −0.11 + 0.022k` makes that non-zero, so adjacent
+  boundaries diverge **linearly** in `u` and the bundle visibly fans out. Setting
+  `p1 = 0` is what §A.2's own prose already asks for ("near the top every trail
+  is almost vertical, dx/dy ≈ 0") — the gap between neighbours then changes only
+  quadratically. The flare is untouched; `p2` still owns it.
+- **Light point** — their construction reduces to closed form. The terminator
+  meets the silhouette where N ⊥ L and N ⊥ V, i.e. `N = ±(L×V)/|L×V|`, two
+  points; the chord's midpoint is the globe centre, and the normal to that chord
+  inside the silhouette plane is `V×(L×V) = L − V(V·L)` — the light direction
+  projected onto the screen plane. No iteration, no marching the limb. Worth
+  noting: doing the algebra *first* meant the shader was right on the first try.
+
+**What happened:** the theme wasn't warm — it was the user's monitor. I had spent
+part of the previous pass cooling the render (exposure 1.1 → 0.92, cooler sun) to
+chase a problem that was never in the artefact. Reverted. **A colour judgement
+read off one uncalibrated display is not evidence about the page**, and I should
+have asked what they were viewing on before retuning the lighting.
+
+Two bugs the screenshots caught that the diff and the tests could not:
+
+1. **The outside bloom as a second three.js shell composited as an opaque dark
+   crescent** that swallowed the stars, instead of a glow. Cause: additive
+   blending raises the *alpha* of the canvas wherever it draws, and this canvas
+   is transparent precisely so the fan shows through it. I reasoned about the
+   blend equation twice and got it wrong twice, then bisected by zeroing the
+   shell's alpha — which settled it in one screenshot. Lesson: **bisect the
+   render, don't re-derive the blend maths.** The fix was to move the bloom to a
+   DOM layer at the projected hotspot, which composites correctly over every
+   layer.
+2. **`Box3.getBoundingSphere()` returns the sphere CIRCUMSCRIBING the box** — a
+   factor of √3 too large for a cube. I used it to measure the globe's real
+   silhouette radius and it inflated the title by ~73%. The right measure is the
+   mean half-extent in the screen plane. Both `--mars-px` and the flare position
+   had been using the nominal `MARS_RADIUS`, which is the *longest* axis of the
+   scaled GLB, so the flare sat a hair outside the limb and showed as a doubled
+   core — a real bug, just not the one my first fix introduced.
