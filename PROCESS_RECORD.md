@@ -270,3 +270,53 @@ Two bugs the screenshots caught that the diff and the tests could not:
    had been using the nominal `MARS_RADIUS`, which is the *longest* axis of the
    scaled GLB, so the flare sat a hair outside the limb and showed as a doubled
    core — a real bug, just not the one my first fix introduced.
+
+## 2026-08-10 02:20 — Pure-dark shadow, full orbit, 5px flare outset, constant band width
+
+**Prompt:**
+
+> Overall good fix! And I have some layout improvements. First simple one, make
+> the shadow part pure dark, yes, pure dark, from aesthetic view. Second,
+> increase the shadow boundary push forward speed +10%, and restore the original
+> logic of the Mars should be pure dark. Third for the hot-spot, logic is
+> correct, but I need to verify when the Mars can be pure dark, plus the light is
+> not on the sihouette, we push 5px outwards. […] And the stripes, I find the top
+> region, yes it is parallel, but I feel they becomes thicker, which shouldn't.
+> Pls find the STRIPE.md line 89 to 97. Make them parallel, and thickness remains
+> the same.
+
+**Result:** [`57a17e4`](../../commit/57a17e4)
+
+- **Constant top thickness** — derived rather than tuned. With
+  `x_k(u) = top_k + D_k·B(u)` and uniform top spacing, `gap(u) = GAP + ΔD_k·B(u)`,
+  so `gap'(0) = ΔD_k·B'(0)` and `gap''(0) = ΔD_k·B''(0)`. Parallel needs the
+  first to vanish, constant thickness needs the second, and for a cubic Bézier
+  `B'(0) = 3p1`, `B''(0) = 6p2 − 12p1` — so both together force `p1 = p2 = 0`
+  and `B(u) = u³` exactly. Four new tests encode §A.2.1's two checks.
+- **Pure dark** — ambient light removed entirely, and the limb shell's constant
+  `0.05` base term dropped (it had been painting the night-side limb grey).
+- **Full orbit** at 6.93e-5, period ~91 s, so Mars runs lit → crescent → pure
+  dark. Trade-off stated in the commit: for part of every cycle the planet is a
+  black disc.
+- **Flare outset 5 px** radially outward, and the shell's core gain 7.0 → 4.0,
+  since the white-hot point is the DOM layer's job now.
+
+**What happened:** nothing was flagged as wrong, but two process notes worth
+keeping.
+
+1. **The spec's warning and the user's request looked contradictory, and weren't.**
+   §A.2.1 is titled "The boundaries are not parallel — and must not be", and
+   forbids a shared easing because it "reads as a striped curtain instead of a
+   wake". The request was for exactly that shared easing. Rather than pick a
+   side, I checked what the curtain failure actually *requires*: bands widening
+   at the same rate. They can't here, because ΔD_k comes from the power-law
+   bottom spread. So the shared easing is safe, and §A.2.1's own numeric checks
+   confirm it — its 1:9.5 and 1:12.5 ratios turn out to be nothing but
+   GAP : bottom-spread, which the generated fan hits at 1:9.55 and 1:12.46.
+   **A prohibition is worth testing against its own stated reason before
+   treating it as binding** — the reason was narrower than the rule.
+2. **Verified the pure-dark phase by computing when it occurs, not by waiting for
+   it.** The sun angle is `t · 6.93e-5`, so the planet is fully back-lit at
+   `angle = π`, i.e. `t = π/6.93e-5 ≈ 45.3 s` after load. Reload, wait 45 s,
+   screenshot. Sampling the ~91 s cycle at intervals had already missed that
+   phase four times in a row. Cheaper to solve for the moment than to poll for it.
