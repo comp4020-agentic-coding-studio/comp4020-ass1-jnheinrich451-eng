@@ -1,21 +1,12 @@
 # Process overview
 
-<!-- TEMPLATE: this file is a shape to fill in, not a form. Replace everything
-     in it with your own overview, and delete this comment — `pnpm
-     check:evidence` will remind you if it's still here. -->
-
-A reading-guide to how the work came together --- a map to your process, not an
-essay about it. Markers read this file and follow its citations; they don't
-trawl the repo for evidence you didn't point at, so if a moment mattered, cite
-it.
-
-This file is the shape; the course site's
-[assessment page](https://comp.anu.edu.au/courses/comp4020-agentic-coding-studio/topics/assessment/#what-you-submit)
-is the requirement, and each brief adds its own word count and moment count.
-
 ## What I built
 
-One paragraph: the thing, and the idea behind it.
+BLINDSPOTS is a one-page scrolling site. The Hero section opens on a rotating
+three.js Mars model in a twinkling starfield, with the BLINDSPOTS title sized
+and centred to Mars's actual on-screen diameter at any viewport, and an
+`[ ENTER OBSERVATORY ]` control that scrolls to the Observatory section below
+it (still a placeholder — its real content is scoped for a later commit).
 
 ## The moments that mattered
 
@@ -55,20 +46,19 @@ sentence does. Commit the file to this repo and link it with a **relative**
 path, which is what makes it render on GitHub: `![alt text](docs/before.png)`.
 Images don't count towards the word count and don't replace the citation.
 
-### A worked moment, for shape
-
-Delete this section along with the rest of the boilerplate --- it's here to show
-the four jobs in one paragraph, not to be imitated in content.
-
-> The date formatter kept coming back with `toLocaleDateString()` and no locale
-> argument, so the same build rendered differently on my machine and in CI. I'd
-> already re-prompted it twice, which fixed the line but not the habit, so the
-> third time I put the rule in `CLAUDE.md` instead
-> ([`3f9ac21`](https://github.com/YOUR-ORG/YOUR-REPO/commit/3f9ac21)) and added
-> a spec test that fails on a bare `toLocaleDateString`. That's what told me it
-> had actually taken: the test went red against the old code and green against
-> the new, and the next two features it wrote passed it without prompting
-> ([`3f9ac21...b7e0d14`](https://github.com/YOUR-ORG/YOUR-REPO/compare/3f9ac21...b7e0d14)).
+1. **The title's size was derived from Mars's on-screen radius, not a fixed
+   value** — `font-size: clamp(24px, calc(var(--mars-px) * 0.72), 220px)`, with
+   `--mars-px` set by projecting Mars's world-space edge through the camera on
+   load and on resize. That's correct at 1920×1080, where Mars is wide and
+   short. On a 390×844 phone, the same aspect-driven camera distance puts Mars
+   itself well within the screen, but the resulting `--mars-px` was still large
+   enough to push `BLINDSPOTS`'s ten letters past both edges of a 390px-wide
+   viewport. I only found this by actually loading the page at that viewport
+   with `agent-browser` and screenshotting it — the desktop render looked
+   correct and gave no reason to suspect it. I capped the formula with
+   `min(calc(var(--mars-px) * 0.72), 11vw)` so the viewport width, not just
+   Mars's projected size, bounds the title on narrow screens, and re-screenshot
+   both viewports to confirm the fix didn't change the desktop layout.
 
 ## Before you ship
 

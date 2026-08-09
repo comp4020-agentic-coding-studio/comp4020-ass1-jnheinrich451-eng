@@ -3,22 +3,51 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>COMP4020 prototype</title>
+    <title>BLINDSPOTS — Mars Observatory</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@700&family=IBM+Plex+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <header>
-      <nav aria-label="Primary">
-        <a href="./">Home</a>
-      </nav>
-    </header>
+    <nav aria-label="Primary">
+      <a class="brand" href="#hero">BLINDSPOTS</a>
+      <a href="#observatory">Observatory</a>
+    </nav>
+
     <main>
-      <h1>COMP4020 prototype</h1>
-      <p data-testid="intro">
-        Replace this with your prototype. This week's brief is on the course website;
-        <code>spec/README.md</code> explains how the checks in this repo relate to it.
-      </p>
+      <section id="hero" aria-label="Hero">
+        <canvas id="hero-canvas" aria-hidden="true"></canvas>
+
+        <img
+          class="deco-stripes"
+          src="./assets/stripes.png"
+          alt=""
+          aria-hidden="true"
+        />
+        <img
+          class="deco-horizontal"
+          src="./assets/horizontal.png"
+          alt=""
+          aria-hidden="true"
+        />
+
+        <h1 id="hero-title">BLINDSPOTS</h1>
+
+        <a class="enter-observatory" href="#observatory">
+          [ ENTER OBSERVATORY ]
+        </a>
+      </section>
+
+      <section id="observatory" aria-label="Observatory">
+        <h2>Observatory</h2>
+        <p>This section is under construction.</p>
+      </section>
     </main>
+
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

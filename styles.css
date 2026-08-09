@@ -1,16 +1,216 @@
+:root {
+  --ground: #05040a;
+  --ink: #f5f3ff;
+  --gold: #e8c86a;
+  --purple: #a06bd8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
-  padding: 2rem;
-  font-family: system-ui, sans-serif;
-  line-height: 1.6;
-  color: #1a1a1a;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: Poppins, "Century Gothic", system-ui, sans-serif;
+}
+
+nav {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.75rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  background: linear-gradient(to bottom, rgb(5 4 10 / 70%), transparent);
+}
+
+nav a {
+  color: var(--ink);
+  text-decoration: none;
+  opacity: 0.75;
+  transition: opacity 0.2s ease;
+}
+
+nav a:hover,
+nav a:focus-visible {
+  opacity: 1;
+}
+
+nav a.brand {
+  opacity: 1;
+  font-weight: 600;
+  letter-spacing: 0.3em;
 }
 
 main {
-  max-width: 40rem;
-  margin: 0 auto;
+  display: block;
 }
 
-a {
-  color: #0b5fff;
+section {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ground);
+}
+
+#hero-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.deco-stripes {
+  position: absolute;
+  left: -6%;
+  bottom: -4%;
+  width: min(70vw, 62vh);
+  height: auto;
+  z-index: 1;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.deco-horizontal {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 6vh;
+  min-height: 40px;
+  object-fit: cover;
+  object-position: bottom;
+  z-index: 1;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+#hero-title {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  margin: 0;
+  max-width: 92vw;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  font-family: Poppins, "Century Gothic", sans-serif;
+  font-weight: 700;
+  font-size: clamp(24px, min(calc(var(--mars-px, 190px) * 0.72), 11vw), 220px);
+  letter-spacing: 0.08em;
+  color: #fff;
+  text-shadow:
+    0 0 12px rgb(255 255 255 / 35%),
+    0 0 34px rgb(255 255 255 / 22%),
+    0 0 80px rgb(210 225 255 / 16%);
+  animation: title-float 9s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes title-float {
+  0%,
+  100% {
+    transform: translate(-50%, -50%);
+  }
+
+  50% {
+    transform: translate(-50%, calc(-50% - 6px));
+  }
+}
+
+.enter-observatory {
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  z-index: 2;
+  transform: translateX(-50%);
+  padding: 0.85em 1.6em;
+  border: 1px solid rgb(255 255 255 / 40%);
+  background: rgb(5 4 10 / 40%);
+  color: var(--ink);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.enter-observatory:hover,
+.enter-observatory:focus-visible {
+  background: rgb(232 200 106 / 15%);
+  border-color: var(--gold);
+}
+
+#observatory {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background: #030309;
+  text-align: center;
+  font-family: "IBM Plex Mono", monospace;
+  letter-spacing: 0.08em;
+}
+
+#observatory h2 {
+  margin: 0;
+  font-family: Poppins, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--purple);
+}
+
+#observatory p {
+  margin: 0;
+  color: rgb(245 243 255 / 60%);
+  font-size: 13px;
+}
+
+@media (width <= 600px) {
+  .deco-stripes {
+    width: min(48vw, 32vh);
+    left: -10%;
+    bottom: -10%;
+  }
+
+  .enter-observatory {
+    bottom: 6%;
+    padding: 0.7em 1.1em;
+    font-size: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  #hero-title {
+    animation: none;
+  }
 }
