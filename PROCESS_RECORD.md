@@ -379,3 +379,46 @@ Also worth recording: `transform` is a single property, so adding `scaleY` to a
 title that already animates `translateY` means restating the scale in **every**
 keyframe. A keyframe that sets only `translateY` silently drops the stretch for
 that part of the cycle.
+
+## 2026-08-10 02:05 — Widening the title, slowing the terminator
+
+**Prompt:**
+
+> Good, and another minor fix, the BLINDSPOTS, it is tall enough, then we make
+> it wider. Just in ratio, make it longer about 1/6 of its original length. And
+> please make the shadow area movement speed lower 3%!
+
+**Result:**
+Did the arithmetic before touching the code, because "wider but not taller" is a
+constraint on two numbers, not one. The fit solves the font size from a target
+span; the float keyframes apply a `scaleX`. With `scaleX = S` and the target
+`span = 2*marsPx*G`, the two cancel exactly when `S = G` — the font size comes
+out unchanged and only the word lengthens. So `TITLE_LENGTH_GAIN = 7/6` in
+`hero.ts` and `--title-stretch-x: 1.1667` in `styles.css` are the same number
+twice, deliberately. Desktop measures `fontSize 127.371px, width 1031` against
+~884 before: 1.166. `SUN_RATE` 0.0000693 → 0.00006722, period ~93.5s.
+
+**What happened:** nothing was flagged, but the change quietly breaks a rule the
+user set one turn earlier — Mars's limb passing vertically through the midpoints
+of the first B and last S. Those centres now sit at ±(7/6)·marsPx, so the limb
+crosses 1/6 of a radius *inside* them. The two rules cannot both hold: the limb
+rule fixes the span at exactly `2*marsPx`, and 1/6 longer is by definition not
+that. Recorded the escape hatch in a comment and the commit message
+(`TITLE_LENGTH_GAIN = 1` restores it) rather than picking one silently. **When a
+new instruction contradicts an older one, implement the new one and say which
+older one it costs** — the user is the only person who can decide which they
+want, and they can't decide it if the conflict isn't visible.
+
+Second, smaller: at 390×844 the title was already 386 of 390px, so the 0.99
+viewport ceiling absorbs most of the gain there. Glyphs get wider, font size gets
+smaller, net length barely moves. The phone is width-bound, not Mars-bound, and
+any further "make it longer" request will do nothing there.
+
+Third: four `Mars model failed to load` errors in the console were stale HMR
+frames naming `buildAtmosphere` and `layoutCover` — both deleted with the
+reflective cover. `agent-browser console` returns a cumulative buffer, not the
+last load. Confirmed by grepping the source (neither symbol exists) and by the
+screenshots showing the textured GLB, not the fallback sphere. **A red line in
+that buffer is not necessarily a red line now.**
+
+Commit: [`512175b`](../../commit/512175b3d42d14fe96be75064f5cf713f86b62f1)
