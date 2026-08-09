@@ -17,6 +17,12 @@ mise.local.toml
 *.pem
 
 # Claude Code's project directory is machine-local: settings in here can hold
-# your course API key, and this repo goes public when you ship. Your tracked
-# harness is CLAUDE.md (and any AGENTS.md), not this directory.
-.claude/
+# your course API key, and this repo goes public when you ship.
+.claude/*
+
+# ...except skills you author. Those are harness, and harness is marked, so they
+# belong in the repo alongside CLAUDE.md. Settings stay ignored by the line
+# above — git won't descend into an excluded directory, which is why this has to
+# re-include the directory before the files inside it.
+!.claude/skills/
+!.claude/skills/**
