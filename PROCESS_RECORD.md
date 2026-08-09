@@ -614,3 +614,60 @@ rule for anything phase-dependent: at low phase a dark disc with a razor rim and
 a long streak, at high phase a compact bright core with the streak collapsed.
 
 Commit: [`2a5f7f6`](../../commit/2a5f7f6)
+
+## 2026-08-10 04:05 — The glitch reveal, on real archive data
+
+**Prompt:**
+
+> Yes I am fixing it. And we move on to the GLITCH effect! Actually it is quite
+> good to me haha. The implementation is in GLITCH.md, and the effect is when
+> user hover cursor on the [ ENTER OBSERVATORY ] then the glitches panels
+> emerges, with true data from PSCompPars_2026.08.08_10.48.26.csv!
+
+**Result:**
+Four code blocks, every line a read of the real archive. c1 prints the CSV's own
+first 20 column names, c2 counts discovery methods across all 6,336 records, c3
+is a real `ORDER BY sy_dist`, c4 reads the detection-flag matrix. Keyframes,
+delays and the violet/amber fringe ported verbatim; §1's three-value state
+verified in the browser as mount `none/none`, hover `in/forwards`, leave
+`out/both`.
+
+**What happened:** nothing was flagged, but four things.
+
+1. **The dataset could not answer c4, and the gap was the interesting part.**
+   `exoplanets.json` already existed — with no generator beside it, so it was a
+   fact nobody could re-derive — and it carries `method`, the discovery method.
+   c4 wants the four detection flags. Those are *not* the same thing: a planet
+   carries more flags once other techniques confirm it, so deriving flags from
+   `method` would have been inventing data while looking like reading it. Wrote
+   a generator that reads the CSV and **refuses to write unless all 15 existing
+   columns come out identical**, which makes its two additions provably
+   additive rather than a silent replacement of someone else's file. A test
+   asserts rows exist whose flag count exceeds one — that is the assertion that
+   would fail if the flags were ever back-derived.
+2. **Checking the output against reality, not just against the schema.** c3
+   returned Proxima Cen b at 1.30 pc, Barnard's at 1.83, eps Eri at 3.20. Those
+   are the actual nearest systems at the actual distances. A sort can be wired
+   backwards and still produce eight plausible rows; knowing what the answer
+   should be is the only check that catches it.
+3. **The blocks are hidden under 600px, and the second reason is the real one.**
+   At 390×844 four ~300px blocks overlap each other and sit on the title (c3
+   spanned y 371–484 against the title's 371–473). But the deeper problem is
+   that the trigger is hover and touch has none: `pointerenter` fires on tap,
+   and that same tap navigates to `#observatory`, so the reveal would flash on
+   the way out of the page. Shrinking the type fixes the collision and not the
+   interaction. **When a feature does not fit a viewport, check whether it is a
+   layout problem or an input-model problem before spending effort on layout.**
+4. **Three tests failed because they asserted source CSS against built CSS.** The
+   minifier ships `steps(1)` as `step-end`, drops a `0ms` delay outright, and
+   rewrites `220ms` as `.22s`. Rewrote them to parse the animation shorthand and
+   normalise to milliseconds. Tests over built output have to assert the
+   *meaning*, not the spelling — the spelling belongs to the minifier.
+
+Also worth recording: a reduced-motion reset written as `.glitch-block` could
+never have overridden `.cta-hover #glitch-c1`. stylelint's
+`no-descending-specificity` flagged the ordering and, following it to the rule
+it named, turned up the real bug behind it — the reset was inert. That is twice
+now that a lint rule has pointed at something worse than the thing it reported.
+
+Commit: [`41d1ced`](../../commit/41d1ced)
