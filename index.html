@@ -13,9 +13,13 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <!-- The visible top bar collided with the hero, but spec/invariants.test.ts
+         requires a navigation landmark on every page — and removing it outright
+         would take the only keyboard route past the hero with it. So it stays as
+         a skip link: off-screen for pointer users, and it slides into view the
+         moment it takes focus. -->
     <nav aria-label="Primary">
-      <a class="brand" href="#hero">BLINDSPOTS</a>
-      <a href="#observatory">Observatory</a>
+      <a class="skip-link" href="#observatory">Skip to observatory</a>
     </nav>
 
     <main>
@@ -37,54 +41,64 @@
           aria-hidden="true"
         >
           <path
-            d="M741.67 -40 C741.67 306.67 711.85 653.33 145.38 1000 L0 1000 C732.19 653.33 713.94 306.67 730 -40 Z"
+            d="M741.67 -40 C741.67 306.67 711.85 653.33 145.38 1000 L0 1000 C732.19 653.33 730 306.67 730 -40 Z"
             fill="#8A1538"
           />
           <path
-            d="M858.33 -40 C858.33 306.67 888.15 653.33 1454.62 1000 L1600 1000 C867.81 653.33 886.06 306.67 870 -40 Z"
+            d="M858.33 -40 C858.33 306.67 888.15 653.33 1454.62 1000 L1600 1000 C867.81 653.33 870 306.67 870 -40 Z"
             fill="#8A1538"
           />
           <path
-            d="M753.33 -40 C763.57 306.67 705.39 653.33 287.86 1000 L145.38 1000 C711.85 653.33 741.67 306.67 741.67 -40 Z"
+            d="M753.33 -40 C753.33 306.67 705.39 653.33 287.86 1000 L145.38 1000 C711.85 653.33 741.67 306.67 741.67 -40 Z"
             fill="#E86132"
           />
           <path
-            d="M846.67 -40 C836.43 306.67 894.61 653.33 1312.14 1000 L1454.62 1000 C888.15 653.33 858.33 306.67 858.33 -40 Z"
+            d="M846.67 -40 C846.67 306.67 894.61 653.33 1312.14 1000 L1454.62 1000 C888.15 653.33 858.33 306.67 858.33 -40 Z"
             fill="#E86132"
           />
           <path
-            d="M765 -40 C779.88 306.67 712.24 653.33 426.79 1000 L287.86 1000 C705.39 653.33 763.57 306.67 753.33 -40 Z"
+            d="M765 -40 C765 306.67 712.24 653.33 426.79 1000 L287.86 1000 C705.39 653.33 753.33 306.67 753.33 -40 Z"
             fill="#D11F3A"
           />
           <path
-            d="M835 -40 C820.12 306.67 887.76 653.33 1173.21 1000 L1312.14 1000 C894.61 653.33 836.43 306.67 846.67 -40 Z"
+            d="M835 -40 C835 306.67 887.76 653.33 1173.21 1000 L1312.14 1000 C894.61 653.33 846.67 306.67 846.67 -40 Z"
             fill="#D11F3A"
           />
           <path
-            d="M776.67 -40 C790.9 306.67 731.61 653.33 561.08 1000 L426.79 1000 C712.24 653.33 779.88 306.67 765 -40 Z"
+            d="M776.67 -40 C776.67 306.67 731.61 653.33 561.08 1000 L426.79 1000 C712.24 653.33 765 306.67 765 -40 Z"
             fill="#345587"
           />
           <path
-            d="M823.33 -40 C809.1 306.67 868.39 653.33 1038.92 1000 L1173.21 1000 C887.76 653.33 820.12 306.67 835 -40 Z"
+            d="M823.33 -40 C823.33 306.67 868.39 653.33 1038.92 1000 L1173.21 1000 C887.76 653.33 835 306.67 835 -40 Z"
             fill="#345587"
           />
           <path
-            d="M788.33 -40 C797.12 306.67 762.19 653.33 688.54 1000 L561.08 1000 C731.61 653.33 790.9 306.67 776.67 -40 Z"
+            d="M788.33 -40 C788.33 306.67 762.19 653.33 688.54 1000 L561.08 1000 C731.61 653.33 776.67 306.67 776.67 -40 Z"
             fill="#D9A83E"
           />
           <path
-            d="M811.67 -40 C802.88 306.67 837.81 653.33 911.46 1000 L1038.92 1000 C868.39 653.33 809.1 306.67 823.33 -40 Z"
+            d="M811.67 -40 C811.67 306.67 837.81 653.33 911.46 1000 L1038.92 1000 C868.39 653.33 823.33 306.67 823.33 -40 Z"
             fill="#D9A83E"
           />
           <path
-            d="M800 -40 C800 306.67 800 653.33 800 1000 L688.54 1000 C762.19 653.33 797.12 306.67 788.33 -40 Z"
+            d="M800 -40 C800 306.67 800 653.33 800 1000 L688.54 1000 C762.19 653.33 788.33 306.67 788.33 -40 Z"
             fill="#F1F1EE"
           />
           <path
-            d="M800 -40 C800 306.67 800 653.33 800 1000 L911.46 1000 C837.81 653.33 802.88 306.67 811.67 -40 Z"
+            d="M800 -40 C800 306.67 800 653.33 800 1000 L911.46 1000 C837.81 653.33 811.67 306.67 811.67 -40 Z"
             fill="#F1F1EE"
           />
         </svg>
+
+        <!-- The light point's bloom, halo and rays. Positioned by hero.ts at the
+             projected hotspot — the point where the terminator's chord-midpoint
+             normal crosses the silhouette (REFLECTIVE-COVER.md line 60). It is a
+             DOM layer rather than a second three.js shell because an additive
+             sphere raises the transparent canvas's alpha and blacks out whatever
+             is behind it. -->
+        <div class="limb-flare" aria-hidden="true">
+          <i class="flare-rays"></i>
+        </div>
 
         <!-- TYPE.md §1.1: a zero-size flex box centred on the globe's projected
              centre, so the word stays centred on the planet at any size with no

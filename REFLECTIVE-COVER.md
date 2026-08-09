@@ -22,23 +22,7 @@ Every measurement below is a multiple of `earthPx` (`px` for short).
 
 ---
 
-## 2. The arc
-
-A 150° arc centred on the globe, sitting on a squashed circle so it reads as a
-ring seen at a shallow angle.
-
-```
-R      = px * 1.18            // panel radius
-squash = 0.5                  // scaleY on the whole wrap — the perspective
-span   = 150°,  start = −75°  // symmetric about vertical
-wrap   : left earthCx%, top earthCy%, margin-top px*0.10, transform scaleY(0.5)
-```
-
-The wrap is a zero-size anchor (`width:0;height:0`) — every child positions
-itself by `rotate(a) translateY(−R)`, so the arc stays perfectly concentric no
-matter the size.
-
-### 2.2 The sheen — what makes it reflective
+### 2 The sheen — what makes it reflective
 
 Inside each segment, a full-bleed child sweeps across:
 
@@ -73,7 +57,7 @@ Three things make this read as reflection rather than as a shine effect:
 
 Never raise the frequency or shorten the dead time. If the arc looks busy, the
 component has failed.
-
+4. **Concentrate light point** Borrow the idea of Starfield opening, which can be described as A bright light source is partially occluded by the planet, sitting almost exactly tangent to the planetary silhouette. Only a small portion of the source is visible, producing an intense white-hot hotspot at the limb, surrounded by bloom, a soft hale, radial light rays, and subtle lens flare. The location computes by set the border of shadow on Mars, get its middle point, which can be computed with the intersecting two points of sihouette, draw a line and get the mid point. Find the normal vector direction, the vector cross with the silhouette is the location of the light point.
 ---
 
 ## 4. Stacking

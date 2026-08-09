@@ -52,7 +52,15 @@ function heroBoundary(
   const cx = W / 2;
   const top = cx - GAP * k;
   const bottom = cx - cx * Math.pow(k / N, P);
-  const p1 = -0.11 + 0.022 * k; // negative hold: the trail leaves vertical
+  // p1 is the FIRST control value, so B'(0) = 3*p1 sets the tangent at the top.
+  // STRIPE.md §A.2 gives p1 = -0.11 + 0.022k, but its own prose says "near the
+  // top every trail is almost vertical (dx/dy ~ 0)" — and a non-zero p1 makes
+  // dx/dy non-zero there, so adjacent boundaries diverge LINEARLY in u and the
+  // bundle visibly fans out at the top. p1 = 0 is what the prose actually
+  // describes: every boundary leaves the top edge vertical, so the gap between
+  // neighbours changes only quadratically and the four middle bands read as
+  // parallel. The flare is unchanged — p2 still owns it.
+  const p1 = 0;
   const p2 = 0.315 - 0.053 * k; // late release into the flare
   const y = (u: number) => u * (H + OV) - OV; // u=0 at y=−OV, u=1 at y=H
   const x = (b: number) => top + (bottom - top) * b;

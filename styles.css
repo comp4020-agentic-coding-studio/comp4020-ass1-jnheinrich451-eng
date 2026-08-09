@@ -26,37 +26,30 @@ body {
   font-family: "Space Grotesk", system-ui, sans-serif;
 }
 
-nav {
+/* Visually hidden until focused — the landmark and the keyboard route survive
+   without a bar across the hero. Not display:none: that would take it out of the
+   focus order and defeat the point. */
+.skip-link {
   position: fixed;
-  inset: 0 0 auto;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.25rem 1.75rem;
-  font-family: "Space Grotesk", sans-serif;
+  top: 0;
+  left: 50%;
+  z-index: 20;
+  padding: 0.75em 1.25em;
+  transform: translate(-50%, -120%);
+  border: 1px solid rgb(255 255 255 / 45%);
+  background: #04050a;
+  color: var(--ink);
+  font-family: "IBM Plex Mono", monospace;
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-}
-
-nav a {
-  color: var(--ink);
   text-decoration: none;
-  opacity: 0.75;
-  transition: opacity 0.2s ease;
+  transition: transform 0.18s ease;
 }
 
-nav a:hover,
-nav a:focus-visible {
-  opacity: 1;
-}
-
-nav a.brand {
-  opacity: 1;
-  font-weight: 700;
-  letter-spacing: 0.18em;
+.skip-link:focus-visible {
+  transform: translate(-50%, 0);
 }
 
 main {
@@ -106,6 +99,62 @@ section {
    to the base-field opacity in §B.1. */
 .deco-fan-landed {
   opacity: 0.3;
+}
+
+/* The concentrated light point at the limb. Glow here marks a live emitter,
+   which CLAUDE.md §3 permits explicitly — it is the one licensed exception to
+   "no glow as decoration" and to background gradients. */
+.limb-flare {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+
+  /* Three concentric falloffs from one origin: white-hot core, bloom, wide
+     halo. Radii scale with the globe so the flare never detaches from it. */
+  background:
+    radial-gradient(
+      circle var(--core, 26px) at var(--hot-x, 50%) var(--hot-y, 50%),
+      rgb(255 255 255 / 95%) 0%,
+      rgb(233 243 255 / 55%) 45%,
+      transparent 100%
+    ),
+    radial-gradient(
+      circle var(--bloom, 120px) at var(--hot-x, 50%) var(--hot-y, 50%),
+      rgb(214 232 255 / 42%) 0%,
+      rgb(170 200 255 / 12%) 45%,
+      transparent 100%
+    ),
+    radial-gradient(
+      circle var(--halo, 300px) at var(--hot-x, 50%) var(--hot-y, 50%),
+      rgb(150 185 255 / 16%) 0%,
+      transparent 100%
+    );
+}
+
+/* Radial rays. Masked to a narrow annulus so the starburst reads as light
+   scattering rather than a pinwheel. */
+.flare-rays {
+  position: absolute;
+  top: var(--hot-y, 50%);
+  left: var(--hot-x, 50%);
+  width: calc(var(--halo, 300px) * 2);
+  height: calc(var(--halo, 300px) * 2);
+  transform: translate(-50%, -50%);
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgb(255 255 255 / 13%) 0deg 1.2deg,
+    transparent 1.2deg 11deg
+  );
+  mask-image: radial-gradient(
+    circle,
+    transparent 7%,
+    rgb(0 0 0 / 32%) 22%,
+    transparent 55%
+  );
 }
 
 /* §A.6 (3) vignette and (4) scanlines: what keeps the title readable over a
@@ -198,7 +247,9 @@ section {
 .enter-observatory {
   position: absolute;
   left: 50%;
-  bottom: 8%;
+
+  /* 1/28 of the hero height, measured from the bottom edge. */
+  bottom: calc(100% / 28);
   z-index: 6;
   transform: translateX(-50%);
   padding: 0.85em 1.6em;
@@ -296,7 +347,6 @@ section {
 
 @media (width <= 600px) {
   .enter-observatory {
-    bottom: 6%;
     padding: 0.7em 1.1em;
     font-size: 10px;
   }

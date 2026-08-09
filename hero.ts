@@ -138,6 +138,7 @@ function buildLimbGlow(radius: number): {
   const material = new THREE.ShaderMaterial({
     uniforms: {
       uLightDir: { value: new THREE.Vector3(1, 0, 0) },
+      uViewAxis: { value: new THREE.Vector3(0, 0, 1) },
       uLimb: { value: new THREE.Color(0xdce9ff) }, // cool blue-white
       uHot: { value: new THREE.Color(0xffffff) },
     },
@@ -153,6 +154,7 @@ function buildLimbGlow(radius: number): {
     `,
     fragmentShader: `
       uniform vec3 uLightDir;
+      uniform vec3 uViewAxis;
       uniform vec3 uLimb;
       uniform vec3 uHot;
       varying vec3 vNormalW;
@@ -162,9 +164,25 @@ function buildLimbGlow(radius: number): {
         // washing the whole disc — the reference's highlight is a hard edge.
         float edge = pow(1.0 - max(dot(vNormalW, vViewW), 0.0), 12.0);
         float lit = max(dot(vNormalW, uLightDir), 0.0);
-        float i = edge * (0.05 + 2.1 * pow(lit, 1.5));
-        gl_FragColor = vec4(mix(uLimb, uHot, clamp(lit * 1.2, 0.0, 1.0)),
-                            clamp(i, 0.0, 1.0));
+
+        // The concentrated light point, per REFLECTIVE-COVER.md line 60. The
+        // terminator meets the silhouette where N is perpendicular to BOTH the
+        // light and the view, i.e. at N = ±(L×V)/|L×V| — two points. Their chord
+        // is centred on the globe centre, and the normal to that chord taken
+        // inside the silhouette plane is V×(L×V) = L − V(V·L): the light
+        // direction projected onto the screen plane. So the hotspot normal is
+        // that vector, in closed form — no iteration, no marching the limb.
+        vec3 nHot = normalize(uLightDir - uViewAxis * dot(uViewAxis, uLightDir));
+        float aim = max(dot(vNormalW, nHot), 0.0);
+
+        // White-hot core, then a wider bloom around it: "only a small portion of
+        // the source is visible", so the core is far tighter than the bloom.
+        float core = pow(aim, 96.0);
+        float bloom = pow(aim, 10.0);
+
+        float i = edge * (0.05 + 1.5 * pow(lit, 1.5) + 7.0 * core + 1.1 * bloom);
+        vec3 tint = mix(uLimb, uHot, clamp(lit * 1.2 + core * 2.0, 0.0, 1.0));
+        gl_FragColor = vec4(tint, clamp(i, 0.0, 1.0));
       }
     `,
     transparent: true,
@@ -203,9 +221,9 @@ export function initHero(): void {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  // Pulled back from 1.1: the albedo is inherently orange and a hot exposure
-  // pushed the whole hero warm, against the black/blue/purple/white theme.
-  renderer.toneMappingExposure = 0.92;
+  // 0.92 was a correction for a warm cast that turned out to be the monitor,
+  // not the render, so it is back up — 1.15 to lift Mars overall.
+  renderer.toneMappingExposure = 1.15;
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
@@ -213,8 +231,8 @@ export function initHero(): void {
   // Theme is black, blue, purple, white (CLAUDE.md §3) — the fan is the only
   // permitted warm note. A warm cream sun over a purple ambient made the whole
   // hero read orange, so the sun is now cool white and the fill is blue-purple.
-  scene.add(new THREE.AmbientLight(0x2a2350, 0.75));
-  const sun = new THREE.DirectionalLight(0xdce7ff, 3.0);
+  scene.add(new THREE.AmbientLight(0x3b3468, 1.05));
+  const sun = new THREE.DirectionalLight(0xdce7ff, 3.7);
   scene.add(sun);
 
   // The sun sweeps a narrow arc rather than a full orbit. A full orbit put Mars
@@ -224,8 +242,11 @@ export function initHero(): void {
   const SUN_ANGLE = -1.05; // radians from straight-behind-camera (~60 deg left)
   const SUN_SWING = 0.28;
   const SUN_DISTANCE = 6;
+  // 6.3e-5, a 5% lift on the 6e-5 it swept at before — the shadow crosses the
+  // face that much quicker.
+  const SUN_RATE = 0.000063;
   function placeSun(time: number): void {
-    const angle = SUN_ANGLE + Math.sin(time * 0.00006) * SUN_SWING;
+    const angle = SUN_ANGLE + Math.sin(time * SUN_RATE) * SUN_SWING;
     sun.position.set(
       Math.sin(angle) * SUN_DISTANCE,
       2,
@@ -237,17 +258,61 @@ export function initHero(): void {
   const marsGroup = new THREE.Group();
   scene.add(marsGroup);
   let marsMesh: THREE.Object3D | null = null;
+  // The GLB is scaled so its LONGEST axis spans MARS_RADIUS*2, so if the model is
+  // not perfectly spherical its actual radius is slightly under MARS_RADIUS.
+  // Measured after load, because projecting the flare and sizing the title from
+  // the nominal radius put both a hair outside the real silhouette — visible as
+  // a doubled hotspot, the CSS core beside the shader's.
+  let marsWorldRadius = MARS_RADIUS;
 
   const limbGlow = buildLimbGlow(MARS_RADIUS);
   const title = document.getElementById("hero-title");
+  const flare = heroSection.querySelector<HTMLElement>(".limb-flare");
 
 
   // The shell's highlight has to follow the sun as it orbits, or the lit limb
   // and the shaded surface drift apart.
-  function syncLightDir(): void {
-    limbGlow.material.uniforms.uLightDir.value
-      .copy(sun.position)
+  // The light-point normal, in closed form: L − V(V·L). See REFLECTIVE-COVER.md
+  // line 60 — this is where the terminator's chord midpoint normal crosses the
+  // silhouette.
+  function nHot(light: THREE.Vector3, axis: THREE.Vector3): THREE.Vector3 {
+    return light
+      .clone()
+      .addScaledVector(axis, -axis.dot(light))
       .normalize();
+  }
+
+  // The bloom, halo and rays that spill OUTSIDE the silhouette are a DOM layer,
+  // not a second three.js shell. A larger additive sphere raises the alpha of a
+  // transparent canvas wherever it draws, and the canvas is transparent so the
+  // fan can show through it — the result was an opaque dark crescent swallowing
+  // the stars, not a glow. Projecting the hotspot to screen space and glowing
+  // there composites correctly over every layer.
+  function placeFlare(normal: THREE.Vector3): void {
+    // Re-guarded because TypeScript cannot carry the entry check into a closure.
+    if (!(flare instanceof HTMLElement)) return;
+    if (!(heroSection instanceof HTMLElement)) return;
+    const { clientWidth: w, clientHeight: h } = heroSection;
+    if (!w || !h) return;
+    const point = normal.clone().multiplyScalar(marsWorldRadius).project(camera);
+    flare.style.setProperty("--hot-x", `${((point.x + 1) / 2) * w}px`);
+    flare.style.setProperty("--hot-y", `${((1 - point.y) / 2) * h}px`);
+    const px = Number.parseFloat(
+      heroSection.style.getPropertyValue("--mars-px") || "190",
+    );
+    flare.style.setProperty("--core", `${px * 0.075}px`);
+    flare.style.setProperty("--bloom", `${px * 0.34}px`);
+    flare.style.setProperty("--halo", `${px * 0.8}px`);
+  }
+
+  function syncLightDir(): void {
+    const dir = sun.position.clone().normalize();
+    // Camera looks at the origin, so its forward axis is just its normalised
+    // position. Both shells need it to project the light onto the screen plane.
+    const axis = camera.position.clone().normalize();
+    limbGlow.material.uniforms.uLightDir.value.copy(dir);
+    limbGlow.material.uniforms.uViewAxis.value.copy(axis);
+    placeFlare(nHot(dir, axis));
   }
 
   const { points: stars, material: starMaterial } = buildStarfield();
@@ -257,7 +322,7 @@ export function initHero(): void {
     if (!(heroSection instanceof HTMLElement)) return;
     const { clientWidth: w, clientHeight: h } = heroSection;
     if (!w || !h) return;
-    const edge = new THREE.Vector3(MARS_RADIUS, 0, 0).project(camera);
+    const edge = new THREE.Vector3(marsWorldRadius, 0, 0).project(camera);
     const centre = new THREE.Vector3(0, 0, 0).project(camera);
     const px = Math.abs(edge.x - centre.x) * 0.5 * w;
     heroSection.style.setProperty("--mars-px", `${Math.max(60, px)}px`);
@@ -314,6 +379,14 @@ export function initHero(): void {
       const scale = (MARS_RADIUS * 2) / Math.max(size.x, size.y, size.z);
       model.scale.setScalar(scale);
       model.position.sub(centre.multiplyScalar(scale));
+      // Mean half-extent in the screen plane — that is what the silhouette
+      // radius actually is. NOT Box3.getBoundingSphere(), which returns the
+      // sphere CIRCUMSCRIBING the box (a factor of sqrt(3) too big for a cube)
+      // and inflated both the title and the flare position by ~73%.
+      const scaled = new THREE.Box3().setFromObject(model).getSize(
+        new THREE.Vector3(),
+      );
+      marsWorldRadius = (scaled.x + scaled.y) / 4 || MARS_RADIUS;
       marsGroup.add(model);
       marsGroup.add(limbGlow.mesh);
       marsMesh = model;
