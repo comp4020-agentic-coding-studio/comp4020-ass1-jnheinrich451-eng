@@ -21,6 +21,9 @@ Wrote the skill: when to append, the entry format above, and the conditional
 asks for three or four moments, and that curation silently discards everything
 not chosen, including corrections worth remembering.
 
+**Commit:** none — the skill was written under a gitignored path, so the turn
+left nothing in version control.
+
 ## 2026-08-10 00:30 — Making the skill invocable
 
 **Prompt:**
@@ -39,6 +42,9 @@ the literal path asked for without checking the discovery rule, so it existed
 but could not be invoked. Consequence to note: `.gitignore` line 22 is
 `.claude/`, so the file is local tooling and won't appear in the graded repo.
 
+**Commit:** none — the skill was written under a gitignored path, so the turn
+left nothing in version control.
+
 ## 2026-08-10 00:38 — Two fan geometries; hero was shipping page 2's
 
 **Prompt:**
@@ -54,7 +60,7 @@ but could not be invoked. Consequence to note: `.gitignore` line 22 is
 > will define art style, aesthetic view, layout. Please record it after
 > completion, I cannot use the skill in this message.
 
-**Result:** [`c8f832d`](../../commit/c8f832d)
+**Result:**
 
 - `fan.ts` gains `heroTrails()` (§A) beside `fanBands()` (§B). Hero: 12 mirrored
   paths, full opacity on `#000`. Observatory: §B's V unflipped, wide edge at the
@@ -89,6 +95,8 @@ instruction here. This repo's own `CLAUDE.md` is unchanged and names no stack;
 this repo remains plain Vite/TS. The user is rewriting this repo's `CLAUDE.md`
 to carry art direction, aesthetic and layout.
 
+**Commit:** [`c8f832d`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/c8f832d)
+
 ## 2026-08-10 00:58 — Title scale, 1R limb glow, whiter starfield
 
 **Prompt:**
@@ -106,7 +114,7 @@ to carry art direction, aesthetic and layout.
 > variation. Overall it is good. Lets see the modification, if not ideal, then I
 > will add more instructions.
 
-**Result:** [`4330298`](../../commit/4330298)
+**Result:**
 
 - **Title** — `fitTitle()` sizes it by *measuring* rather than by a font ratio:
   100px probe, read `scrollWidth`, discount the trailing letter-space (not ink),
@@ -143,6 +151,8 @@ Both are the same class of bug: time- or viewport-dependent state that a static
 read of the diff cannot show. Screenshotting *both* marking viewports is not a
 final check, it is the only way these surface.
 
+**Commit:** [`4330298`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/4330298)
+
 ## 2026-08-10 01:30 — TYPE.md / STARFIELD.md / theme; reflective cover built then dropped
 
 **Prompt:**
@@ -158,7 +168,7 @@ Then, three times mid-turn: *"Pls ignore the lens part!"* → *"Please ignore th
 THE UNIVERSE ARE ... OUR INSTRUMENTS. I deleted in the REFLECTIVE-COVER.md."* →
 *"No, ingnore the panels as well"*
 
-**Result:** [`a4edc4f`](../../commit/a4edc4f), [`bce04a9`](../../commit/bce04a9)
+**Result:**
 
 - **Theme** — the warmth was the *lighting*, not the fan. A cream sun over a
   purple ambient at exposure 1.1 pushed the whole hero orange. Sun is now cool
@@ -209,6 +219,8 @@ The tests stayed green throughout, because they assert markup and generator
 output, not layout. Green checks did not mean the page was intact; the
 screenshot did.
 
+**Commit:** [`a4edc4f`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/a4edc4f), [`bce04a9`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/bce04a9)
+
 ## 2026-08-10 01:56 — Parallel top bands, no top bar, lower CTA, concentrated light point
 
 **Prompt:**
@@ -226,7 +238,7 @@ screenshot did.
 > cross with the sheen sihouette becomes brighter. The details I updated in
 > REFLECTIVE-COVER.md line 60.
 
-**Result:** [`a59193b`](../../commit/a59193b)
+**Result:**
 
 - **Top bar** — could not simply be deleted: `spec/invariants.test.ts` requires a
   navigation landmark on every page, and removing it would also take the only
@@ -271,6 +283,8 @@ Two bugs the screenshots caught that the diff and the tests could not:
    scaled GLB, so the flare sat a hair outside the limb and showed as a doubled
    core — a real bug, just not the one my first fix introduced.
 
+**Commit:** [`a59193b`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/a59193b)
+
 ## 2026-08-10 02:20 — Pure-dark shadow, full orbit, 5px flare outset, constant band width
 
 **Prompt:**
@@ -285,7 +299,7 @@ Two bugs the screenshots caught that the diff and the tests could not:
 > Pls find the STRIPE.md line 89 to 97. Make them parallel, and thickness remains
 > the same.
 
-**Result:** [`57a17e4`](../../commit/57a17e4)
+**Result:**
 
 - **Constant top thickness** — derived rather than tuned. With
   `x_k(u) = top_k + D_k·B(u)` and uniform top spacing, `gap(u) = GAP + ΔD_k·B(u)`,
@@ -321,6 +335,8 @@ keeping.
    screenshot. Sampling the ~91 s cycle at intervals had already missed that
    phase four times in a row. Cheaper to solve for the moment than to poll for it.
 
+**Commit:** [`57a17e4`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/57a17e4)
+
 ## 2026-08-10 02:48 — Title to the limb rule and vertically stretched; CTA per CTA.md
 
 **Prompt:**
@@ -335,7 +351,7 @@ keeping.
 > slowly from dark but pure dark, to the setting you are applying. […] even
 > darkest, can see through the background. I added a file CTA.md
 
-**Result:** [`383b9bb`](../../commit/383b9bb)
+**Result:**
 
 - **Title** — the sizing rule is now geometric rather than a fudge factor.
   Because the title is centred on the globe centre, at the title's own vertical
@@ -380,6 +396,8 @@ title that already animates `translateY` means restating the scale in **every**
 keyframe. A keyframe that sets only `translateY` silently drops the stretch for
 that part of the cycle.
 
+**Commit:** [`383b9bb`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/383b9bb)
+
 ## 2026-08-10 02:05 — Widening the title, slowing the terminator
 
 **Prompt:**
@@ -421,7 +439,7 @@ last load. Confirmed by grepping the source (neither symbol exists) and by the
 screenshots showing the textured GLB, not the fallback sphere. **A red line in
 that buffer is not necessarily a red line now.**
 
-Commit: [`512175b`](../../commit/512175b3d42d14fe96be75064f5cf713f86b62f1)
+**Commit:** [`512175b`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/512175b)
 
 ## 2026-08-10 03:15 — The hot spot, rebuilt from HOTSPOT.md
 
@@ -478,7 +496,7 @@ Verified at the pure-dark phase — the one the user said still needed testing.
 That phase turns out to be the effect's best case: a star cresting a black limb,
 with the composite carrying the entire frame.
 
-Commit: [`a61a470`](../../commit/a61a470)
+**Commit:** [`a61a470`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/a61a470)
 
 ## 2026-08-10 03:20 — Tangent streak, wider trajectory
 
@@ -520,7 +538,7 @@ Verified at two sun phases ~35s apart rather than one — a fixed angle and a
 tracking angle look identical in any single frame taken near the original
 position, which is exactly how this survived the first review.
 
-Commit: [`9c44903`](../../commit/9c44903)
+**Commit:** [`9c44903`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/9c44903)
 
 ## 2026-08-10 03:30 — The CTA wings
 
@@ -564,7 +582,7 @@ edge, gutters 10 both sides.
    instead of silently disabling rules. Both times the cause was editing comment
    *delimiters* with a text replacement rather than the rules around them.
 
-Commit: [`806696d`](../../commit/806696d)
+**Commit:** [`806696d`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/806696d)
 
 ## 2026-08-10 03:50 — Phase-driven hot spot
 
@@ -613,7 +631,7 @@ Verified across a full orbit rather than one frame, which is now the standing
 rule for anything phase-dependent: at low phase a dark disc with a razor rim and
 a long streak, at high phase a compact bright core with the streak collapsed.
 
-Commit: [`2a5f7f6`](../../commit/2a5f7f6)
+**Commit:** [`2a5f7f6`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/2a5f7f6)
 
 ## 2026-08-10 04:05 — The glitch reveal, on real archive data
 
@@ -670,7 +688,7 @@ never have overridden `.cta-hover #glitch-c1`. stylelint's
 it named, turned up the real bug behind it — the reset was inert. That is twice
 now that a lint rule has pointed at something worse than the thing it reported.
 
-Commit: [`41d1ced`](../../commit/41d1ced)
+**Commit:** [`41d1ced`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/41d1ced)
 
 ## 2026-08-10 04:25 — Azimuth, 0.5 scale, inverted flare
 
@@ -716,7 +734,7 @@ star, rim, hotspot and phase all keep reading the true direction.
    Reported both, with the option that would work — constraining the sun's
    orbit — rather than quietly shipping 90° and letting the expectation stand.
 
-Commit: [`cff2d2e`](../../commit/cff2d2e)
+**Commit:** [`cff2d2e`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/cff2d2e)
 
 ## 2026-08-10 04:50 — The scout crossings
 
@@ -771,7 +789,7 @@ specifies and the percentages are how it happens to be spelled.
    `getAnimations()[0].currentTime = 12000` plus `pause()` is exact: the
    transform then read 390.27px against a hand-computed 390.
 
-Commit: [`3a11398`](../../commit/3a11398)
+**Commit:** [`3a11398`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/3a11398)
 
 ## 2026-08-10 05:00 — Correcting SCOUT-SHIP.md §4
 
@@ -795,7 +813,7 @@ have "fixed" it by adding a mask and quietly destroyed the contrast between the
 two passes. The spec docs are harness, so a stale reason in one is a trap laid
 for the next change, not just an inaccuracy.
 
-Commit: [`6a33ac8`](../../commit/6a33ac8)
+**Commit:** [`6a33ac8`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/6a33ac8)
 
 ## 2026-08-10 05:30 — Three scaling bugs, and a new rule in CLAUDE.md
 
@@ -849,7 +867,7 @@ Also worth stating plainly to the user: the glitch blocks were not vanishing on
 the phone because they were off-screen. I had hidden them under 600px in an
 earlier turn, and said so at the time. That call is now superseded.
 
-Commit: [`dc18440`](../../commit/dc18440)
+**Commit:** [`dc18440`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/dc18440)
 
 ## 2026-08-10 06:05 — The silhouette, and one bug behind two symptoms
 
@@ -897,4 +915,4 @@ radius. So both objects whose entire job is to touch the outline were anchored
    unsolved" is exactly right, and I should have reached for it after the second
    bad measurement, not the fourth.
 
-Commit: [`5e48816`](../../commit/5e48816)
+**Commit:** [`5e48816`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/5e48816)
