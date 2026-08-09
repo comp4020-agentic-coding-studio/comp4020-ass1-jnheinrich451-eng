@@ -772,3 +772,27 @@ specifies and the percentages are how it happens to be spelled.
    transform then read 390.27px against a hand-computed 390.
 
 Commit: [`3a11398`](../../commit/3a11398)
+
+## 2026-08-10 05:00 — Correcting SCOUT-SHIP.md §4
+
+**Prompt:**
+
+> Ty, and pls change the SCOUT-SHIP.md about the section you pointed out
+
+**Result:**
+Rewrote §4's closing claim. It read "The upper route needs no mask; it clears the
+globe" — true instruction, false reason. Now it says the upper pass *does* cross
+the disc at this scale and crosses in front, that the over-the-world versus
+behind-it contrast is what makes the second crossing a different event, and that
+masking it would throw that away. Phrased so it holds either way if the globe's
+size ever changes.
+
+**What happened:** worth recording why this one mattered enough to fix. A right
+instruction resting on a wrong reason is more dangerous than a wrong instruction,
+because it survives review — the behaviour looks correct, so nobody checks the
+justification, and the first person to notice the upper trail crossing Mars would
+have "fixed" it by adding a mask and quietly destroyed the contrast between the
+two passes. The spec docs are harness, so a stale reason in one is a trap laid
+for the next change, not just an inaccuracy.
+
+Commit: [`6a33ac8`](../../commit/6a33ac8)
