@@ -671,3 +671,49 @@ it named, turned up the real bug behind it — the reset was inert. That is twic
 now that a lint rule has pointed at something worse than the thing it reported.
 
 Commit: [`41d1ced`](../../commit/41d1ced)
+
+## 2026-08-10 04:25 — Azimuth, 0.5 scale, inverted flare
+
+**Prompt:**
+
+> I have checked in your progress, cannot pick an error. This part is solved! And
+> we back to the HOTSPOT.md. This time, I modified the .md, it aligns with my
+> design now. And first instruction, nudge the hotspot outside 10px again! And I
+> added an Azimuth, now it will have a vertical light bar! And for the scale, I
+> request you to shrink it, the length is ridiculous. Lets scale the whole
+> hotspot to 0.5 for this run
+
+**Result:**
+`FLARE_OUTSET` 16 → 26. `SCALE` 0.5 applied to `U`, the unit every size in
+`hotspot.ts` derives from, so halo, streak, spikes and core shrink together and
+no proportion in §3 changes — a zoom, not a retune. `I` picked up the doc's new
+inverted form, which is the previous turn's flagged conflict resolved in the
+prompt's favour. Azimuth rotates the shading light about the view axis while the
+star, rim, hotspot and phase all keep reading the true direction.
+
+**What happened:** one pleasing result, one thing I could not deliver.
+
+1. **Phase is exactly invariant under azimuth, not approximately.** A rotation
+   about an axis preserves every vector's component along that axis, and phase is
+   `(1 + axis·dir)/2` — so rolling the light about the *view* axis cannot change
+   how wide the shadow is, only where it lies. §3.7 claims that separation as a
+   design intent; rotating about that particular axis makes it an identity. Worth
+   noticing when a spec's stated separation can be made exact instead of merely
+   arranged.
+2. **Azimuth cannot pin the boundary vertical, and I only found that by
+   capturing a cycle.** The prompt expected "a vertical light bar". The sun runs
+   a full orbit, so the terminator already sweeps every orientation each ~93.5s;
+   azimuth *offsets* that sweep relative to the star rather than fixing it.
+   Captured at 90°: horizontal at high phase, diagonal at low phase. My first
+   instinct was to reason it out from the orbit geometry, and that reasoning gave
+   me a confident wrong answer twice — once that 90° would make it vertical, then
+   that 90° would make it vertical *at the dramatic phase*. The screenshots
+   settled it both times. **A time-varying effect cannot be reasoned about from
+   one frame's geometry; sample the cycle.**
+
+   Also worth saying plainly: one directional light gives one boundary, so
+   azimuth rolls that boundary and cannot produce a separate bar of light.
+   Reported both, with the option that would work — constraining the sun's
+   orbit — rather than quietly shipping 90° and letting the expectation stand.
+
+Commit: [`cff2d2e`](../../commit/cff2d2e)
