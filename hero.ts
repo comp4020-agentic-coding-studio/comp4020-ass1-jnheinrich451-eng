@@ -23,6 +23,11 @@ const TITLE_OVERHANG = 1.08;
 // makes the outermost letters land on the limb rather than just inside it.
 const TITLE_LETTER_SPACING_EM = 0.08;
 
+// How far outside the silhouette the light point sits, in CSS px. The source is
+// occluded by the planet and only tangent to it, so it is never exactly on the
+// limb.
+const FLARE_OUTSET = 5;
+
 function clamp(min: number, max: number, value: number): number {
   return Math.min(max, Math.max(min, value));
 }
@@ -180,7 +185,12 @@ function buildLimbGlow(radius: number): {
         float core = pow(aim, 96.0);
         float bloom = pow(aim, 10.0);
 
-        float i = edge * (0.05 + 1.5 * pow(lit, 1.5) + 7.0 * core + 1.1 * bloom);
+        // No constant term: a base like 0.05 painted the whole limb including
+        // the night side, which is exactly the grey halo the pure-dark shadow
+        // must not have. Everything here is gated on the surface being lit, so
+        // the dark limb falls to black with nothing on it.
+        float visible = smoothstep(0.0, 0.04, lit);
+        float i = visible * edge * (1.5 * pow(lit, 1.5) + 4.0 * core + 1.1 * bloom);
         vec3 tint = mix(uLimb, uHot, clamp(lit * 1.2 + core * 2.0, 0.0, 1.0));
         gl_FragColor = vec4(tint, clamp(i, 0.0, 1.0));
       }
@@ -228,25 +238,24 @@ export function initHero(): void {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
 
-  // Theme is black, blue, purple, white (CLAUDE.md §3) — the fan is the only
-  // permitted warm note. A warm cream sun over a purple ambient made the whole
-  // hero read orange, so the sun is now cool white and the fill is blue-purple.
-  scene.add(new THREE.AmbientLight(0x3b3468, 1.05));
+  // NO ambient light. Any fill lifts the night side off black, and the shadow is
+  // meant to be pure dark — the terminator reads as a hard edge into nothing,
+  // which is the whole aesthetic. The sun is the only light in the scene.
   const sun = new THREE.DirectionalLight(0xdce7ff, 3.7);
   scene.add(sun);
 
-  // The sun sweeps a narrow arc rather than a full orbit. A full orbit put Mars
-  // fully in shadow for half of every ~70s cycle, so the page could be caught
-  // dark; this range keeps it side-lit from the front-left at all times, which
-  // is also the reference's framing — a bright limb with a visible terminator.
-  const SUN_ANGLE = -1.05; // radians from straight-behind-camera (~60 deg left)
-  const SUN_SWING = 0.28;
+  // A full orbit, not the narrow arc it swept before. The arc existed to stop the
+  // planet ever being caught fully dark, but a complete phase cycle is what was
+  // asked for: Mars now runs lit -> crescent -> pure dark -> crescent, which is
+  // also the only way to check the hotspot against a fully dark disc. The
+  // trade-off is real and deliberate — for part of every cycle the planet is a
+  // black disc with only its light point showing.
   const SUN_DISTANCE = 6;
-  // 6.3e-5, a 5% lift on the 6e-5 it swept at before — the shadow crosses the
-  // face that much quicker.
-  const SUN_RATE = 0.000063;
+  // 6.93e-5: a 10% lift on 6.3e-5, so the terminator crosses the face that much
+  // quicker. Period is 2*pi/rate, about 91 s.
+  const SUN_RATE = 0.0000693;
   function placeSun(time: number): void {
-    const angle = SUN_ANGLE + Math.sin(time * SUN_RATE) * SUN_SWING;
+    const angle = time * SUN_RATE;
     sun.position.set(
       Math.sin(angle) * SUN_DISTANCE,
       2,
@@ -295,8 +304,23 @@ export function initHero(): void {
     const { clientWidth: w, clientHeight: h } = heroSection;
     if (!w || !h) return;
     const point = normal.clone().multiplyScalar(marsWorldRadius).project(camera);
-    flare.style.setProperty("--hot-x", `${((point.x + 1) / 2) * w}px`);
-    flare.style.setProperty("--hot-y", `${((1 - point.y) / 2) * h}px`);
+    const centre = new THREE.Vector3(0, 0, 0).project(camera);
+    let x = ((point.x + 1) / 2) * w;
+    let y = ((1 - point.y) / 2) * h;
+    const cxPx = ((centre.x + 1) / 2) * w;
+    const cyPx = ((1 - centre.y) / 2) * h;
+
+    // The source is BEHIND the planet and only tangent to it, so the visible
+    // sliver sits just outside the silhouette rather than on it. Push the point
+    // FLARE_OUTSET px radially outward from the projected globe centre.
+    const dx = x - cxPx;
+    const dy = y - cyPx;
+    const len = Math.hypot(dx, dy) || 1;
+    x += (dx / len) * FLARE_OUTSET;
+    y += (dy / len) * FLARE_OUTSET;
+
+    flare.style.setProperty("--hot-x", `${x}px`);
+    flare.style.setProperty("--hot-y", `${y}px`);
     const px = Number.parseFloat(
       heroSection.style.getPropertyValue("--mars-px") || "190",
     );

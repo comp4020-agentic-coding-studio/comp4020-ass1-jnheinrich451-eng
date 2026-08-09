@@ -68,6 +68,67 @@ describe("hero section", () => {
   // The whole point of two geometries sharing one anchor set: page 1's trails
   // must leave the bottom edge at exactly the x-values page 2's boundaries
   // enter the top edge at, or the seam visibly steps at every window width.
+  // STRIPE.md §A.2.1 states two checks explicitly. Encoding them means the top
+  // region can't quietly start expanding again the way it did when p1/p2 carried
+  // per-boundary easing.
+  describe("band geometry (STRIPE.md §A.2.1)", () => {
+    const W = 1600;
+    const H = 1000;
+    const N = 6;
+    const P = 1.1;
+    const GAP = 70 / 6;
+    const OV = 40;
+
+    // x of boundary k at viewBox y, straight from the shipped generator's maths.
+    const xAt = (k: number, y: number) => {
+      const cx = W / 2;
+      const top = cx - GAP * k;
+      const bottom = cx - cx * Math.pow(k / N, P);
+      const u = (y + OV) / (H + OV);
+      return top + (bottom - top) * u ** 3;
+    };
+    const widthAt = (band: number, y: number) => xAt(band, y) - xAt(band + 1, y);
+
+    it("holds band width constant across the top region", () => {
+      // Constant thickness means gap'(0) = gap''(0) = 0, so width must barely
+      // move over the top tenth of the page — not just at y = 0 exactly.
+      for (let band = 0; band < N; band++) {
+        for (const y of [0, 25, 50, 100]) {
+          expect(widthAt(band, y)).toBeCloseTo(GAP, 0);
+        }
+      }
+    });
+
+    it("keeps every band's top width uniform, whatever it does lower down", () => {
+      // Uniform to 2dp, not exactly: y = 0 is u = OV/(H+OV) = 0.0385, so the u^3
+      // term is already worth ~0.002 units of the 11.667 (0.02%). Zero to second
+      // order is the contract; zero outright would need OV = 0.
+      const tops = Array.from({ length: N }, (_, band) => widthAt(band, 0));
+      for (const width of tops) {
+        expect(width).toBeCloseTo(tops[0], 2);
+      }
+    });
+
+    // Check (1): about 1:9.5 innermost, 1:12.5 outermost — never 1:1, which is
+    // what a genuinely parallel-all-the-way "striped curtain" would give.
+    it("opens each band by its own ratio, top to bottom", () => {
+      const ratio = (band: number) => widthAt(band, H) / widthAt(band, 0);
+      expect(ratio(0)).toBeCloseTo(9.5, 0);
+      expect(ratio(N - 1)).toBeCloseTo(12.5, 0);
+      for (let band = 1; band < N; band++) {
+        expect(ratio(band)).toBeGreaterThan(ratio(band - 1));
+      }
+    });
+
+    // Check (2): narrow at the top, wide at the bottom — a fan that is wide at
+    // the top and closes downward is vertically flipped.
+    it("is narrow at the top and widest at the bottom edge", () => {
+      const span = (y: number) => xAt(0, y) - xAt(N, y);
+      expect(span(0)).toBeLessThan(span(H));
+      expect(span(H)).toBeCloseTo(W / 2, 1);
+    });
+  });
+
   it("matches the two fans at the page seam (STRIPE.md §A.4)", () => {
     const W = 1600;
     const H = 1000;

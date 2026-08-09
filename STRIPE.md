@@ -86,6 +86,16 @@ x_k(y) ≈ top_k + (bottom_k − top_k) · u^q_k ,   q_k = 2.23 + 0.12·k
 
 Slightly tighter near the top; visually close, ~1.5 units off at mid-height.
 
+### A.2.1 The boundaries are not parallel — and must not be
+
+The single most common reconstruction error is treating the trails as a parallel bundle that bends as a unit. They are not: top spacing is uniform, bottom spacing is a power law, and every boundary carries its own easing. Adjacent boundaries start 11.667 units apart at y = −40 and end anywhere from 111.46 (k=0→1) to 145.38 (k=5→6) apart at y = H — so band width is near-constant at the top and grows toward the outside at the bottom. On top of that, p1_k and p2_k shift with k, so the inner trails hold vertical longer than the outer ones; if you apply one shared easing curve to all six, the bands stay parallel and the whole thing reads as a striped curtain instead of a wake. 
+
+Two checks: 
+
+(1) measure band width at y = 0 and at y = H — the ratio should be about 1 : 9.5 for the innermost band and 1 : 12.5 for the outermost, never 1 : 1; 
+
+(2) confirm the fan is narrow at the top, wide at the bottom — the trails launch from the top-centre and open downward, so the widest point is the bottom edge, where the observatory's V picks them up. A reconstruction that is wide at the top and closes downward is vertically flipped.
+
 ### A.3 Band construction
 
 Band `k` (0 = centre white, 5 = outer maroon) is bounded by curves `k` and
