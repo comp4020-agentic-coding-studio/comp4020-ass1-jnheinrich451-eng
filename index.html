@@ -122,6 +122,30 @@
              rather than the doc's div+span with an onClick: that snippet is
              prototype markup (§6 even notes it omits focus styling), and an
              anchor is keyboard-reachable and works with JS off. -->
+        <!-- SCOUT-SHIP.md: two crossings, pure DOM. Each anchor is zero-size and
+             translates across the viewport; every visible layer hangs off it, so
+             the ship sits at x=0 and its trail extends backwards. The upper pass
+             runs right-to-left over the title and clears the globe. The lower
+             pass runs left-to-right and goes BEHIND the globe — not by
+             z-ordering, but because its wrapper carries a hole punched at the
+             globe's measured centre (§4). -->
+        <div class="scout scout-top" aria-hidden="true">
+          <i class="scout-glow"></i>
+          <i class="scout-core"></i>
+          <i class="scout-flash"></i>
+          <i class="scout-hull"></i>
+          <i class="scout-spark"></i>
+        </div>
+        <div class="scout-behind" aria-hidden="true">
+          <div class="scout scout-bot">
+            <i class="scout-glow"></i>
+            <i class="scout-core"></i>
+            <i class="scout-flash"></i>
+            <i class="scout-hull"></i>
+            <i class="scout-spark"></i>
+          </div>
+        </div>
+
         <!-- GLITCH.md §2: four code blocks, each a live read of the archive.
              Filled by glitch.ts — placeholders first, real rows when the JSON
              lands, never lorem. aria-hidden because they are a texture of the

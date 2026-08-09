@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { createHotspot } from "./hotspot";
+import { placeScoutRoutes } from "./scouts";
 
 // new URL(..., import.meta.url) lets Vite fingerprint the model and rewrite
 // the path relative to the deployed base — a hard-coded "/assets/..." 404s
@@ -486,6 +487,11 @@ export function initHero(): void {
     if (rendered > ceiling) {
       title.style.fontSize = `${Math.max(16, (fitted * ceiling) / rendered)}px`;
     }
+
+    // SCOUT-SHIP.md §6: the routes bracket the word, so they have to be
+    // re-measured every time the word changes size — which is here, and only
+    // here.
+    placeScoutRoutes();
   }
 
   function frameCamera(): void {
