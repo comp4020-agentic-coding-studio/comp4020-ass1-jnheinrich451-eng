@@ -30,11 +30,7 @@ skilled one.
 
 Cite each moment as a link whose text is the commit hash or range and whose
 target is this repo's commit or compare URL, so a reader clicks straight to the
-evidence:
-
-- one commit: [`a1b2c3d`](https://github.com/YOUR-ORG/YOUR-REPO/commit/a1b2c3d)
-- a range:
-  [`a1b2c3d...e4f5a6b`](https://github.com/YOUR-ORG/YOUR-REPO/compare/a1b2c3d...e4f5a6b)
+evidence (see the worked moment below for the shape).
 
 To pair a prompt with the commit it produced, quote the prompt (curated, not a
 full transcript) next to the citation:
@@ -58,7 +54,8 @@ Images don't count towards the word count and don't replace the citation.
    correct and gave no reason to suspect it. I capped the formula with
    `min(calc(var(--mars-px) * 0.72), 11vw)` so the viewport width, not just
    Mars's projected size, bounds the title on narrow screens, and re-screenshot
-   both viewports to confirm the fix didn't change the desktop layout.
+   both viewports to confirm the fix didn't change the desktop layout
+   ([`84090f9`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/84090f9)).
 
 ## Before you ship
 
