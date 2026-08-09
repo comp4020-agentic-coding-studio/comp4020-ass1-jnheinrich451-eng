@@ -107,9 +107,17 @@
           <h1 id="hero-title">BLINDSPOTS</h1>
         </div>
 
-        <a class="enter-observatory" href="#observatory">
-          [ ENTER OBSERVATORY ]
-        </a>
+        <!-- CTA.md §1: the bar is pointer-events:none and only the control
+             re-enables them, so the hit area is exactly the words plus their
+             padding — no invisible full-width target. Kept as a real <a href>
+             rather than the doc's div+span with an onClick: that snippet is
+             prototype markup (§6 even notes it omits focus styling), and an
+             anchor is keyboard-reachable and works with JS off. -->
+        <div class="cta-bar">
+          <a class="enter-observatory" href="#observatory"
+            >[ ENTER OBSERVATORY ]</a
+          >
+        </div>
       </section>
 
       <section id="observatory" aria-label="Observatory">

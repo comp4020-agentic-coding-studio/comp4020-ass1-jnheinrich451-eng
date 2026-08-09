@@ -14,10 +14,6 @@ const MARS_ROTATION_SPEED = 0.0006;
 const MARS_RADIUS = 2.6;
 const STAR_COUNT = 2600;
 
-// Title width as a multiple of Mars's on-screen diameter: just over 1, so the
-// B's left stem and the S's right bowl sit outside the silhouette and every
-// letter between them is inside it.
-const TITLE_OVERHANG = 1.08;
 // Must match #hero-title's letter-spacing in styles.css — measured width
 // includes a trailing letter-space that isn't ink, and discounting it is what
 // makes the outermost letters land on the limb rather than just inside it.
@@ -358,19 +354,54 @@ export function initHero(): void {
     fitTitle(px, w);
   }
 
-  // Size the title by measuring it rather than by guessing an em-per-character
-  // ratio: the CSS clamp in styles.css is only the no-JS fallback, and it can't
-  // know whether Poppins actually loaded. Measured at a probe size, then scaled
-  // once — so the outermost letters land on Mars's limb at any viewport and with
-  // any fallback font.
+  // Size the title so Mars's limb passes vertically through the MIDDLE of the
+  // first B and the last S. The title is centred on the globe centre, so at the
+  // title's own vertical centre the limb sits at exactly ±marsPx — which means
+  // the two outer glyph CENTRES must be one diameter apart.
+  //
+  // Measured with a Range over the individual characters rather than derived from
+  // the whole-string width: where a glyph's centre falls depends on that glyph's
+  // advance, so B and S cannot be inferred from an average. Font-independent, so
+  // it still holds when Avant Garde is absent and Poppins stands in.
   function fitTitle(marsPx: number, heroWidth: number): void {
     if (!(title instanceof HTMLElement)) return;
+    const node = title.firstChild;
+    if (!(node instanceof Text)) return;
+    const text = node.data;
+    const first = text.search(/\S/);
+    const last = text.search(/\S\s*$/);
+    if (first < 0 || last <= first) return;
+
     const probe = 100;
     title.style.fontSize = `${probe}px`;
-    const ink = title.scrollWidth - probe * TITLE_LETTER_SPACING_EM;
-    if (ink <= 0) return;
-    const wanted = Math.min(marsPx * 2 * TITLE_OVERHANG, heroWidth * 0.94);
-    title.style.fontSize = `${Math.max(16, (probe * wanted) / ink)}px`;
+    const spacing = probe * TITLE_LETTER_SPACING_EM;
+    const glyphCentre = (index: number) => {
+      const range = document.createRange();
+      range.setStart(node, index);
+      range.setEnd(node, index + 1);
+      const box = range.getBoundingClientRect();
+      // Each character's rect includes its trailing letter-space, which is not
+      // ink; discount it or the "centre" drifts right by half a space.
+      return box.left + (box.width - spacing) / 2;
+    };
+
+    const span = glyphCentre(last) - glyphCentre(first);
+    if (span <= 0) return;
+
+    // Primary rule: the two outer glyph centres a diameter apart.
+    const fitted = Math.max(16, (probe * 2 * marsPx) / span);
+    title.style.fontSize = `${fitted}px`;
+
+    // Then correct against the ACTUAL rendered width. Capping on a predicted ink
+    // width from scrollWidth was off by enough to leave a 2px margin at 390x844
+    // where ~4 was intended — scrollWidth and the client rect do not agree here,
+    // and the title sits in a zero-width flex anchor. Measuring the box that
+    // really shipped and scaling once is exact whatever the font did.
+    const ceiling = heroWidth * 0.99;
+    const rendered = title.getBoundingClientRect().width;
+    if (rendered > ceiling) {
+      title.style.fontSize = `${Math.max(16, (fitted * ceiling) / rendered)}px`;
+    }
   }
 
   function frameCamera(): void {
@@ -380,9 +411,9 @@ export function initHero(): void {
     camera.aspect = w / h;
     // Pull the camera back on tall/narrow (phone) viewports so Mars and the
     // title both stay clear of the screen edges at both marking viewports. The
-    // 1.78 ceiling is set by the title, not by Mars: at 390x844 a closer camera
-    // makes Mars wider than 94vw/TITLE_OVERHANG, so fitTitle()'s viewport cap
-    // binds first and the title ends up *inside* the limb instead of crossing it.
+    // The 1.78 ceiling is set by the title, not by Mars: at 390x844 a closer
+    // camera makes Mars so wide that fitTitle()'s viewport cap binds before the
+    // limb rule does, and the title stops reaching past the limb.
     const dist = 9.2 * clamp(1, 1.78, 1.5 / (w / h));
     camera.position.set(0, 0, dist);
     camera.lookAt(0, 0, 0);

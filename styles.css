@@ -215,61 +215,137 @@ section {
     Poppins, sans-serif;
   font-weight: 700;
 
-  /* No-JS fallback only. hero.ts measures the rendered text and overrides this
-     inline, because the em-per-character ratio depends on which font actually
-     loaded. 0.285 is the Poppins 700 estimate for "BLINDSPOTS" at ~1.08x Mars's
-     diameter — right in the common case, and never wildly wrong in the others. */
-  font-size: clamp(16px, min(calc(var(--mars-px, 190px) * 0.285), 9vw), 130px);
+  /* No-JS fallback only. hero.ts measures the individual glyphs and overrides
+     this inline, because where B's and S's centres fall depends on the font that
+     actually loaded. 0.30 is the Poppins 700 estimate for the limb rule. */
+  font-size: clamp(16px, min(calc(var(--mars-px, 190px) * 0.3), 9.5vw), 150px);
   letter-spacing: 0.08em;
   color: #fff;
   text-shadow:
     0 0 12px rgb(255 255 255 / 35%),
     0 0 34px rgb(255 255 255 / 22%),
     0 0 80px rgb(210 225 255 / 16%);
+
+  /* Stretched vertically rather than set in a condensed face — Poppins has no
+     condensed cut, and scaleY keeps the horizontal measurement fitTitle() just
+     solved for exactly intact. This is the Control-style title: tall, heavy,
+     white, more wall than label. */
+  --title-stretch: 1.42;
+
   animation: title-float 9s ease-in-out infinite;
 }
 
-/* A slow breath, deliberately out of sync with the 4.6s sheen so the hero never
-   develops a beat (TYPE.md §1.1). */
+/* A slow breath, deliberately out of sync with the 4.6s sheen and the CTA's
+   3.4s so the hero never develops a beat (TYPE.md §1.1). The stretch has to be
+   restated in every keyframe: transform is one property, so a keyframe that
+   sets only translateY would silently drop the scale. */
 @keyframes title-float {
   0%,
   100% {
-    transform: translateY(-6px);
+    transform: translateY(-6px) scaleY(var(--title-stretch));
     opacity: 0.94;
   }
 
   50% {
-    transform: translateY(6px);
+    transform: translateY(6px) scaleY(var(--title-stretch));
     opacity: 1;
   }
 }
 
-.enter-observatory {
+/* CTA.md — the only affordance on page 1. */
+.cta-bar {
   position: absolute;
-  left: 50%;
+  left: 0;
+  right: 0;
 
-  /* 1/28 of the hero height, measured from the bottom edge. */
+  /* 1/28 of the hero height. CTA.md §2 asks for 3vh; this is 3.57vh and meets
+     the same stated reason (viewport-relative, so it clears the fan apex at any
+     height) while keeping the 1/28 that was specified directly. */
   bottom: calc(100% / 28);
   z-index: 6;
-  transform: translateX(-50%);
-  padding: 0.85em 1.6em;
-  border: 1px solid rgb(255 255 255 / 40%);
-  background: rgb(4 5 10 / 55%);
+
+  /* Centred by text-align, not flex, so the control keeps shrink-to-fit width
+     without another wrapper (§2). */
+  text-align: center;
+  pointer-events: none;
+}
+
+.enter-observatory {
+  display: inline-block;
+  padding: 9px 20px;
+
+  /* §2: the project's control radius. Not 0 (reads as a table cell), not 6
+     (reads as a web button). */
+  border-radius: 3px;
   color: var(--ink);
   font-family: "IBM Plex Mono", monospace;
+
+  /* §4: 15px is the largest mono size in the project and .18em the widest
+     tracking — the CTA gets the most deliberate voice on the page. */
   font-size: 15px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   text-decoration: none;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease;
+
+  /* Two black knockouts, not glow: they guarantee legibility in the moment the
+     plate crosses a bright star or the fan's white centre band (§3). */
+  text-shadow:
+    0 0 2px #04050a,
+    0 0 6px rgb(4 5 10 / 98%);
+  pointer-events: auto;
+  cursor: pointer;
+
+  /* Two animations, because they own different properties. cta-glow is §5's
+     breath on the whole control; cta-plate is the slow background shift. Their
+     periods (3.4s, 11s) are coprime with the title's 9s, so the hero never
+     develops a beat. */
+  animation:
+    cta-glow 3.4s ease-in-out infinite,
+    cta-plate 11s ease-in-out infinite;
 }
 
-.enter-observatory:hover,
+/* §3: the plate is translucent, never solid — the stripes stay faintly visible
+   through it, so the control sits *in* the image rather than on it. The darkest
+   end of the shift is near-black but still only 93% opaque, so you can always
+   see through it. No border: a 1px rule turns it into a form control. */
+@keyframes cta-plate {
+  0%,
+  100% {
+    background-color: rgb(4 5 10 / 80%);
+  }
+
+  50% {
+    background-color: rgb(0 0 0 / 93%);
+  }
+}
+
+/* §5: .78 -> 1 registers as alive at the edge of vision and is too small to
+   nag. On the whole control, plate included, so it breathes as one object. */
+@keyframes cta-glow {
+  0%,
+  100% {
+    opacity: 0.78;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+/* §5: hover changes exactly ONE property — the outer text-shadow stop goes from
+   a 6px black knockout to a 20px blue bloom. Nothing moves, nothing scales, no
+   colour or background change, no border. The letters light up; that restraint
+   is what keeps it a readout that acknowledged you. */
+.enter-observatory:hover {
+  text-shadow:
+    0 0 2px #04050a,
+    0 0 20px rgb(190 205 255 / 90%);
+}
+
+/* §6: the prototype omits this; the shipped build needs it. */
 .enter-observatory:focus-visible {
-  background: rgb(4 5 10 / 80%);
-  border-color: #fff;
+  outline: 1px solid rgb(200 215 255 / 70%);
+  outline-offset: 3px;
 }
 
 #observatory {
@@ -347,8 +423,8 @@ section {
 
 @media (width <= 600px) {
   .enter-observatory {
-    padding: 0.7em 1.1em;
-    font-size: 10px;
+    padding: 8px 14px;
+    font-size: 13px;
   }
 }
 
@@ -363,7 +439,8 @@ section {
     transform: none;
   }
 
-  .obs-stars circle {
+  .obs-stars circle,
+  .enter-observatory {
     animation: none;
   }
 }
