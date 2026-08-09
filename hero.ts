@@ -132,7 +132,10 @@ export function initHero(): void {
     "(prefers-reduced-motion: reduce)",
   ).matches;
 
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  // alpha + a fully transparent clear colour: the fan SVG is painted *under*
+  // this canvas (STRIPE.md §A.6), so an opaque canvas would hide it entirely.
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setClearColor(0x000000, 0);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
