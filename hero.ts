@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { initReflectiveCover } from "./reflective-cover";
 
 // new URL(..., import.meta.url) lets Vite fingerprint the model and rewrite
 // the path relative to the deployed base — a hard-coded "/assets/..." 404s
@@ -242,11 +241,6 @@ export function initHero(): void {
   const limbGlow = buildLimbGlow(MARS_RADIUS);
   const title = document.getElementById("hero-title");
 
-  const coverHost = heroSection.querySelector<HTMLElement>(".cover");
-  const cover = coverHost ? initReflectiveCover(coverHost) : null;
-  function layoutCover(px: number, heroWidth: number): void {
-    cover?.layout(px, heroWidth);
-  }
 
   // The shell's highlight has to follow the sun as it orbits, or the lit limb
   // and the shaded surface drift apart.
@@ -267,14 +261,12 @@ export function initHero(): void {
     const centre = new THREE.Vector3(0, 0, 0).project(camera);
     const px = Math.abs(edge.x - centre.x) * 0.5 * w;
     heroSection.style.setProperty("--mars-px", `${Math.max(60, px)}px`);
-    // The globe's projected centre, as percentages. REFLECTIVE-COVER.md §1 and
-    // TYPE.md §1.1 both anchor to it rather than to the viewport, so that the
-    // arc stays concentric and the title stays centred on the planet with no
-    // transform maths.
+    // The globe's projected centre, as percentages. TYPE.md §1.1 anchors the
+    // title to it rather than to the viewport, so the word stays centred on the
+    // planet with no transform maths.
     heroSection.style.setProperty("--mars-cx", `${((centre.x + 1) / 2) * 100}%`);
     heroSection.style.setProperty("--mars-cy", `${((1 - centre.y) / 2) * 100}%`);
     fitTitle(px, w);
-    layoutCover(px, w);
   }
 
   // Size the title by measuring it rather than by guessing an em-per-character
