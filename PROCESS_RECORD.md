@@ -142,3 +142,69 @@ appeared in the 390×844 screenshot:
 Both are the same class of bug: time- or viewport-dependent state that a static
 read of the diff cannot show. Screenshotting *both* marking viewports is not a
 final check, it is the only way these surface.
+
+## 2026-08-10 01:30 — TYPE.md / STARFIELD.md / theme; reflective cover built then dropped
+
+**Prompt:**
+
+> Overall they are good! But I want to refine some things […] The theme of the
+> design will be in CLAUDE.md line 200. And I get some precise controls, I
+> introduced 3 new files: REFLECTIVE-COVER.md, STARFIELD.md and TYPE.md which
+> matches problem of reflective spherical cover, background stars, and the title
+> BLINKSPOTS. I find the current design is warm, orange or red theme, but the
+> stripes should be clear, white, cool style, at least conceptually should be!
+
+Then, three times mid-turn: *"Pls ignore the lens part!"* → *"Please ignore the
+THE UNIVERSE ARE ... OUR INSTRUMENTS. I deleted in the REFLECTIVE-COVER.md."* →
+*"No, ingnore the panels as well"*
+
+**Result:** [`a4edc4f`](../../commit/a4edc4f), [`bce04a9`](../../commit/bce04a9)
+
+- **Theme** — the warmth was the *lighting*, not the fan. A cream sun over a
+  purple ambient at exposure 1.1 pushed the whole hero orange. Sun is now cool
+  white, ambient a blue-purple fill, exposure 0.92. The fan's palette is
+  untouched: STRIPE.md fixes it and CLAUDE.md line 200 licenses it as the
+  "ambient colour breaker" that does not break the theme.
+- **TYPE.md** — Space Grotesk added as body default; one font request carries all
+  three faces; title stack Avant Garde → Century Gothic → Poppins 700 in that
+  order; title re-anchored to a zero-size flex box on the globe's projected
+  centre (§1.1), which frees `transform` for the float animation; CTA to mono
+  15px/.18em; type colours to §5, including dropping purple from the h2 since §5
+  forbids giving type a fan colour.
+- **STARFIELD.md §A** — hero field rebuilt verbatim: 2,600 points, three-tier
+  size split, `aTw` twinkle depth, §A.3/§A.4 shaders, `uTime` in seconds.
+- **STARFIELD.md §B** — new static observatory field: 190 circles seeded once by
+  `starfield.ts`, written into the markup, clipped to the two black triangles.
+  Four tests: count, clip paths, determinism, and that no star sits on a stripe.
+
+**What happened:** three separate things.
+
+1. **A z-index bug the render caught and the diff could not.** The cover and the
+   canvas were both at `z-index: 1`, so DOM order decided, and the arc rendered
+   *in front of* the globe — the exact opposite of §4. Equal z-index is not a
+   tie, it is a silent handover to source order. The hero stack is now written
+   out explicitly in one comment.
+2. **A spec that contradicted itself, and I said so instead of splitting it.**
+   §2's `R = px * 1.18` cannot satisfy §4. With squash 0.5 the apex lands
+   0.59px above centre, inside a disc whose limb is at 1.00px, so ~130 of the
+   150° hid behind the planet: no panel visible, 8 of 41 glyphs legible.
+   "Panels disappear at the silhouette" presupposes they were visible. I shipped
+   R = 1.85px with the arithmetic in a comment naming it a deviation. Same call
+   as the STRIPE.md §A.2 indexing slip — when several parts of a spec disagree,
+   follow the majority and *write down* which line you overrode.
+3. **Built three things that were then cut, in reverse order.** Lens, then arced
+   text, then panels. Nothing of REFLECTIVE-COVER.md survives. Worth being
+   honest that this was avoidable: the doc's §2 numbers already implied an
+   invisible component, and I found that out by *rendering* it rather than by
+   doing the arithmetic first. The arithmetic took one line of Python. **When a
+   spec is dimensional, check the numbers against the geometry before writing
+   the component** — a contradiction found in Python is cheap and a contradiction
+   found in a screenshot is not.
+
+Also self-inflicted: I removed the cover's CSS with regexes matched against
+selector text, and the slices included the preceding comments — one of which
+mentioned "hotspot" and another "lens", so `#hero-canvas` and `.cover` were
+deleted too, and a later pattern spliced a rule into the middle of a comment.
+The tests stayed green throughout, because they assert markup and generator
+output, not layout. Green checks did not mean the page was intact; the
+screenshot did.
