@@ -36,19 +36,25 @@ const TITLE_LETTER_SPACING_EM = 0.08;
 // the same point by construction rather than by tuning.
 const FLARE_OUTSET_R = 0;
 
-// §3.7's azimuth, in degrees, positive counter-clockwise on screen. It rotates
-// the SHADOW axis about the view axis and nothing else: the star, its rim and
-// its flare all stay anchored to the true light direction, so the highlight
-// never detaches from the source. 90 puts the terminator perpendicular to the
-// star, which is what turns the day/night boundary into a bar across the globe.
+// §3.7's azimuth, in degrees, positive counter-clockwise on screen. It rolls
+// the WHOLE light about the view axis — the DirectionalLight that shades the
+// globe, the rim shader, the phase and the hotspot all read the one rolled
+// direction.
 //
-// Two things follow from rotating about the VIEW axis specifically. It is
-// deliberately non-physical — §3.7 calls this "the cinematic one, where the
-// light rakes across the world from an angle the star does not account for" —
-// and phase is exactly invariant under it, since a rotation about an axis
-// preserves every vector's component along that axis. So azimuth moves where the
-// shadow lies without touching how wide it is, which is the separation §3.7
-// claims. 0 restores the physically correct case.
+// It used to roll the shadow only, leaving the rim and the flare on the
+// unrolled star "so the highlight never detaches from the source". That put two
+// light directions in a scene that physically has one, and at 90 they sat a
+// quarter turn apart: the terminator said the light came from one side while
+// the rim and hotspot said the other. Lit and shadowed must be complementary —
+// HOTSPOT.md's own words, "a fixed and true rule" — and they cannot be if two
+// vectors disagree about where the sun is.
+//
+// Rotating about the VIEW axis specifically is what keeps this free: phase is
+// (1 + axis·dir)/2 and a rotation about an axis preserves every vector's
+// component along that axis, so rolling the light cannot change how WIDE the
+// shadow is, only where it lies. That is §3.7's claimed separation, and about
+// this axis it is an identity rather than an arrangement. 0 is the physically
+// correct case; anything else is the cinematic one.
 const AZIMUTH_DEG = 90;
 
 // How much longer the word runs than the limb rule alone would make it: 7/6, so
@@ -177,6 +183,12 @@ function buildLimbGlow(radius: number): {
     uniforms: {
       uLightDir: { value: new THREE.Vector3(1, 0, 0) },
       uViewAxis: { value: new THREE.Vector3(0, 0, 1) },
+      // The day/night seam on the limb, handed in from the CPU rather than
+      // recomputed here. The DOM overlay is placed from the same vector, and
+      // sharing it is what stops the shader's core and the overlay's core
+      // drifting into two highlights — which is exactly what they did when this
+      // shader derived its own direction.
+      uSeam: { value: new THREE.Vector3(0, 1, 0) },
       uLimb: { value: new THREE.Color(0xdce9ff) }, // cool blue-white
       uHot: { value: new THREE.Color(0xffffff) },
       // §3.7's RM = 0.35 + 1.75p: how far the rim glow wraps around the limb.
@@ -206,15 +218,12 @@ function buildLimbGlow(radius: number): {
         float edge = pow(1.0 - max(dot(vNormalW, vViewW), 0.0), 12.0);
         float lit = max(dot(vNormalW, uLightDir), 0.0);
 
-        // The concentrated light point, per REFLECTIVE-COVER.md line 60. The
-        // terminator meets the silhouette where N is perpendicular to BOTH the
-        // light and the view, i.e. at N = ±(L×V)/|L×V| — two points. Their chord
-        // is centred on the globe centre, and the normal to that chord taken
-        // inside the silhouette plane is V×(L×V) = L − V(V·L): the light
-        // direction projected onto the screen plane. So the hotspot normal is
-        // that vector, in closed form — no iteration, no marching the limb.
-        vec3 nHot = normalize(uLightDir - uViewAxis * dot(uViewAxis, uLightDir));
-        float aim = max(dot(vNormalW, nHot), 0.0);
+        // The star sits ON the day/night seam, N = ±(L×V)/|L×V|, one of the two
+        // points where the terminator meets the silhouette. It used to sit at
+        // L − V(V·L), the light projected onto the screen plane — the chord
+        // midpoint's normal, which is the BRIGHTEST point of the lit limb and a
+        // quarter turn from the seam.
+        float aim = max(dot(vNormalW, uSeam), 0.0);
 
         // White-hot core, then a wider bloom around it: "only a small portion of
         // the source is visible", so the core is far tighter than the bloom.
@@ -234,7 +243,17 @@ function buildLimbGlow(radius: number): {
         // too made low phases read as fog rather than as a razor edge.
         float visible = smoothstep(0.0, 0.04, lit);
         float wrapped = pow(lit, 1.5 / max(uRimWrap, 0.05));
-        float i = visible * edge * (1.5 * wrapped + 4.0 * core + 1.1 * bloom);
+
+        // The seam has dot(N, L) = 0 by definition — that IS the terminator — so
+        // the core and its bloom cannot carry the "visible" gate that the rim
+        // wrap does. Gating them on lit would extinguish the star at precisely
+        // the point it is now placed. They are held instead by "edge" and by
+        // their own lobe about uSeam, which is tight enough not to leak around
+        // the night limb: pow(aim, 10.0) is already halved about 21 degrees out,
+        // and the rim wrap — the term that would wash the dark side — keeps its
+        // gate. No backticks in here: this is inside a template literal, and one
+        // ended the shader mid-string once already.
+        float i = edge * (1.5 * visible * wrapped + 4.0 * core + 1.1 * bloom);
         vec3 tint = mix(uLimb, uHot, clamp(lit * 1.2 + core * 2.0, 0.0, 1.0));
         gl_FragColor = vec4(tint, clamp(i, 0.0, 1.0));
       }
@@ -299,23 +318,21 @@ export function initHero(): void {
   // that much slower. Period is 2*pi/rate, about 93.5 s.
   const SUN_RATE = 0.00006722;
 
-  // Where the star actually is. The DirectionalLight is placed at this rotated
-  // by AZIMUTH_DEG, so the shading terminator rolls; everything belonging to the
-  // star itself — rim, hotspot, flare, phase — reads starDir instead, which is
-  // what keeps the highlight on the source (§3.7's azimuth note).
-  const starDir = new THREE.Vector3();
+  // THE light direction — one vector, read by the DirectionalLight, the rim
+  // shader, the phase and the hotspot alike. The orbit is computed first and the
+  // azimuth roll is folded in here, so there is no second, unrolled direction
+  // left anywhere for anything to disagree with.
+  const lightDir = new THREE.Vector3();
   function placeSun(time: number): void {
     const angle = time * SUN_RATE;
-    starDir
+    lightDir
       .set(Math.sin(angle) * SUN_DISTANCE, 2, Math.cos(angle) * SUN_DISTANCE)
-      .normalize();
-    sun.position
-      .copy(starDir)
+      .normalize()
       .applyAxisAngle(
         camera.position.clone().normalize(),
         -(AZIMUTH_DEG * Math.PI) / 180,
-      )
-      .multiplyScalar(SUN_DISTANCE);
+      );
+    sun.position.copy(lightDir).multiplyScalar(SUN_DISTANCE);
   }
   placeSun(0);
 
@@ -342,16 +359,52 @@ export function initHero(): void {
       : null;
 
 
-  // The shell's highlight has to follow the sun as it orbits, or the lit limb
-  // and the shaded surface drift apart.
-  // The light-point normal, in closed form: L − V(V·L). See REFLECTIVE-COVER.md
-  // line 60 — this is where the terminator's chord midpoint normal crosses the
-  // silhouette.
-  function nHot(light: THREE.Vector3, axis: THREE.Vector3): THREE.Vector3 {
-    return light
-      .clone()
-      .addScaledVector(axis, -axis.dot(light))
-      .normalize();
+  // The day/night SEAM on the limb, in closed form. The terminator is the set of
+  // surface normals with N·L = 0; the silhouette is the set with N·V = 0; so the
+  // two meet where N is perpendicular to both, N = ±(L×V)/|L×V|. Exactly two
+  // points, and that ± is HOTSPOT.md's "which way (left or right) to go".
+  //
+  // This is NOT what the hotspot used before. nHot() returned L − V(V·L) — L
+  // projected onto the screen plane, which is the limb point facing the light
+  // most directly, i.e. the BRIGHTEST point of the lit limb and a quarter turn
+  // from the seam. That was the right answer to REFLECTIVE-COVER.md's brief (the
+  // terminator's chord midpoint, normal to the chord) and the wrong one for
+  // HOTSPOT.md's, which wants the star breaking through where day meets night.
+  // The request names its own diagnosis: a chord midpoint has ONE solution and
+  // no side to choose, so being asked for left-or-right means ±(L×V).
+  const seamDir = new THREE.Vector3();
+  function nSeam(
+    light: THREE.Vector3,
+    axis: THREE.Vector3,
+    side: number,
+  ): THREE.Vector3 {
+    seamDir.crossVectors(light, axis);
+    // L is never parallel to V on this orbit (phase never reaches 0 or 1), but
+    // guard anyway — a degenerate cross normalises to garbage rather than
+    // failing, which is the kind of thing that shows up as one bad frame.
+    if (seamDir.lengthSq() < 1e-12) return seamDir.set(1, 0, 0);
+    return seamDir.normalize().multiplyScalar(side);
+  }
+
+  // Which of the two seam points the star breaks through, re-drawn once per
+  // sunrise. Rolled on the way INTO the dark, not out of it: the switch then
+  // happens while the hotspot is at its faintest, so the side is already decided
+  // by the time there is anything to see.
+  //
+  // The threshold is derived, not picked. The light is (sin·D, 2, cos·D)
+  // normalised and the camera looks down +Z, so axis·dir = cos(angle)·D/hypot(D,2)
+  // and phase swings symmetrically about 0.5 by half that. Pure dark is therefore
+  // phase ≈ 0.026 and never 0 — a plain `phase < 0.02` trigger would have looked
+  // reasonable and never once fired.
+  const PHASE_SWING = SUN_DISTANCE / Math.hypot(SUN_DISTANCE, 2);
+  const PHASE_MIN = (1 - PHASE_SWING) / 2;
+  const SUNRISE_P = PHASE_MIN + 0.02 * PHASE_SWING;
+  const pickSide = (): number => (Math.random() < 0.5 ? -1 : 1);
+  let seamSide = pickSide();
+  let prevPhase = 1;
+  function rollSeamSide(phase: number): void {
+    if (prevPhase >= SUNRISE_P && phase < SUNRISE_P) seamSide = pickSide();
+    prevPhase = phase;
   }
 
   // The bloom, halo and rays that spill OUTSIDE the silhouette are a DOM layer,
@@ -416,9 +469,9 @@ export function initHero(): void {
   }
 
   function syncLightDir(): void {
-    // starDir, NOT sun.position — the light has been rolled by the azimuth and
-    // the star has not.
-    const dir = starDir.clone();
+    // The one light direction, azimuth already folded in. Everything below reads
+    // it, which is what keeps lit and shadowed exactly complementary.
+    const dir = lightDir.clone();
     // Camera looks at the origin, so its forward axis is just its normalised
     // position. Both shells need it to project the light onto the screen plane.
     const axis = camera.position.clone().normalize();
@@ -428,10 +481,16 @@ export function initHero(): void {
     // the dot product is the whole computation. 1 when the sun is behind the
     // camera, 0 when it is directly behind the planet.
     const phase = (1 + axis.dot(dir)) / 2;
+    rollSeamSide(phase);
+    // One vector for both surfaces: the shader's core and the DOM overlay's are
+    // the same point because they are the same number, not because two
+    // derivations agree.
+    const seam = nSeam(dir, axis, seamSide);
     limbGlow.material.uniforms.uLightDir.value.copy(dir);
     limbGlow.material.uniforms.uViewAxis.value.copy(axis);
+    limbGlow.material.uniforms.uSeam.value.copy(seam);
     limbGlow.material.uniforms.uRimWrap.value = 0.35 + 1.75 * phase;
-    placeFlare(nHot(dir, axis), phase);
+    placeFlare(seam, phase);
   }
 
   const { points: stars, material: starMaterial } = buildStarfield();

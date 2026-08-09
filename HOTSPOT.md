@@ -182,22 +182,38 @@ gives an almost flareless one. That inversion is the whole effect: it makes the
 composite read as *an event happening to the camera* rather than as a brightness
 slider.
 
-### Azimuth — rolling the shadow
+### Azimuth — rolling the light
 
-`azimuth` (−180…180°) rotates the terminator axis **independently of the star**:
-`tt = th − azimuth`, positive = counter-clockwise on screen. Phase controls how
-*wide* the shadow is; azimuth controls where it lies. Leave it at 0 and the
-terminator stays perpendicular to the star direction, which is the physically
-correct case; turn it and you get the cinematic one, where the light rakes
-across the world from an angle the star does not account for.
+`azimuth` (−180…180°) rolls **the whole light** about the view axis, positive =
+counter-clockwise on screen. Phase controls how *wide* the shadow is; azimuth
+controls where it lies. Leave it at 0 and the terminator stays perpendicular to
+the star direction, which is the physically correct case; turn it and you get
+the cinematic one, where the light rakes across the world from an angle the
+star does not account for.
 
-Note it moves the shadow only. The rim, the scatter falloff and the flare all
-stay anchored to `th`, so the star never detaches from its own highlight.
+It rolls **one** direction, and everything reads that one: the light that shades
+the globe, the rim, the phase and the hot spot. There is no second, unrolled
+"true" star to drift against — lit and shadowed stay exactly complementary,
+which is the rule the whole effect rests on.
+
+This is a correction. Azimuth originally rotated the terminator axis
+*independently of the star*, leaving the rim and the flare anchored to `th` "so
+the star never detaches from its own highlight". That put two light directions
+in a scene which physically has one: at azimuth 90 the terminator said the sun
+was on one side while the rim and hot spot said the other, and no choice of
+hotspot position could be right because the two disagreed about where day ended.
+
+The separation azimuth claims survives the correction intact, and about this
+axis it is exact rather than arranged: phase is `(1 + axis·dir)/2`, and a
+rotation about an axis preserves every vector's component along that axis, so
+rolling the light **cannot** change the width of the shadow — only where it
+falls.
 
 **Note!** We introduced Azimuth later, later than we defined the terminator and the Hotspot's logic.
 - Current issue, the terminator's direction is misaligned with the sunrise location and the Hotspot. The Hotspot and sunrise location remain the same, yet terminator's plane changes.
 - Potential fix, if can, formulate the trajectory of the terminator. The Hotspot and the sunrise sector collide when the Mars is from pure dark to leak a bit light, like cresent moon. The lit area should be opposite with the shadowed area, it is a fixed and true rule.
 - The hotspot should emerge on the seam of shadowed and sunlight area. You can decide which way (left or right) to go. The senario is we have a break of light and it expands to a bigger light area, but hotspots follows the transient area of light and shadow. Each time you can decide which way to move, maybe use a random number generator, <0.5 then to left, >= 0.5 then to right.
+- If user confirmed successful fixation, comment the Note! section out.
 
 ### The terminator
 
