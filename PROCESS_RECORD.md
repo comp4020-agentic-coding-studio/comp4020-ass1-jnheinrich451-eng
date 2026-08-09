@@ -796,3 +796,57 @@ two passes. The spec docs are harness, so a stale reason in one is a trap laid
 for the next change, not just an inaccuracy.
 
 Commit: [`6a33ac8`](../../commit/6a33ac8)
+
+## 2026-08-10 05:30 — Three scaling bugs, and a new rule in CLAUDE.md
+
+**Prompt:**
+
+> Good, then that's all for the first page! All components. And we need to debug
+> now. I just viewed the phone viewer, I find our like move pixel to adjust
+> hotspot is wrong. And in this step, I think we should set its location to the
+> sheen location. And the scout-ship, the lower trail, the location it enters and
+> departs from Mars, it is a bit central [...] And please check the Screenshot
+> 2026-08-10 at 04.32.34.png, the whole GLITCH blocks, it will not scale by
+> window.
+
+Mid-turn: *"I updated the CLAUDE.md about overall rules in bug fixing, from line
+213 to 223"* — a new §4 whose "Don't: use absolute offset to fix misalignment"
+described all three bugs at once.
+
+**Result:**
+Hot spot: `FLARE_OUTSET` was 21 CSS px, which is 5% of the radius at 1920 and 12%
+at 390 — placed on the desktop, thrown off the limb on the phone. Now a fraction
+of the measured radius, set to 0, so it sits exactly on the sheen. Scout: the
+circular hole cut at the chord for the route's own y, inside the limb; now a band
+at the limb x. Glitch: type scales with the viewport, and c3/c4 measure from a
+published `--title-half-w` with their own width in `ch`.
+
+**What happened:** three things, and the new rule earned its place.
+
+1. **§4 arrived mid-turn and immediately overturned a fix I had just written.** I
+   had placed the narrow-viewport glitch blocks at `top: 25.5%; left: 12px` —
+   absolute offsets, exactly what the new rule forbids. Reworked to anchor off
+   `--scout-top-y` / `--scout-bot-y`, the edges scouts.ts already measures. That
+   is strictly better than what I wrote: three components now share one
+   measurement instead of two of them having private numbers.
+2. **The obvious anchor was the wrong anchor.** §2.1 derives c3/c4's inset from
+   the globe, and I first "fixed" the collision by widening the breakpoint. Still
+   collided at 1200px. The reason is that the blocks do not collide with the
+   globe — they collide with the *title*, which has been wider than the globe
+   since the word grew 1/6 longer than a diameter, three turns before this bug
+   was reported. **The regression was introduced by a change to a different
+   component, and it only surfaced at intermediate widths that neither marked
+   viewport covers.** Sweeping eight widths rather than the two marked ones is
+   what found it; 1920 and 390 are both clean even when 1200 is broken.
+3. **My measurement was wrong before the code was.** Checking the flare position
+   by brightest pixel gave a 5.78px error and I nearly went looking for it in the
+   projection maths. The scan keeps the *first* maximum, and the flare saturates
+   4,427 pixels — so it was reporting the top edge of a plateau. By centroid the
+   error is 0.29px. **When a measurement disagrees with a construction that
+   should be exact, suspect the measurement first.**
+
+Also worth stating plainly to the user: the glitch blocks were not vanishing on
+the phone because they were off-screen. I had hidden them under 600px in an
+earlier turn, and said so at the time. That call is now superseded.
+
+Commit: [`dc18440`](../../commit/dc18440)
