@@ -521,3 +521,47 @@ tracking angle look identical in any single frame taken near the original
 position, which is exactly how this survived the first review.
 
 Commit: [`9c44903`](../../commit/9c44903)
+
+## 2026-08-10 03:30 — The CTA wings
+
+**Prompt:**
+
+> Ty, I have plan for this hotspot, I am scheming, and we add stripes for CTA
+> button, the Wings, the specification is in CTA.md line 72 to 95. Easy design,
+> better aesthetic view!
+
+**Result:**
+Three flat bars either side of the plate, mirrored, in the trail-head warm-to-cold
+order, inner ends flush against a 10px gutter so the taper opens outward. §3.1's
+derivation ports intact and is the best part of the spec: `align-self: stretch`
+makes each wing exactly as tall as the plate, so the red bar's top edge lands on
+the button's top edge, a fixed 6px sets the red→yellow gap, and `margin-top: auto`
+leaves the yellow→cyan gap as the remainder — which is *why* it stays the larger
+of the two rather than being tuned to. Measured at 1920, every derived number
+holds: wing height 37 = plate height, gaps 6 then 10, cyan 2px inside the lower
+edge, gutters 10 both sides.
+
+**What happened:** nothing was flagged, but three things.
+
+1. **The spec's fixed px broke the phone, and it broke the wrong element.** At
+   390px the red bars ran to −17 and 407 — expected, since 132+10+286+10+132 =
+   570. What I did *not* expect was that flex took the shortfall out of the
+   **plate**, squeezing it from 286 to 140 and overflowing its own text. The
+   decoration was fine and the affordance was destroyed. Fixed by making the
+   132px a flex *basis* and the bar lengths percentages of the wing, so the
+   1 : 0.75 : 0.30 ratio survives at every width and the wings are what give way.
+   No breakpoint needed. **When adding a fixed-size decoration to a flex row, ask
+   which element pays for it** — the answer is whichever one can shrink, and that
+   is rarely the one you want.
+2. **A 0.4px inconsistency inside §3.1.** Its table labels the cyan bar 40px, but
+   the ratio it states in the same paragraph, 0.30 of 132, is 39.6. Using
+   percentages picks the ratio over the table, on the grounds that the ratio is
+   the stated rule and the table is a rounded label. Noted in the CSS.
+3. **I broke the build with a comment, again.** Splitting one CSS comment into
+   two left the second without its opening delimiter, and the whole rest of the
+   file became a syntax error. That is twice this session that a CSS comment edit
+   has broken something — unlike the earlier one, this failed the build loudly
+   instead of silently disabling rules. Both times the cause was editing comment
+   *delimiters* with a text replacement rather than the rules around them.
+
+Commit: [`806696d`](../../commit/806696d)
