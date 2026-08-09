@@ -565,3 +565,52 @@ edge, gutters 10 both sides.
    *delimiters* with a text replacement rather than the rules around them.
 
 Commit: [`806696d`](../../commit/806696d)
+
+## 2026-08-10 03:50 — Phase-driven hot spot
+
+**Prompt:**
+
+> Perfect, and the modification to the Hotspot! Here is the thought, first
+> instruction, move the point outer for 6px more. And the idea is we have this
+> hotspot light consistently feels too fake. Then the modification is we add
+> diminish and bright based on shadow area. If shadow area is big, then the
+> brightness is stronger, and long axis is longer. If shadow area is smaller, the
+> Mars get adequately lighted, then hotspot will diminish, maybe vanish, and the
+> long axis will fade to short. The overall halo will reduce accordingly. The
+> implementation is in the HOTSPOT.md. Try to implement it first!
+
+**Result:**
+Implemented §3.7. `p` is the lit fraction of the visible disc, which for a sphere
+is `(1 + cos α)/2` with α the phase angle — and both unit vectors were already in
+hand for the light point, so the dot product is the entire computation. All five
+derivations ported verbatim; sampled at 11 points and both endpoints land on
+§3.7's table exactly. `RM` goes to the WebGL shell rather than the overlay, since
+that is where the rim lives after §5's split. `FLARE_OUTSET` 10 → 16.
+
+**What happened:** one contradiction, one omission, one self-inflicted break.
+
+1. **The prompt and §3.7 ask for opposite brightness.** The prompt says big
+   shadow → *stronger*; §3.7 says at p→0 the alpha is "~0.05 — nearly
+   extinguished", and argues the point explicitly ("it is not a brightness
+   slider; it is a physical state"). They agree on the streak — long at big
+   shadow — and are exactly inverted on brightness. Implemented the doc, because
+   the prompt ended "The implementation is in the HOTSPOT.md", and reported the
+   conflict with both quotes and the single line that flips it. **When two
+   instructions from the same person conflict, the job is to name the conflict,
+   not to average them or to pick the one I like** — and the deciding signal here
+   was which one the prompt itself pointed at.
+2. **Did not implement §3.7's terminator clip and forward scatter.** §5 already
+   dropped forward scatter because the real globe occludes, and a wash over the
+   day side would flatten the GLB's own texture — and fight the pure-dark shadow
+   asked for two turns ago. Said so in the commit rather than letting a
+   silently-skipped section look like an oversight.
+3. **A backtick in a comment ended the shader.** I wrote "the exponent on `lit`"
+   inside a template literal, which closed the string mid-shader and produced six
+   syntax errors pointing at `side: THREE.FrontSide` — thirty lines below the
+   actual cause. Markdown habits do not survive inside template literals.
+
+Verified across a full orbit rather than one frame, which is now the standing
+rule for anything phase-dependent: at low phase a dark disc with a razor rim and
+a long streak, at high phase a compact bright core with the streak collapsed.
+
+Commit: [`2a5f7f6`](../../commit/2a5f7f6)
