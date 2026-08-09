@@ -22,9 +22,8 @@ const TITLE_LETTER_SPACING_EM = 0.08;
 
 // How far outside the silhouette the light point sits, in CSS px. The source is
 // occluded by the planet and only tangent to it, so it is never exactly on the
-// limb. 10, not the original 5: the whole trajectory moved another 5px out from
-// Mars's centre.
-const FLARE_OUTSET = 10;
+// limb. 16, after two moves outward of 5 and 6px from the original 5.
+const FLARE_OUTSET = 16;
 
 // How much longer the word runs than the limb rule alone would make it: 7/6, so
 // 1/6 longer. Applied as scaleX in styles.css and targeted here, and the two must
@@ -154,6 +153,8 @@ function buildLimbGlow(radius: number): {
       uViewAxis: { value: new THREE.Vector3(0, 0, 1) },
       uLimb: { value: new THREE.Color(0xdce9ff) }, // cool blue-white
       uHot: { value: new THREE.Color(0xffffff) },
+      // §3.7's RM = 0.35 + 1.75p: how far the rim glow wraps around the limb.
+      uRimWrap: { value: 1 },
     },
     vertexShader: `
       varying vec3 vNormalW;
@@ -170,6 +171,7 @@ function buildLimbGlow(radius: number): {
       uniform vec3 uViewAxis;
       uniform vec3 uLimb;
       uniform vec3 uHot;
+      uniform float uRimWrap;
       varying vec3 vNormalW;
       varying vec3 vViewW;
       void main() {
@@ -197,8 +199,16 @@ function buildLimbGlow(radius: number): {
         // the night side, which is exactly the grey halo the pure-dark shadow
         // must not have. Everything here is gated on the surface being lit, so
         // the dark limb falls to black with nothing on it.
+        // §3.7's rim wrap. The extent the glow travels around the limb is set by
+        // the exponent on lit, so RM divides it: a high exponent holds the
+        // glow to a spark beside the star, a low one carries it around the
+        // shoulder. §3.7's rim EXCEPTION is why only this term is touched — the
+        // hard core keeps alpha 1.0 at every phase, because the limb right
+        // beside the star is fully lit however thin the crescent is. Fading it
+        // too made low phases read as fog rather than as a razor edge.
         float visible = smoothstep(0.0, 0.04, lit);
-        float i = visible * edge * (1.5 * pow(lit, 1.5) + 4.0 * core + 1.1 * bloom);
+        float wrapped = pow(lit, 1.5 / max(uRimWrap, 0.05));
+        float i = visible * edge * (1.5 * wrapped + 4.0 * core + 1.1 * bloom);
         vec3 tint = mix(uLimb, uHot, clamp(lit * 1.2 + core * 2.0, 0.0, 1.0));
         gl_FragColor = vec4(tint, clamp(i, 0.0, 1.0));
       }
@@ -313,7 +323,7 @@ export function initHero(): void {
   // fan can show through it — the result was an opaque dark crescent swallowing
   // the stars, not a glow. Projecting the hotspot to screen space and glowing
   // there composites correctly over every layer.
-  function placeFlare(normal: THREE.Vector3): void {
+  function placeFlare(normal: THREE.Vector3, phase: number): void {
     // Re-guarded because TypeScript cannot carry the entry check into a closure.
     if (!(heroSection instanceof HTMLElement)) return;
     const { clientWidth: w, clientHeight: h } = heroSection;
@@ -354,7 +364,7 @@ export function initHero(): void {
     // vector the outset above uses — so the tangent condition
     // `longAxis . normal = 0` is satisfied by rotating it a quarter turn, with
     // no extra projection and no trig on the 3D vectors.
-    hotspot?.draw(x, y, px, Math.atan2(dy, dx) + Math.PI / 2);
+    hotspot?.draw(x, y, px, Math.atan2(dy, dx) + Math.PI / 2, phase);
   }
 
   function syncLightDir(): void {
@@ -362,9 +372,16 @@ export function initHero(): void {
     // Camera looks at the origin, so its forward axis is just its normalised
     // position. Both shells need it to project the light onto the screen plane.
     const axis = camera.position.clone().normalize();
+    // §3.7's p, exactly: the lit fraction of the VISIBLE disc. For a sphere that
+    // is (1 + cos a) / 2 where a is the phase angle between the planet-to-sun
+    // and planet-to-camera directions — the two unit vectors already in hand, so
+    // the dot product is the whole computation. 1 when the sun is behind the
+    // camera, 0 when it is directly behind the planet.
+    const phase = (1 + axis.dot(dir)) / 2;
     limbGlow.material.uniforms.uLightDir.value.copy(dir);
     limbGlow.material.uniforms.uViewAxis.value.copy(axis);
-    placeFlare(nHot(dir, axis));
+    limbGlow.material.uniforms.uRimWrap.value = 0.35 + 1.75 * phase;
+    placeFlare(nHot(dir, axis), phase);
   }
 
   const { points: stars, material: starMaterial } = buildStarfield();

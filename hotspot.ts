@@ -59,8 +59,14 @@ const rgba = (c: RGB, a: number) =>
 export interface Hotspot {
   canvas: HTMLCanvasElement;
   resize(w: number, h: number): void;
-  /** `angle` is the long axis, in radians. See draw(). */
-  draw(sx: number, sy: number, px: number, angle: number): void;
+  /** `angle` is the long axis in radians, `phase` the lit fraction. See draw(). */
+  draw(
+    sx: number,
+    sy: number,
+    px: number,
+    angle: number,
+    phase: number,
+  ): void;
 }
 
 export function createHotspot(canvas: HTMLCanvasElement): Hotspot | null {
@@ -128,7 +134,17 @@ export function createHotspot(canvas: HTMLCanvasElement): Hotspot | null {
   // `angle` orients the whole lens: the streak's long axis, with the spikes
   // carried around with it so the artifact stays one coherent object rather
   // than a rotating streak over a fixed starburst.
-  function draw(sx: number, sy: number, px: number, angle: number): void {
+  //
+  // `phase` is §3.7's p: the fraction of the disc that is lit, 0 = a razor
+  // crescent, 1 = fully lit. Five quantities hang off it so the composite moves
+  // as one physical state rather than as a brightness slider.
+  function draw(
+    sx: number,
+    sy: number,
+    px: number,
+    angle: number,
+    phase: number,
+  ): void {
     if (!ctx || !w || !h) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
@@ -136,19 +152,35 @@ export function createHotspot(canvas: HTMLCanvasElement): Hotspot | null {
 
     // R = W * 1.15 (§1), solved for the reference's frame unit.
     const U = px / 1.15;
+
+    // §3.7's derivations, verbatim.
+    const p = Math.max(0, Math.min(1, phase));
+    const lit = Math.pow(p, 1.5); // the dim end falls away fast
+    const I = 0.05 + 0.95 * lit; // illumination driver, never quite zero
+    const SL = 1.7 - 1.45 * Math.pow(p, 0.7); // streak length — INVERSE
+    // The two remaining rows of §3.7's table, read off their endpoints: halo
+    // radius W*0.75 -> W*1.35 against a base of W*1.25, core radius 0.55x -> 1x,
+    // spike length 1.15x -> 0.70x.
+    const haloScale = (0.75 + 0.6 * p) / 1.25;
+    const coreScale = 0.55 + 0.45 * p;
+    const spikeScale = 1.15 - 0.45 * p;
+
     ctx.globalCompositeOperation = "lighter";
 
     // --- layer 2: halo (§3.1) -----------------------------------------------
     // Three-stop falloff 0 -> 0.35 -> 1, not a linear ramp: brightness collapses
     // fast near the core and lingers far out, which is what scattering does.
     const falloff = (a: number): Stop[] => [
-      [0, a * BLOOM],
-      [0.35, a * BLOOM * 0.22],
+      [0, a * BLOOM * I],
+      [0.35, a * BLOOM * I * 0.22],
       [1, 0],
     ];
-    glow(sx, sy, U * 1.25, falloff(0.3), ATMOS);
-    glow(sx, sy, U * 0.42, falloff(0.4), HALO);
-    glow(sx, sy, U * 0.11, falloff(0.55), CORE);
+    // All three scale together. §3.7 lists one "halo radius", and 1.25 is the
+    // outermost's base, so driving the group from it keeps §3.1's internal
+    // proportions rather than letting the outer ring slide over fixed inner ones.
+    glow(sx, sy, U * 1.25 * haloScale, falloff(0.3), ATMOS);
+    glow(sx, sy, U * 0.42 * haloScale, falloff(0.4), HALO);
+    glow(sx, sy, U * 0.11 * haloScale, falloff(0.55), CORE);
 
     // --- layer 3: lens ghosts (§3.6) ----------------------------------------
     // Along the line from S through the frame centre. Rings, not discs: bright
@@ -157,7 +189,10 @@ export function createHotspot(canvas: HTMLCanvasElement): Hotspot | null {
     const gy = h / 2 - sy;
     for (const [i, t] of [0.45, 0.85, 1.25].entries()) {
       const r = U * (0.07 + i * 0.035);
-      const a = 0.014 * BLOOM;
+      // Ghosts are images of the source, so they follow the source (× I) even
+      // though §3.7's table does not list them — it lists halo, core and spikes,
+      // and a ghost outliving the thing casting it would read as a bug.
+      const a = 0.014 * BLOOM * I;
       const g = ctx.createRadialGradient(
         sx + gx * t,
         sy + gy * t,
@@ -179,7 +214,13 @@ export function createHotspot(canvas: HTMLCanvasElement): Hotspot | null {
     // --- layer 8: anamorphic streak (§3.2) ----------------------------------
     // Three passes, wide+dim to thin+bright. The .06 stop holds the centre hot
     // over the first 6% of the length — the anamorphic signature.
-    const len = U * STREAK_LEN * STREAK;
+    // SL runs backwards on purpose (§3.7): a sun barely clearing the limb is a
+    // point source seen through the deepest slice of atmosphere, which is the
+    // condition that makes a long smear. As the face opens the source goes broad
+    // and high and the smear collapses into the core. The dimmest frame is the
+    // widest one — that inversion is what makes this an event rather than a
+    // brightness control.
+    const len = U * STREAK_LEN * STREAK * SL;
     const streakStops = (a: number): Stop[] => [
       [0, a * BLOOM],
       [0.06, a * BLOOM],
@@ -196,14 +237,24 @@ export function createHotspot(canvas: HTMLCanvasElement): Hotspot | null {
     // are too bright.
     for (let i = 0; i < SPIKES; i++) {
       const spikeAngle = angle + (i / SPIKES) * Math.PI * 2 + 0.22;
-      const spikeLen = U * SPIKE_LEN * (0.7 + jitter(i) * 0.6);
-      squashed(sx, sy, spikeLen, 0.006, spikeAngle, streakStops(0.3), CORE);
+      const spikeLen = U * SPIKE_LEN * spikeScale * (0.7 + jitter(i) * 0.6);
+      squashed(sx, sy, spikeLen, 0.006, spikeAngle, streakStops(0.3 * I), CORE);
     }
 
     // --- layer 10: core (§2) ------------------------------------------------
     // Last, and the only hard-edged thing in the overlay. Drawn after the streak
     // and spikes so the point they emanate from is brighter than they are.
-    glow(sx, sy, U * 0.035, [[0, 1], [0.5, 0.85], [1, 0]], CORE);
+    glow(
+      sx,
+      sy,
+      U * 0.035 * coreScale,
+      [
+        [0, I],
+        [0.5, 0.85 * I],
+        [1, 0],
+      ],
+      CORE,
+    );
 
     ctx.globalCompositeOperation = "source-over";
   }

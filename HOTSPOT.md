@@ -137,12 +137,74 @@ identical every draw.
 
 ---
 
+## 3.7 Phase — the one driver everything hangs off
+
+`phase` p ∈ [0,1] is the fraction of the disc that is lit: **0 = the shadow
+covers the world (a razor crescent), 1 = fully lit**. It is not a brightness
+slider; it is a physical state, and five separate quantities are derived from it
+so the whole composite moves together.
+
+```ts
+lit = pow(p, 1.5)               // non-linear: the dim end falls away fast
+I   = 0.05 + 0.95 * lit         // illumination driver, never quite zero
+SL  = 1.70 - 1.45 * pow(p, 0.7) // streak length multiplier — INVERSE
+RM  = 0.35 + 1.75 * p           // how far the rim glow wraps around the limb
+kT  = 2p - 1                    // terminator ellipse x-radius factor
+```
+
+| quantity | at p→0 | at p→1 |
+|---|---|---|
+| halo / core / spike alpha (`× I`) | ~0.05 — nearly extinguished | 1.0 |
+| halo radius | `W*0.75` | `W*1.35` |
+| core radius | 0.55× | 1.0× |
+| **streak length (`× SL`)** | **1.70×, longest** | **0.25×, a point** |
+| rim wrap (`× RM`) | 0.35× — a spark on the limb | 2.1× — light around the shoulder |
+| spike length | 1.15× | 0.70× |
+
+### Why the streak runs backwards
+
+This is the part worth defending. Brightness rises with lit area, but the
+anamorphic smear does the opposite: a sun barely clearing the limb is a
+**point source seen through the deepest slice of atmosphere**, which is exactly
+the condition that produces a long streak. As the face opens up, the source
+becomes broad and high above the horizon, and the smear collapses into the core.
+So the dimmest frame is also the widest one — the flare stretches as the light
+dies. That inversion is what makes the effect read as an event rather than a
+brightness control.
+
+### The terminator
+
+The day/night boundary projects as a **half-ellipse whose x-radius is
+`R·(2p−1)`** — negative for a crescent (it cuts into the lit half), positive for
+a gibbous phase (it bulges past centre). One path covers both cases:
+
+```ts
+beginPath();
+arc(C.x, C.y, R, th - PI/2, th + PI/2);                       // lit limb
+ellipse(C.x, C.y, abs(R*kT), R, th, PI/2, -PI/2, kT > 0);     // terminator
+closePath(); clip();
+```
+
+The ellipse is rotated by `th` so its axes follow the star, and the
+anticlockwise flag flips with the sign of `kT`. The forward-scatter gradient is
+then drawn inside that clip, with its radius also growing with `p` — so the day
+side widens and brightens as one motion.
+
+### Rim exception
+
+The hard 1.6 px white rim keeps **alpha 1.0 at every phase**. Physically the limb
+immediately beside the star is fully lit no matter how thin the crescent is;
+only its *extent* should shrink, and `RM` already does that. Fading it as well
+made low phases read as fog rather than as a razor edge.
+
+---
+
 ## 4. Tunables
 
-`elevation` (−30…30°) · `bloom` (.3–1.8) · `streak` (0–1.4) · `spikes` (0–10) ·
+`phase` (0–1) · `elevation` (−30…30°) · `bloom` (.3–1.8) · `streak` (0–1.4) · `spikes` (0–10) ·
 `scatter` (0–2) · `tone` (cold / neutral / warm) · `stars`.
 
-Working preset (the one to build from): `elevation 3`, `bloom 1.15`,
+Working preset (the one to build from): `phase 0.18`, `elevation 3`, `bloom 1.15`,
 `streak 1.4`, `scatter 1.5`, `spikes 6`, `tone cold`. Long streak plus lifted
 scatter is what sells the atmosphere; raising `bloom` instead blows the core out.
 
