@@ -110,6 +110,31 @@ export function heroTrails(
   const bands: FanBand[] = [];
   for (let k = N - 1; k >= 0; k--) {
     const fill = FAN_COLORS_OUT_TO_IN[N - 1 - k];
+
+    // Boundary 0 is x = cx at every u (top = cx − GAP·0, bottom = cx − cx·0^P),
+    // so it is its own mirror. The centre band is therefore ONE region, and
+    // splitting it at cx like the others invents an edge that isn't a boundary.
+    // Two independently antialiased fills meeting on a shared edge each cover
+    // ~50% of the pixel that edge crosses and composite to ~75%, not 100% — a
+    // 1px dark seam down the brightest band. It only shows when cx misses a
+    // whole device pixel: the fan spans the viewport, so the edge sits at
+    // width/2, which is integral on a DPR-2 display (device width is always
+    // even) and half-integral at DPR 1 on an odd width or at 125%/150% scaling.
+    // Measured at 1919×1080: lum 157 against 206 either side; 1920 was flat.
+    // Page 2 never had this because fanBands() already emits its centre band as
+    // one spanning triangle.
+    if (k === 0) {
+      const l = boundaries[1];
+      const r = mirror(boundaries[1], W);
+      bands.push({
+        d:
+          `M${n2(l[0][0])} ${n2(l[0][1])} ${down(l)} ` +
+          `L${n2(r[3][0])} ${n2(r[3][1])} ${up(r)} Z`,
+        fill,
+      });
+      continue;
+    }
+
     for (const half of [
       { inner: boundaries[k], outer: boundaries[k + 1] },
       { inner: mirror(boundaries[k], W), outer: mirror(boundaries[k + 1], W) },
