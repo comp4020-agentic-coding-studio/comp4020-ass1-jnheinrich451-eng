@@ -123,9 +123,26 @@
              prototype markup (§6 even notes it omits focus styling), and an
              anchor is keyboard-reachable and works with JS off. -->
         <div class="cta-bar">
-          <a class="enter-observatory" href="#observatory"
-            >[ ENTER OBSERVATORY ]</a
-          >
+          <!-- §3.1: three flat bars either side, mirrored, in the scout-trail
+               warm-to-cold order. Decoration only — aria-hidden, no hover, no
+               animation. The row is what makes the wings the same height as the
+               plate, so their spacing follows the button rather than matching
+               it by measurement. -->
+          <div class="cta-row">
+            <span class="cta-wing cta-wing-left" aria-hidden="true">
+              <i class="wing-red"></i>
+              <i class="wing-yellow"></i>
+              <i class="wing-cyan"></i>
+            </span>
+            <a class="enter-observatory" href="#observatory"
+              >[ ENTER OBSERVATORY ]</a
+            >
+            <span class="cta-wing cta-wing-right" aria-hidden="true">
+              <i class="wing-red"></i>
+              <i class="wing-yellow"></i>
+              <i class="wing-cyan"></i>
+            </span>
+          </div>
         </div>
       </section>
 

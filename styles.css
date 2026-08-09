@@ -295,15 +295,100 @@ which are squashed radial gradients rather than a conic sweep.
   bottom: calc(100% / 28);
   z-index: 6;
 
-  /* Centred by text-align, not flex, so the control keeps shrink-to-fit width
-     without another wrapper (§2). */
+  /* At 390px the wings shrink to exactly fill the row and end up flush against
+     both viewport edges, which reads as a clipped graphic rather than a
+     deliberate one. Not in CTA.md — it never contemplates a width where the
+     wings bind. */
+  padding-inline: 12px;
+
+  /* §2 centres by text-align to avoid a wrapper, but §3.1's wings need a flex
+     row to sit either side of the plate and stretch to its height. The row IS
+     that wrapper, so text-align stays as the fallback for nothing in
+     particular — the control still keeps its shrink-to-fit width, which was
+     §2's actual reason. */
   text-align: center;
   pointer-events: none;
+}
+
+/* §3.1: gap 10px is the gutter the wings' inner ends sit flush against. */
+.cta-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+}
+
+/* align-self:stretch is the whole trick: each wing is exactly as tall as the
+   plate, so the red bar's top edge sits on the button's top edge and
+   margin-top:auto pushes the cyan to the bottom. Nothing here is a measured
+   offset, so the alignment survives any change to the type size or padding. */
+
+/* 132px is the red bar's length at rest, carried as the flex BASIS rather than
+   as a width. §3.1 gives fixed px, which overflows a 390px viewport — the bars
+   ran to -17 and 407 — and worse, flex took the difference out of the plate
+   instead, squeezing it from 286px to 140px and overflowing its own text.
+   Basis + shrink makes the wings give way instead of the words, and the bar
+   lengths below are percentages of whatever the wing ends up, so the
+   1 : 0.75 : 0.30 ratio holds at every width with no breakpoint. */
+.cta-wing {
+  display: flex;
+  flex: 0 1 132px;
+  flex-direction: column;
+  min-width: 0;
+  align-self: stretch;
+  pointer-events: none;
+}
+
+/* Inner ends flush against the gutter, so the taper opens outward, away from
+   the words. */
+.cta-wing-left {
+  align-items: flex-end;
+}
+
+.cta-wing-right {
+  align-items: flex-start;
+}
+
+/* Lengths fall 1 : 0.75 : 0.30 — a sharp drop at the last step, not an even
+   taper — and thickness falls with them, so the group reads as a signal
+   decaying rather than as a chart. Colours are the trail-head streak's
+   warm-to-cold order (STRIPE.md), not the fan's six, so the button carries the
+   ships' signature at rest.
+
+   The percentages are §3.1's own ratios. Its table rounds the cyan's length to
+   40px, but 0.30 of 132 is 39.6 — the ratio is the rule and the table is the
+   label, so the ratio wins by 0.4px. */
+.wing-red {
+  width: 100%;
+  height: 9px;
+  background: #c72138;
+}
+
+.wing-yellow {
+  width: 75%;
+  height: 6px;
+  margin-top: 6px;
+  background: #ffd966;
+}
+
+/* margin-top:auto takes whatever is left, which guarantees the yellow-to-cyan
+   gap stays the larger of the two. The 2px lifts the cyan just inside the lower
+   edge — flush, it looked pinned to the plate rather than floating beside it. */
+.wing-cyan {
+  width: 30%;
+  height: 4px;
+  margin-top: auto;
+  margin-bottom: 2px;
+  background: #81d8ff;
 }
 
 .enter-observatory {
   display: inline-block;
   padding: 9px 20px;
+
+  /* The plate never gives up width to the wings — it is the one thing in the
+     row whose size is set by its own text. */
+  flex: none;
 
   /* §2: the project's control radius. Not 0 (reads as a table cell), not 6
      (reads as a web button). */
