@@ -232,6 +232,11 @@ section {
      white, more wall than label. */
   --title-stretch: 1.42;
 
+  /* Horizontal stretch: 7/6, so the word runs 1/6 longer. Must equal
+     TITLE_LENGTH_GAIN in hero.ts — the fit targets the same figure, and the two
+     cancelling is what lengthens the word without raising the font size. */
+  --title-stretch-x: 1.1667;
+
   animation: title-float 9s ease-in-out infinite;
 }
 
@@ -242,12 +247,14 @@ section {
 @keyframes title-float {
   0%,
   100% {
-    transform: translateY(-6px) scaleY(var(--title-stretch));
+    transform: translateY(-6px) scaleX(var(--title-stretch-x))
+      scaleY(var(--title-stretch));
     opacity: 0.94;
   }
 
   50% {
-    transform: translateY(6px) scaleY(var(--title-stretch));
+    transform: translateY(6px) scaleX(var(--title-stretch-x))
+      scaleY(var(--title-stretch));
     opacity: 1;
   }
 }

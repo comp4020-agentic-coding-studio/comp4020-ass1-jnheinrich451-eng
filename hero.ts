@@ -24,6 +24,16 @@ const TITLE_LETTER_SPACING_EM = 0.08;
 // limb.
 const FLARE_OUTSET = 5;
 
+// How much longer the word runs than the limb rule alone would make it: 7/6, so
+// 1/6 longer. Applied as scaleX in styles.css and targeted here, and the two must
+// stay equal — matching them is what keeps the font SIZE unchanged while the word
+// grows, so the title gets longer without getting taller.
+//
+// Consequence, stated rather than hidden: the B and S centres now sit at
+// +/-(7/6)*marsPx, so Mars's limb no longer passes through their midpoints — it
+// crosses 1/6 of a radius inside them. Set this to 1 to restore that rule.
+const TITLE_LENGTH_GAIN = 7 / 6;
+
 function clamp(min: number, max: number, value: number): number {
   return Math.min(max, Math.max(min, value));
 }
@@ -247,9 +257,9 @@ export function initHero(): void {
   // trade-off is real and deliberate — for part of every cycle the planet is a
   // black disc with only its light point showing.
   const SUN_DISTANCE = 6;
-  // 6.93e-5: a 10% lift on 6.3e-5, so the terminator crosses the face that much
-  // quicker. Period is 2*pi/rate, about 91 s.
-  const SUN_RATE = 0.0000693;
+  // 6.722e-5: 3% off the 6.93e-5 it ran at, so the terminator crosses the face
+  // that much slower. Period is 2*pi/rate, about 93.5 s.
+  const SUN_RATE = 0.00006722;
   function placeSun(time: number): void {
     const angle = time * SUN_RATE;
     sun.position.set(
@@ -388,8 +398,15 @@ export function initHero(): void {
     const span = glyphCentre(last) - glyphCentre(first);
     if (span <= 0) return;
 
-    // Primary rule: the two outer glyph centres a diameter apart.
-    const fitted = Math.max(16, (probe * 2 * marsPx) / span);
+    // Primary rule: the two outer glyph centres a diameter apart, times the
+    // length gain. `span` is measured with the CSS scaleX already in effect, so
+    // when the gain and that scaleX match, the two cancel and the font size comes
+    // out exactly as it would with no stretch at all — which is the point: the
+    // word lengthens, the glyph height does not.
+    const fitted = Math.max(
+      16,
+      (probe * 2 * marsPx * TITLE_LENGTH_GAIN) / span,
+    );
     title.style.fontSize = `${fitted}px`;
 
     // Then correct against the ACTUAL rendered width. Capping on a predicted ink
