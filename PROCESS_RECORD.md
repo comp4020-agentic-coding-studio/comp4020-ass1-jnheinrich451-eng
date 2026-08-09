@@ -850,3 +850,51 @@ the phone because they were off-screen. I had hidden them under 600px in an
 earlier turn, and said so at the time. That call is now superseded.
 
 Commit: [`dc18440`](../../commit/dc18440)
+
+## 2026-08-10 06:05 — The silhouette, and one bug behind two symptoms
+
+**Prompt:**
+
+> Ty, and pls check the CLAUDE.md from line 213 to 229 [...] Then in my view, it
+> is not solved except GLITCH. Both problems. And they share common points, they
+> all related to the silhouette and the object will interact with sihouette.
+> First could you explain to you your fix logic?
+
+**Result:**
+Explained the logic, and explaining it is what exposed the flaw. Both fixes
+anchored to `--mars-px`, and `--mars-px` was the projection of the globe's
+**equator**, not its silhouette. In perspective the silhouette is the tangent
+circle, larger by `d/sqrt(d^2 - R^2)` — 1.0422 at 1920x1080, 16.7px of a 396px
+radius. So both objects whose entire job is to touch the outline were anchored
+4% inside it. `--mars-px` now publishes the tangent point through a shared
+`limbPoint()` helper; the flare uses the same helper and measures 0.000px error.
+
+**What happened:** four things, and the user's framing did the work.
+
+1. **"They share common points" was the whole diagnosis.** I had treated the hot
+   spot and the scout as two bugs with two fixes. Being asked to *explain* the
+   logic rather than patch again forced both fixes into one sentence — "anchor to
+   `--mars-px`" — and the shared term is where the error was. **Being made to
+   state a fix in general terms is a test the fix can fail.**
+2. **I deleted a magic number instead of asking what it was for.** The doc's
+   `1.04` on the scout's mask, justified as "a hairline of clearance", is `1.0422`
+   to within 0.9px. It was never clearance — it was this exact correction, found
+   by eye by whoever wrote the doc and then explained as something else. I removed
+   it as unprincipled. CLAUDE.md §4 says find the anchors; a constant that
+   survives in a spec usually *is* an anchor someone found empirically, and the
+   job is to work out what it measures, not to delete it for being unexplained.
+3. **My previous "fix" made the scout worse and I have to say so.** The band cut
+   16.7px outside the outline. The original 1.04 circle cut 0.7px from the true
+   edge. So under the reading the user chose, the original was already right and
+   my change was the regression — which also means the lateness they reported
+   cannot be a 0.7px error, and I reported that rather than claiming the fix
+   landed.
+4. **Markers, as §4 prescribes.** Three separate attempts to measure the flare
+   from canvas pixels gave 5.78px, −70.95px and a nonsense 43.6px, because the
+   streak and the lens ghosts are bright too and every estimator found them
+   instead of the core. Publishing `--hot-x` / `--hot-y` turned it into one line
+   of arithmetic. §4's "create markers if the bug happens multiple times
+   unsolved" is exactly right, and I should have reached for it after the second
+   bad measurement, not the fourth.
+
+Commit: [`5e48816`](../../commit/5e48816)
