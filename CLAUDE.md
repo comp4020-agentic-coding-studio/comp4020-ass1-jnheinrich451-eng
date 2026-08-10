@@ -237,6 +237,12 @@ except for stars. Resist filling them.
 
 ## 4. Topology
 
+**`LAYOUT.md` supersedes this section for the field.** The archive page's frame
+is specified there in full — fixed 210px / 230px rails with an 18px gap inside a
+26px ring, IBM Plex Mono throughout, and the exact copy — and that is what is
+built. The diagram below still governs the hero, the seam and the dive; read its
+field rows as the original sketch, not as the current measurements.
+
 ```
 ┌─ Hero ───────────────────── 100vh, overflow hidden
 │    launch point at top-centre, trails fall outward

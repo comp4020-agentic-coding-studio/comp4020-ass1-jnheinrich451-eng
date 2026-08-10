@@ -919,282 +919,279 @@ which are squashed radial gradients rather than a conic sweep.
   animation: glitch-out-slice 0.42s steps(1) 120ms 1 both;
 }
 
+/* ---------------------------------------------------------------------------
+   LAYOUT.md — SECTION 2, the archive page.
+
+   This supersedes CLAUDE.md §4's 20/50/20 sketch for the field: the columns are
+   fixed at 210px and 230px with an 18px gap, so the percentage spine and the
+   57% question it raised no longer apply here. §4 still governs the hero and
+   the seam.
+
+   Two spacing constants, not one, and they nest: the 26px ring is the margin
+   outside the frame — which is why §2's height is calc(100vh - 52px) — and 18px
+   is the frame's padding and the grid gap inside it.
+
+   §3 is emphatic that IBM Plex Mono is the only face in section 2. That is
+   narrower than CLAUDE.md §5, which gives headings and body to Space Grotesk;
+   the more specific and more recent document wins inside this section, and §5
+   still holds everywhere else.
+   -------------------------------------------------------------------------- */
 #observatory {
+  --ring: 26px;
+  --gap: 18px;
+  --line: rgb(150 170 255 / 28%);
+
   display: block;
-  min-height: 100vh;
-  background: #070812;
+  height: 100vh;
+  background: #03040a;
+  font-family: "IBM Plex Mono", monospace;
 }
 
-/* ---------------------------------------------------------------------------
-   CLAUDE.md §4 — the field's topology.
+/* §1's four passes. Every one is the same geometry (a <use> of #fan-v); they
+   differ only in opacity, clip and mask. The inner pass is cut away behind the
+   plot column so the field reads against solid ground, and the header and apex
+   patches restore only what that cut removed — which is why they are masked to
+   the centre rather than drawn everywhere. */
+.fan-pass {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
 
-   One spacing constant. --ring is the 26px margin ring, and it is also the
-   gutter between columns and the gap between strips, so the page has a single
-   rhythm and no bespoke offsets to drift (§6 forbids absolute offsets, and the
-   surest way not to write one is to have only one number to write).
+/* The 26px margin band only: an even-odd ring, outer rect minus the inset rect. */
+.fan-ring {
+  opacity: 0.5;
+  clip-path: polygon(
+    0 0, 100% 0, 100% 100%, 0 100%, 0 0,
+    26px 26px, 26px calc(100% - 26px),
+    calc(100% - 26px) calc(100% - 26px), calc(100% - 26px) 26px, 26px 26px
+  );
+}
 
-   The columns are 20% / remainder / 20%. Stated honestly, because the measured
-   result is not what §4's diagram implies: with the rails at exactly 20% and
-   the gutters at 26px, the centre lands at 57.2% at 1920, not ~50%. 20/50/20
-   sums to 90, so the diagram's own arithmetic reserves 10% — about 187px at
-   1920 — for the two gutters, which is seven times the margin ring.
+.fan-inner {
+  opacity: 0.3;
+  clip-path: inset(26px);
+  mask-image: linear-gradient(90deg, #000 0 20%, transparent 30%, transparent 70%, #000 80%);
+}
 
-   The two rules cannot both hold: 26px intervals everywhere and a 50% centre
-   need rails at 23.6%, and 20% rails with a 50% centre need 93px gutters. This
-   file implements 20% rails and a 26px rhythm, and the discrepancy is recorded
-   here rather than papered over, because the next person to read §4 will expect
-   the centre to be half the width and it is not.
-   -------------------------------------------------------------------------- */
-.field {
-  --ring: 26px;
-  --header-h: 84px;
-  --apex-h: 190px;
-  --rail-w: 20%;
+.fan-header-patch {
+  opacity: 0.2;
+  clip-path: inset(26px 26px calc(100% - 84px) 26px);
+  mask-image: linear-gradient(90deg, transparent 18%, #000 30%, #000 70%, transparent 82%);
+}
 
+.fan-apex-patch {
+  opacity: 0.3;
+  clip-path: inset(calc(100% - 190px) 20% 26px 20%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 62%);
+}
+
+/* §1 z3. The definite height lives here rather than on the grid: the viewport
+   less the ring top and bottom, with the header and footer taking their
+   intrinsic size and the grid absorbing the rest. */
+.frame {
   position: relative;
-  z-index: 1;
+  z-index: 3;
   display: flex;
   flex-direction: column;
-  gap: var(--ring);
-  box-sizing: border-box;
-  min-height: 100vh;
-  padding: var(--ring);
-  font-family: "Space Grotesk", sans-serif;
+  height: calc(100vh - 52px);
+  margin: var(--ring);
+  padding: var(--gap);
+  border: 1px solid rgb(150 170 255 / 34%);
 }
 
-/* Instrument furniture: hairlines, never boxes with shadows (§3). */
-.field-header,
-.field-footer,
-.panel,
-.plot {
-  border: 1px solid rgb(150 170 255 / 22%);
-}
-
-.field-header {
+/* §4 strips. The asymmetric padding is the spec's: the strips sit against the
+   frame's own padding, so their outer edge needs almost none. */
+.strip {
   display: flex;
   flex-wrap: wrap;
-  gap: calc(var(--ring) / 2) var(--ring);
-  align-items: center;
+  gap: var(--gap);
+  align-items: baseline;
   justify-content: space-between;
-  box-sizing: border-box;
-  min-height: var(--header-h);
-  padding: 0 var(--ring);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  color: #cfd6f6;
+  text-transform: uppercase;
 }
 
-/* §5: every number is mono, IDs included — so the whole identity line is mono,
-   not just the count sitting inside it. */
-.archive-id {
+.strip-header {
+  padding: 0 4px 16px;
+}
+
+.strip-header h2 {
   margin: 0;
-  font-family: "IBM Plex Mono", monospace;
   font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.18em;
-  color: var(--ink);
-  text-transform: uppercase;
+  letter-spacing: inherit;
 }
 
-.sep {
-  color: #6c7699;
-  padding: 0 0.25em;
+.strip-footer {
+  padding: 16px 4px 0;
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
 }
 
-.projections ul {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ring);
+.strip p {
   margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
-/* Bracketed actions (§5). The brackets are in the markup, not generated, so a
-   screen reader reads what the page shows. */
-.tab {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.2em;
-  color: #9aa3ca;
-  text-decoration: none;
-  text-transform: uppercase;
+.dim {
+  color: #8f9ad4;
 }
 
-.tab:hover {
-  color: var(--ink);
+.micro {
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  color: #5f6889;
 }
 
-/* §2: fan white is the active-HUD accent — the tab you are on. */
-.tab.is-active {
-  color: #f1f1ee;
-}
-
-.tab:focus-visible {
-  outline: 1px solid rgb(150 170 255 / 50%);
-  outline-offset: 4px;
-}
-
-.field-cols {
+/* §2. minmax(0,1fr) on both the centre column and the row is load-bearing: an
+   auto-sized track takes its content's min-content width, so a long FIND list
+   would otherwise push the grid past the frame instead of scrolling inside it. */
+.grid {
   display: grid;
   flex: 1;
-  grid-template-columns: var(--rail-w) 1fr var(--rail-w);
-  gap: var(--ring);
-  align-items: stretch;
-}
-
-/* The rails carry NO ground: the V shows through them at its own 30%, which is
-   §4's "the side rails sit on the stripes". Only the plot field cuts it out. */
-.rail {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ring);
-  min-width: 0;
+  grid-template-columns: 210px minmax(0, 1fr) 230px;
+  grid-template-rows: minmax(0, 1fr);
+  gap: var(--gap);
 }
 
 .panel {
-  padding: calc(var(--ring) / 2) calc(var(--ring) / 2) calc(var(--ring) * 0.65);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--line);
+}
+
+.panel-left {
+  padding: 14px 12px;
+}
+
+.panel-right {
+  padding: 16px 14px;
 }
 
 .panel h3 {
-  margin: 0 0 calc(var(--ring) / 2);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  color: var(--ink-2);
+  margin: 0 0 10px;
+  font-size: 11.5px;
+  font-weight: 400;
+  letter-spacing: 0.19em;
+  color: #8f9ad4;
   text-transform: uppercase;
 }
 
-/* §5: body and labels are Space Grotesk 400 at 11–13px. */
-.legend {
+.tabs {
+  display: flex;
+  gap: var(--gap);
+  margin-bottom: 14px;
+}
+
+/* §5 rule 4 wraps actions in brackets, and the brackets are in the markup so a
+   screen reader hears what the page shows. Buttons are reset to type rather
+   than restyled as chrome: §3 forbids the rounded-card look outright. */
+.tab,
+.pick {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #8f9ad4;
+  font: inherit;
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.tab.is-active,
+.pick.is-active {
+  color: #fff;
+}
+
+.tab:hover,
+.pick:hover {
+  color: #e6e9fb;
+}
+
+.tab:focus-visible,
+.pick:focus-visible {
+  outline: 1px solid rgb(150 170 255 / 50%);
+  outline-offset: 3px;
+}
+
+/* §1: the centre reads against solid ground, which is what the inner pass's
+   centre cut is for. overflow:hidden because the field will own a canvas. */
+.field-box {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgb(150 170 255 / 20%);
+}
+
+.field-title {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  margin: 0;
+  font-size: 11.5px;
+  letter-spacing: 0.2em;
+  color: #8f9ad4;
+  text-transform: uppercase;
+  translate: -50% 0;
+}
+
+.field-projection {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+}
+
+.field-projection .sub {
+  margin: 0 0 8px;
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  color: #8f9ad4;
+  text-transform: uppercase;
+}
+
+.field-projection ul {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--ring) / 3);
+  gap: 6px;
   margin: 0;
   padding: 0;
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  color: var(--label);
   list-style: none;
 }
 
-/* The one place data colour is allowed (§2), and it is the encoding legend —
-   so the swatch is the only saturated thing in the rails. */
-.swatch {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  margin-right: 0.7em;
-  vertical-align: baseline;
-  background: currentcolor;
+/* §5 rule 1: sentence case is allowed for the field caption and nothing else. */
+.field-caption {
+  position: absolute;
+  bottom: 12px;
+  left: 14px;
+  margin: 0;
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  color: #cfd6f6;
 }
 
-.swatch[data-method="transit"] { color: #9fc4ff; }
-.swatch[data-method="radial"] { color: #e8c37a; }
-.swatch[data-method="microlensing"] { color: #c79bff; }
-.swatch[data-method="imaging"] { color: #81d8ff; }
-.swatch[data-method="other"] { color: #e2664a; }
-
-/* Every readout is a number or an ID, so every readout is mono (§5). */
-.readout {
+.field-nav {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
   margin: 0;
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  color: var(--ink-2);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  color: #8f9ad4;
   text-transform: uppercase;
 }
 
-.record {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: calc(var(--ring) / 4) var(--ring);
-}
-
-.record dt {
-  color: var(--label);
-}
-
-.record dd {
-  margin: 0;
-  color: var(--ink);
-  text-align: right;
-}
-
-/* §4: the only dark ground, and the only place the fan is cut out. Opaque, so
-   points will read against plain ground rather than against stripes. */
-.plot {
-  position: relative;
-  min-width: 0;
-  background: #03040a;
-}
-
-.plot-frame {
-  position: absolute;
-  inset: var(--ring);
-  border-left: 1px solid rgb(150 170 255 / 35%);
-  border-bottom: 1px solid rgb(150 170 255 / 35%);
-}
-
-/* §5: axis labels are mono, and 8px is allowed only for ticks — these are
-   labels, so they sit at the 10px end. */
-.axis {
-  position: absolute;
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 10px;
-  letter-spacing: 0.22em;
-  color: var(--label);
-  text-transform: uppercase;
-}
-
-.axis-x {
-  bottom: calc(var(--ring) * -0.75);
-  left: 0;
-}
-
-/* writing-mode turns the line vertical without a rotation whose origin has to be
-   reasoned about; the 180deg then makes it read bottom-to-top, which is the
-   convention for a y axis. The earlier version rotated about 0 0 and pushed the
-   label clean out of the plot and up into the header gutter — visible instantly
-   in the render, invisible in the rule. */
-.axis-y {
-  top: 50%;
-  left: calc(var(--ring) * -1);
-  writing-mode: vertical-rl;
-  transform: translateY(-50%) rotate(180deg);
-}
-
-.plot-empty {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  margin: 0;
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 11px;
-  letter-spacing: 0.22em;
-  color: #6c7699;
-  text-transform: uppercase;
-  translate: -50% -50%;
-}
-
-/* Mirrors the header rather than merely echoing it: same height, so the top and
-   bottom of the field weigh the same. Without the min-height it collapsed to
-   42px on its content and the symmetry was only in the intent. */
-.field-footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: calc(var(--ring) / 2) var(--ring);
-  align-items: center;
-  justify-content: space-between;
-  box-sizing: border-box;
-  min-height: var(--header-h);
-  padding: calc(var(--ring) / 2) var(--ring);
-}
-
-/* Reserved emptiness, not a spacer: §4 keeps the bottom 190px for the V's apex
-   and forbids UI on it. It is an element so that the reservation is visible in
-   the markup and cannot be quietly absorbed by a later layout change. */
-.apex-band {
-  height: var(--apex-h);
-  flex: none;
+.target-name {
+  margin: 0 0 8px;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  color: #fff;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1259,39 +1256,29 @@ which are squashed radial gradients rather than a conic sweep.
    their 12px floor at these widths, and that floor is a margin from the frame,
    not a correction to anything. */
 
-/* The 20/50/20 spine is a desktop structure, and there is a width below which
-   it stops being one. The plot field measures 0.6·(vw − 52) − 52, so it falls
-   under 420px — the narrowest a two-axis projection can be and still be read —
-   at vw = 840. Below that the columns stack: plot first, because it is the
-   instrument, then the rails as its controls.
-   Derived from the column formula rather than picked, so it moves if the
-   20% ever does. Measured at 390: the three-column layout leaves the plot
-   150.8px, which is a label, not a field. */
-@media (width <= 840px) {
-  .field-cols {
-    grid-template-columns: 1fr;
+/* LAYOUT.md §2, narrow. 640px is the spec's breakpoint rather than a derived
+   one: below it the fixed 210 + 230 rails plus two 18px gaps leave the field
+   164px, which is a label and not a field. The frame gives up its definite
+   height here so the stack may grow, and the field takes 58vh so it stays the
+   tallest thing on the page. */
+@media (width <= 640px) {
+  .frame {
+    height: auto;
+    min-height: calc(100vh - 52px);
   }
 
-  /* Stacked, the plot no longer inherits its height from the tallest rail, so
-     it needs one of its own or it collapses to its absolutely-positioned
-     children — which is to say, to nothing.
-
-     order:-1 puts the instrument above its controls. The DOM order is
-     left-rail / plot / right-rail because that is the reading order the three
-     columns need, and reordering visually here is exactly what `order` is for.
-     Without it the phone opens on a filter list and the field is below the
-     fold. */
-  .plot {
-    order: -1;
-    min-height: 56vh;
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 58vh auto;
+    gap: 14px;
   }
 
-  /* The rails stop being rails and become stacked panel groups, so they read in
-     one column rather than two cramped ones. */
-  .rail {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  }
+  /* No `order` here, deliberately, reversing what the previous layout did.
+     `rows: auto 58vh auto` assigns tracks in order, so moving the field to
+     first put it in the `auto` track — and its children are all absolutely
+     positioned, so `auto` resolved to 2px while the left panel took the 58vh.
+     The spec's row list already encodes the stack it wants: controls, field,
+     target. Reordering and a positional row template cannot both be honoured. */
 }
 
 @media (width <= 900px) {
