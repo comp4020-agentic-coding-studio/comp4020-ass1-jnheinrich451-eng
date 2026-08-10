@@ -227,6 +227,9 @@ you're reading. `#7a5cc4 / #a184f0` are the search-panel scrollbar only.
 The field page is specified in seven documents. They are the numbers; this file
 is only the posture. Read `LAYOUT.md` first.
 
+**They all live in `instructions/`.** Every reference to a spec by bare name —
+here, and in the source comments — means `instructions/<NAME>.md`.
+
 | document | owns |
 |---|---|
 | `LAYOUT.md` | stack, grid, type scale, palette, **every word on the page** |

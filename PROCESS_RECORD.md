@@ -1413,3 +1413,75 @@ spatial canvas, so it is genuinely drawing. `pnpm check` green 74/74.
    small radius, blue radial-velocity records forming the giant-planet band.
    **A distribution that looks like the science is evidence; a green schema test
    is not.**
+
+## 2026-08-10 22:40 — OBSERVE, FIND, and the picker that was a menu
+
+**Prompt:**
+
+> I uploaded AXES.md, LEFT-FIND.md, LEFT-OBSERVE.md, OPEN-SYSTEM.md,
+> RIGHT-TARGET.md, FIELD.md […] Then I think the search and observe, those
+> matching can be implement first? And then the interactions, the
+> INTERACTION.md, in my own view, it can be applied in last step. The FIELD
+> PROJECTION words […] those arrangement I am not fully satisfied, I mean the
+> layout not themselves. Their specs are in those files above!
+
+**Result:**
+The picker was the arrangement being complained about, and FIELD.md §2b says
+exactly why: it is a **wrapping row** at `top:44px; left:16px`, `width:fit-content`,
+`max-width:360px`, with a negative margin cancelling its own padding so the label
+aligns optically to the box edge. I had built a vertical list, which turns four
+peer projections into a menu. It also gains §2b's gradient scrim so the picker
+survives being read over the fan.
+
+`store.ts` holds section 2's state so the panels and the field cannot disagree,
+and encodes LEFT-FIND.md §0's pipeline **in its stated direction**: methodFilter
+(OBSERVE) → pool → REQUIRE DATA → query → sort → limit. FIND reads methodFilter
+and never writes it, which is why there is a setter per owner rather than a
+general merge — the shape of the module makes the rule hard to break. Results
+memoise on the key §0 names, with methodFilter inside it, so an OBSERVE change
+invalidates the list for free.
+
+Three rules that shaped code rather than decorating it: a filter change is
+animated and no record leaves the draw loop; missing values sort **last**, never
+as zero; and the *column* is the scroller, not the list, because the list is the
+only shrinkable child of a definite-height column and would absorb the whole
+deficit.
+
+**Verified:**
+The pipeline, not the widgets. WOBBLE gives "1,197 of 6,336 found by Radial
+Velocity", and FIND then reads "1,197 / 1,197 current signals" — the denominator
+is OBSERVE's pool, which is the thing that makes the two panels visibly linked.
+A "kepler" query inside that pool gives 23; requiring TEMPERATURE cuts it to 19,
+adding ECCENTRICITY to 18, both matching the archive counted offline. CLEAR
+empties query, requirements and sort while the caption still reads Radial
+Velocity, so methodFilter survived. `pnpm check` green 74/74, no overflow at 390.
+
+**Commit:** [`cbaf170`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/cbaf170)
+
+**What happened:** three things.
+
+1. **A count that did not move was the right answer, and I nearly filed it as a
+   bug.** Adding the MASS requirement left "kepler" inside the WOBBLE pool at 23
+   — exactly what a dead checkbox looks like. Counting the archive directly
+   showed all 23 genuinely have a mass, because **radial velocity measures
+   mass**: a method that cannot detect a planet without measuring its mass
+   cannot produce one lacking it. Confirmed the control was live by predicting a
+   requirement that *should* bite — TEMPERATURE, 19 — and watching it land
+   exactly there. **Test a filter with a constraint you can predict the answer
+   to, not with the first one to hand.**
+
+2. **The rows shipped as native buttons.** I had reset `.tab` and `.pick`
+   earlier and never thought about `.method-row`, so the browser painted its own
+   background and border and the method filter read as five filled boxes.
+   §3 gives those rows no box at all — they are text with a mark. Invisible in
+   the CSS, obvious in the render, and the second time this project a control
+   has been wrong because a reset covered the classes I remembered rather than
+   the ones that existed.
+
+3. **Moving the specs into `instructions/` silently invalidated every reference
+   to them.** Git recorded clean renames, checks stayed green, and nothing at
+   all pointed out that "see `STRIPE.md`" in a dozen source comments and in
+   CLAUDE.md §2b now names a path that does not exist. Added the mapping to
+   §2b rather than rewriting every comment. **A rename that no check can fail is
+   the kind that rots documentation quietly** — the files moved, and only prose
+   knew where they used to be.
