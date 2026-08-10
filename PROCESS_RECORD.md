@@ -1601,3 +1601,55 @@ green 87/87.
    block the document calls non-optional. That is the fourth time in this
    project a lint rule has pointed at something worse than the thing it
    reported, and the second time inside the same file.
+
+## 2026-08-10 23:25 — The interaction layer
+
+**Prompt:**
+
+> Yes, I am thinking it is cannot interactive state, yes add them on, and I will
+> make a unified polish
+
+**Result:**
+INTERACTION.md, plus the field behaviours FIELD.md had specified and left
+unwired. §1's three verbs now hold everywhere: hover previews, click locks, drag
+moves the *view* and never the data.
+
+The view state went into `nav.ts`, one per projection, because FIELD.md §3
+requires each projection to keep its own pan and zoom — "switching away and back
+returns to the frame you left it in". A single shared view would have discarded
+that without any check noticing. `mapping()` builds both directions together so
+the forward and inverse cannot drift, which is the same argument AXES.md §1
+makes about the tape.
+
+**Verified:**
+By driving the page rather than reading the code. Clicking a point locked
+55 Cnc c; an 18px drag *beginning on a different point* left the selection
+unchanged, so the click was swallowed; after CENTER TARGET the locked record
+sits under the field's centre, so the view moved and the point did not. A hover
+grid found 83 hits unfiltered and **0** once the population narrowed to Imaging
+— the filter enforced at the hit test. Wheel reports `defaultPrevented` with no
+page scroll; `contextmenu` is prevented in SPATIAL only. `pnpm check` green
+87/87.
+
+**Commit:** [`530168b`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/530168b)
+
+**What happened:** two things.
+
+1. **My patch script reported success and did nothing.** I guarded the insert
+   with `if "INTERACTION.md" not in s`, meaning to make it idempotent — but that
+   string was *already* in the file from a comment I had added minutes earlier,
+   so the guard matched, the block was never inserted, and the script printed
+   "patched". Typecheck passed, because nothing had changed. I only caught it
+   because the browser said `defaultPrevented: false` on a wheel event that
+   should have been cancelled. **An idempotency guard has to key on the thing
+   being inserted, not on something near it** — and a script that prints its
+   success unconditionally is a script that can lie. Re-guarded on
+   `"pointerdown"`, which only the inserted block contains.
+
+2. **My first click test proved nothing and I nearly read it as a failure.** I
+   clicked at coordinates I had guessed and got no selection, which looks
+   identical to a broken hit test. Probing a grid instead showed 29 hits naming
+   real planets — the hit test was fine, my coordinate simply had no point
+   within 16px. **A negative result from a guessed input is not evidence**; find
+   a known-good input first, then test the rule. The drag-swallow check had the
+   same flaw and was silently passing on two `NONE`s comparing equal.
