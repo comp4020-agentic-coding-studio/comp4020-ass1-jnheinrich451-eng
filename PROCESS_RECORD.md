@@ -1653,3 +1653,58 @@ page scroll; `contextmenu` is prevented in SPATIAL only. `pnpm check` green
    within 16px. **A negative result from a guessed input is not evidence**; find
    a known-good input first, then test the rule. The drag-swallow check had the
    same flaw and was silently passing on two `NONE`s comparing equal.
+
+## 2026-08-11 00:07 — FIX.md: four contracts, seven defects
+
+**Prompt:**
+
+> First is the FIND function, totally disabled, no scroll bar, the window is get
+> extended, point cloud get leaked. […] Pls refer to /instructions/FIX.md, and
+> fix them
+
+**Result:**
+FIX.md's §0 claim — that five of the seven defects were four shared contracts —
+held exactly, and working in its stated order made each next defect observable.
+
+**Contract A was one line.** `.grid` is `flex: 1` inside a column flex
+container, so its default `min-height: auto` let 1,197 FIND rows inflate the
+grid, the frame, the section and the page. The rail therefore never overflowed
+and `overflow-y: auto` had nothing to do — **the scrollbar was not missing;
+there was no overflow to scroll.** #1 and half of #6 were the same omission.
+
+**#2 was not the vendor prefix the report expected.** The real cause was the
+missing `mask-size` / `mask-repeat`: the gradient tiled at its intrinsic size
+instead of spanning the box, so the centre cut landed in the wrong place and the
+fan bled across the plot.
+
+**Verified:**
+Page `scrollHeight` 2160 against a 1080 viewport, so it no longer grows; the
+FIND results row scrolls 6,512px of content in a 238px window; the canvas is
+contained by the field box; the field ground samples `rgb(3,4,10)` exactly.
+`pnpm check` green 87/87.
+
+**Commit:** [`0485dfe`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/0485dfe)
+
+**What happened:** three things.
+
+1. **A remedy in the spec collided with a sensor in the repo, and the sensor was
+   right.** FIX.md #2 asks for `-webkit-mask-*`; `.stylelintrc` bans vendor
+   prefixes. Rather than suppress the rule I checked whether the prefix was load
+   bearing: Chrome — the browser this is marked in — has shipped unprefixed
+   `mask-image` since 120, so the prefix could never have been the fault. Dropped
+   it, kept the part that *was* the fault, and named the deviation in the commit.
+   **A specified remedy is a hypothesis about the cause, and it can be wrong even
+   when the diagnosis is right.**
+
+2. **Two INTENT CHANGES that reverse things I built earlier this week.** #7b
+   supersedes FIELD.md §3's per-projection pan and zoom with one shared view,
+   and #4 supersedes the co-timed veil. Both of my originals were faithful to the
+   document in front of me at the time; both were wrong in use. Worth recording
+   that fidelity to a spec is not the same as the thing working, and the author
+   watching it run is the only test that catches the difference.
+
+3. **The veil keyframes needed explicit offsets.** Three keyframes with no
+   offsets distribute evenly, so "hold transparent then fade" became "start
+   fading at 360ms" — the exact defect #4 reports, reintroduced by the fix for
+   it. Caught by doing the arithmetic (0.556 × 720 = 400) rather than by watching
+   it.
