@@ -2046,3 +2046,51 @@ which are squashed radial gradients rather than a conic sweep.
     top: 96px;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   FIELD.md §5 — FIELD GROUND: SOLID / CLEAR.
+
+   §5 rule 1: presentation only. No projection, filter, selection, camera or
+   scale changes — it is a redraw, not a state change. Rule 4: point alpha,
+   radius and colour are IDENTICAL in both, because fixing legibility by
+   brightening the data would make the toggle a data control.
+   -------------------------------------------------------------------------- */
+
+/* CLEAR: the fan runs behind the points at exactly the rails' 30%, so the whole
+   section becomes one continuous graphic. */
+.ground-clear .field-box {
+  background: transparent;
+}
+
+.ground-clear .fan-inner {
+  mask-image: none;
+}
+
+/* §5 rule 2: the two patches exist BECAUSE of the cut. When the cut goes they
+   go — leaving them on in CLEAR double-paints. */
+.ground-clear .fan-header-patch,
+.ground-clear .fan-apex-patch {
+  opacity: 0;
+}
+
+/* §5 rule 3: anything the ground stops occluding must earn its own legibility.
+   The picker swaps its scrim for a text-shadow. */
+.ground-clear .field-projection {
+  background: transparent;
+}
+
+.ground-clear .field-projection .pick,
+.ground-clear .field-projection .sub {
+  text-shadow: 0 1px 3px rgb(0 0 0 / 85%);
+}
+
+/* FIELD.md §4 — EXPAND FIELD. Unmounts both rails; the grid collapses to one
+   column. The field keeps every bit of state. */
+.focus-mode .grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.focus-mode .panel-left,
+.focus-mode .panel-right {
+  display: none;
+}

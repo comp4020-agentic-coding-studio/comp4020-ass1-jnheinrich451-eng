@@ -21,6 +21,12 @@ export const setFieldSnapshotter = (fn: typeof snapshotField): void => {
   snapshotField = fn;
 };
 
+/** INTERACTION.md §5. The field owns the view, so it supplies the move. */
+let centreFn: () => void = () => {};
+export const setCentreTarget = (fn: () => void): void => {
+  centreFn = fn;
+};
+
 /** §3's six rows, in fixed order at fixed precision. */
 const ROWS: { label: string; col: number; dp: number; unit: string }[] = [
   { label: "Orbit", col: C.orbsmax, dp: 3, unit: "AU" },
@@ -122,10 +128,11 @@ export function initTarget(archive: Archive): void {
     // are marked disabled rather than left live-looking, because a control that
     // silently does nothing is worse than one that says it cannot yet.
     if (!missing.length) {
+      // §5: offered ONLY when the record is resolved here — otherwise
+      // there is nowhere to centre on, and the button is absent not dead.
       const centre = el("button", "action action-centre", "[ Center target ]");
       centre.type = "button";
-      centre.disabled = true;
-      centre.title = "Behaviour defined in INTERACTION.md — not yet wired";
+      centre.addEventListener("click", () => centreFn());
       rail.append(centre);
     }
     // §5: OPEN SYSTEM is shown once a record is loaded, whatever the current

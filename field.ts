@@ -22,7 +22,8 @@ import {
 } from "./data";
 import { type Env, approach, drawAxes } from "./axes";
 import { initPanels } from "./panels";
-import { initTarget, renderTarget, setFieldSnapshotter } from "./target";
+import { HIT, MS, type View, easeInOut, mapping, reduceMotion, resetView, viewFor, zoomAt } from "./nav";
+import { initTarget, renderTarget, setCentreTarget, setFieldSnapshotter } from "./target";
 import { inPool, state, subscribe } from "./store";
 
 const PROJECTIONS: { id: Projection; label: string; axes: string }[] = [
@@ -48,9 +49,6 @@ const PROJECTIONS: { id: Projection; label: string; axes: string }[] = [
   },
 ];
 
-const reduceMotion = (): boolean =>
-  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
 export function initField(): void {
   const box = document.querySelector<HTMLElement>(".field-box");
   const canvas = document.querySelector<HTMLCanvasElement>("#field-canvas");
@@ -74,7 +72,7 @@ export function initField(): void {
   let target: Pos[] = [];
   let morphStart = 0;
   let morphing = false;
-  const MORPH_MS = 720;
+  const MORPH_MS = MS.morph; // INTERACTION.md §3
 
   // §4: the fit rect widens to 1.26 ONLY when a projection actually has
   // unresolved records, so a complete projection is not squeezed to leave room
@@ -121,13 +119,17 @@ export function initField(): void {
     // Normalised space maps into the box with the fit rect, so the holding
     // cloud at x≈1.15 is visible without moving the scientific 0–1 region.
     const pad = 26;
-    const sx = (x: number): number => pad + (x / fitRight) * (w - pad * 2);
-    const sy = (y: number): number => pad + y * (h - pad * 2);
+    const view = viewFor(projectionOf(), fitRight);
+    // §4: interpolate the MAPPING too. Switching the fit rect at morph start
+    // made the field jump before any point had moved.
+    const map = mapping(view, w, h, pad, fitRight);
+    const sx = map.sx;
+    const sy = map.sy;
 
     const p = morphing
       ? Math.min(1, (performance.now() - morphStart) / MORPH_MS)
       : 1;
-    const e = p < 1 ? 1 - (1 - p) ** 3 : 1;
+    const e = p < 1 ? easeInOut(p) : 1;
 
     // §7 step 2 — furniture UNDER the points.
     ctx!.strokeStyle = "rgba(150,170,255,0.12)";
@@ -188,6 +190,41 @@ export function initField(): void {
     }
     ctx!.globalAlpha = 1;
 
+    // §7 step 5: marked records are held back and painted LAST. In a dense
+    // region the selected point was being overpainted by every later index —
+    // exactly where CENTER TARGET sends you.
+    for (const [i, kind] of [
+      [state.previewIdx, "hover"] as const,
+      [state.selectedIdx, "sel"] as const,
+    ]) {
+      if (i === null) continue;
+      const t = target[i];
+      if (!t || t.behind) continue;
+      const x = sx(t.x);
+      const y = sy(t.y);
+      const r = kind === "sel" ? 3.8 : 3.2;
+      ctx!.fillStyle = "rgba(3,4,10,0.82)";
+      ctx!.beginPath();
+      ctx!.arc(x, y, r + (kind === "sel" ? 15 : 7), 0, Math.PI * 2);
+      ctx!.fill();
+      ctx!.fillStyle =
+        BUCKET_COLOUR[archive.bucketOf[archive.rows[i][C.method] as number]];
+      ctx!.beginPath();
+      ctx!.arc(x, y, r, 0, Math.PI * 2);
+      ctx!.fill();
+      ctx!.strokeStyle = kind === "sel" ? "#fff" : ctx!.fillStyle;
+      ctx!.lineWidth = kind === "sel" ? 1.3 : 1;
+      ctx!.beginPath();
+      ctx!.arc(x, y, r + (kind === "sel" ? 6 : 5), 0, Math.PI * 2);
+      ctx!.stroke();
+      if (kind === "sel") {
+        ctx!.strokeStyle = "rgba(255,255,255,.32)";
+        ctx!.beginPath();
+        ctx!.arc(x, y, r + 13, 0, Math.PI * 2);
+        ctx!.stroke();
+      }
+    }
+
     // §7 step 4 — the HUD tapes, after the points.
     // FIELD.md §2: the reserves are MEASURED from the overlays' live geometry
     // every frame. They change height with content and viewport (the NAV hint
@@ -229,10 +266,7 @@ export function initField(): void {
         {
           sx,
           sy,
-          inv: {
-            x: (px: number) => ((px - pad) / (w - pad * 2)) * fitRight,
-            y: (py: number) => (py - pad) / (h - pad * 2),
-          },
+          inv: { x: map.ix, y: map.iy },
           w,
           h,
           topReserve,
@@ -306,6 +340,190 @@ export function initField(): void {
     // §5 rule 2: an absent value is UNRESOLVED, never 0 and never hidden.
     set("#footer-unresolved", unresolved === 0 ? "None" : n(unresolved));
   }
+
+  // ---- INTERACTION.md §1's grammar -----------------------------------------
+  // findNearest RESPECTS THE METHOD FILTER: a dimmed record cannot be picked by
+  // accident. "What you cannot see, you cannot hit."
+  function nearest(px: number, py: number, radius: number): number | null {
+    if (!archive || !box) return null;
+    const { clientWidth: w, clientHeight: h } = box;
+    const map = mapping(viewFor(projectionOf(), fitRight), w, h, 26, fitRight);
+    let best: number | null = null;
+    let bestD = radius * radius;
+    for (let i = 0; i < target.length; i++) {
+      const t = target[i];
+      if (!t || t.behind) continue;
+      if (!(nowIn[i] ?? true)) continue; // the filter, enforced at the hit test
+      const dx = map.sx(t.x) - px;
+      const dy = map.sy(t.y) - py;
+      const d = dx * dx + dy * dy;
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  let dragging = false;
+  let dragMoved = false;
+  let dragButton = 0;
+  let lastX = 0;
+  let lastY = 0;
+
+  canvas.addEventListener("pointerdown", (e) => {
+    dragging = true;
+    dragMoved = false;
+    dragButton = e.button;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    canvas.setPointerCapture(e.pointerId);
+  });
+
+  canvas.addEventListener("pointermove", (e) => {
+    const r = canvas.getBoundingClientRect();
+    if (!dragging) {
+      // §1: hover PREVIEWS. It writes previewIdx — the same field a FIND row
+      // hover writes, so the two can never disagree about what is previewed.
+      const hit = nearest(e.clientX - r.left, e.clientY - r.top, HIT.hover);
+      if (hit !== state.previewIdx) {
+        state.previewIdx = hit;
+        renderTarget();
+        paint();
+      }
+      return;
+    }
+    const dx = e.clientX - lastX;
+    const dy = e.clientY - lastY;
+    // §1: a drag exceeding 3px swallows the click that follows. Panning can
+    // never select.
+    if (Math.hypot(e.clientX - lastX, e.clientY - lastY) > 0)
+      dragMoved = dragMoved || Math.hypot(dx, dy) > 3;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    const view = viewFor(projectionOf(), fitRight);
+    if (dragButton === 2 && projectionOf() === "spatial") {
+      // §2: RIGHT = ROTATE, and only where an orientation exists. The verb that
+      // costs the most is the one you must ask for.
+      cam.yaw -= dx * 0.006;
+      cam.pitch = Math.min(1.45, Math.max(-1.45, cam.pitch + dy * 0.006));
+      computeTargets();
+    } else if (box) {
+      // §2: LEFT = TRANSLATE, in every projection, so muscle memory carries.
+      view.cx -= (dx / (box.clientWidth - 52)) * (fitRight / view.zoom);
+      view.cy -= dy / (box.clientHeight - 52) / view.zoom;
+    }
+    paint();
+  });
+
+  const endDrag = (): void => {
+    dragging = false;
+  };
+  canvas.addEventListener("pointerup", (e) => {
+    endDrag();
+    if (dragMoved) return; // the swallowed click
+    const r = canvas.getBoundingClientRect();
+    // §1: click LOCKS. Outside the radius it clears, rather than keeping a
+    // selection the user has just aimed away from.
+    state.selectedIdx = nearest(e.clientX - r.left, e.clientY - r.top, HIT.click);
+    state.previewIdx = null;
+    renderTarget();
+    paint();
+  });
+  canvas.addEventListener("pointercancel", endDrag);
+  canvas.addEventListener("pointerleave", () => {
+    endDrag();
+    if (state.previewIdx !== null) {
+      state.previewIdx = null;
+      renderTarget();
+      paint();
+    }
+  });
+
+  // §2: contextmenu is prevented in SPATIAL and NOWHERE ELSE — the browser menu
+  // stays available in every other projection and over every rail.
+  canvas.addEventListener("contextmenu", (e) => {
+    if (projectionOf() === "spatial") e.preventDefault();
+  });
+
+  // §2: bound with {passive:false} on the CANVAS, never the window — the page
+  // must still scroll everywhere else.
+  canvas.addEventListener(
+    "wheel",
+    (e) => {
+      e.preventDefault();
+      const r = canvas.getBoundingClientRect();
+      if (projectionOf() === "spatial") {
+        cam.dist = Math.min(60, Math.max(1.25, cam.dist * Math.exp(e.deltaY * 0.0012)));
+        computeTargets();
+      } else if (box) {
+        zoomAt(
+          viewFor(projectionOf(), fitRight),
+          e.deltaY,
+          e.clientX - r.left,
+          e.clientY - r.top,
+          box.clientWidth,
+          box.clientHeight,
+          26,
+          fitRight,
+        );
+      }
+      paint();
+    },
+    { passive: false },
+  );
+
+  // §5: CENTER TARGET moves the VIEW, never the point, and stops at a moderate
+  // zoom so the record keeps its neighbourhood — a target alone in an empty
+  // frame tells you nothing about where it sits.
+  function centreTarget(): void {
+    const i = state.selectedIdx;
+    if (i === null) return;
+    const t = target[i];
+    if (!t || !t.resolved) return;
+    const view = viewFor(projectionOf(), fitRight);
+    const from = { ...view };
+    const to: View = {
+      cx: t.x,
+      cy: t.y,
+      zoom: Math.min(3.2, Math.max(2.4, view.zoom)),
+    };
+    if (reduceMotion()) {
+      Object.assign(view, to); // §8: skip, not shorten
+      paint();
+      return;
+    }
+    const t0 = performance.now();
+    const step = (): void => {
+      const p = Math.min(1, (performance.now() - t0) / MS.centre);
+      const e = easeInOut(p);
+      view.cx = from.cx + (to.cx - from.cx) * e;
+      view.cy = from.cy + (to.cy - from.cy) * e;
+      view.zoom = from.zoom + (to.zoom - from.zoom) * e;
+      paint();
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+  setCentreTarget(centreTarget);
+
+  // FIELD.md §5 and §4 — the two footer controls that change reading, not data.
+  document.querySelector("#ground-toggle")?.addEventListener("click", (e) => {
+    const on = document.body.classList.toggle("ground-clear");
+    const b = e.currentTarget as HTMLElement;
+    b.textContent = on ? "Clear" : "Solid";
+    paint();
+  });
+  document.querySelector("#expand-field")?.addEventListener("click", () => {
+    document.body.classList.toggle("focus-mode");
+    // FIELD.md §4: the canvas resizes after the layout commits and the HUD
+    // reserves are measured from the DOM, so redraw once it has settled.
+    for (const d of [0, 40, 160]) window.setTimeout(paint, d);
+  });
+  document.querySelector("#fit-field")?.addEventListener("click", () => {
+    resetView(projectionOf(), fitRight);
+    paint();
+  });
 
   document
     .querySelectorAll<HTMLButtonElement>(".field-projection .pick")
