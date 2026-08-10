@@ -941,7 +941,23 @@ which are squashed radial gradients rather than a conic sweep.
   --gap: 18px;
   --line: rgb(150 170 255 / 28%);
 
-  display: block;
+  /* flow-root, not block. .frame carries the 26px ring as a margin, and a block
+     container with no border, padding or formatting context lets a child's
+     vertical margins COLLAPSE THROUGH it: the ring escaped the section instead
+     of insetting the frame inside it, so the section was pushed 26px down the
+     page and the document ran to 2186px against a correct 2160px.
+
+     Both symptoms were that one escape. The 26px gap at the seam was the fan —
+     which is inset:0 of this section — starting 26px below the hero's last row
+     of stripes, and the slack at the foot of the page was the same 26px
+     arriving at the end. The frame was not inset at all: its top edge sat flush
+     with the section's.
+
+     flow-root establishes a block formatting context, which is exactly the rule
+     that stops a child's margin escaping. Nothing is offset to compensate: the
+     ring goes back to being 26px of space inside the section, which is what it
+     always meant. */
+  display: flow-root;
   height: 100vh;
   background: #03040a;
   font-family: "IBM Plex Mono", monospace;
@@ -1262,6 +1278,16 @@ which are squashed radial gradients rather than a conic sweep.
    height here so the stack may grow, and the field takes 58vh so it stays the
    tallest thing on the page. */
 @media (width <= 640px) {
+  /* The section has to give up its definite height along with the frame. §2
+     only names the frame box, but a growing frame inside a section pinned to
+     100vh just overflows it — measured at 390 the frame ran 177px past the
+     section's bottom edge and the ring below it went negative. The rule and the
+     thing it sits in have to relax together. */
+  #observatory {
+    height: auto;
+    min-height: 100vh;
+  }
+
   .frame {
     height: auto;
     min-height: calc(100vh - 52px);
