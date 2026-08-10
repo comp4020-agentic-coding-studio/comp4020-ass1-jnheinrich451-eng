@@ -20,6 +20,8 @@ import {
   positionOf,
   verifySkyTransform,
 } from "./data";
+import { initPanels } from "./panels";
+import { inPool, state, subscribe } from "./store";
 
 const PROJECTIONS: { id: Projection; label: string; axes: string }[] = [
   {
@@ -56,7 +58,7 @@ export function initField(): void {
 
   let archive: Archive | null = null;
   let ext: Extent | null = null;
-  let projection: Projection = "orbit";
+  const projectionOf = (): Projection => state.projection;
   // Distance is derived from the archive at load (see fitCameraDist), not
   // guessed: at the 2.75 the holding-cloud formula references, the eye sits
   // deep INSIDE a cloud whose radius runs to 9.05, so a third of the archive
@@ -77,6 +79,15 @@ export function initField(): void {
   // for a cloud that is not there.
   let fitRight = 1;
 
+  // LOAD_DATA.md §9 / LEFT-OBSERVE.md §4: a filter change is ANIMATED, not
+  // switched. Radius and alpha interpolate between the previous filter's
+  // targets and the new ones on one clock, so the excluded population dims in
+  // place. No record is ever removed from the draw loop.
+  const FILTER_MS = 380;
+  let ftStart = 0;
+  let prevIn: boolean[] = [];
+  let nowIn: boolean[] = [];
+
   function sizeCanvas(): { w: number; h: number } {
     const dpr = Math.min(window.devicePixelRatio || 1, 2); // §7 step 1
     const w = box!.clientWidth;
@@ -91,7 +102,7 @@ export function initField(): void {
 
   function computeTargets(): void {
     if (!archive || !ext) return;
-    target = archive.rows.map((r) => positionOf(r, projection, ext!, cam));
+    target = archive.rows.map((r) => positionOf(r, projectionOf(), ext!, cam));
     fitRight = target.some((p) => !p.resolved) ? 1.26 : 1;
   }
 
@@ -134,6 +145,7 @@ export function initField(): void {
 
     // §7 step 3 — every row.
     const zg = 1; // zoom gain; wheel zoom is not wired yet
+    const ft = Math.min(1, (performance.now() - ftStart) / FILTER_MS);
     for (let i = 0; i < archive.rows.length; i++) {
       const from = drawn[i] ?? target[i];
       const to = target[i];
@@ -142,15 +154,20 @@ export function initField(): void {
       const y = from.y + (to.y - from.y) * e;
       const bucket = archive.bucketOf[archive.rows[i][C.method] as number];
 
-      let r = 2.0 * zg;
-      let a = 0.8;
+      // Interpolate between the two filter states rather than branching on the
+      // current one: mid-transition a point is genuinely between them.
+      const wasIn = prevIn[i] ?? true;
+      const isIn = nowIn[i] ?? true;
+      const w = (wasIn ? 1 : 0) + ((isIn ? 1 : 0) - (wasIn ? 1 : 0)) * ft;
+      let r = (1.2 + 0.8 * w) * zg;
+      let a = 0.1 + 0.7 * w;
       if (!to.resolved) {
         // Unresolved records are drawn — §2 — but dimmed, so the cloud reads as
         // "not measured" rather than as a dense cluster of findings.
-        r = 1.2 * zg;
-        a = 0.35;
+        r = (1.0 + 0.2 * w) * zg;
+        a = (0.1 + 0.25 * w);
       }
-      if (projection === "spatial" && to.depth) {
+      if (projectionOf() === "spatial" && to.depth) {
         // §7's depth cue, SPATIAL only.
         const cue = Math.min(1.5, Math.max(0.45, cam.dist / to.depth));
         r *= cue;
@@ -165,7 +182,7 @@ export function initField(): void {
     }
     ctx!.globalAlpha = 1;
 
-    if (p < 1) requestAnimationFrame(paint);
+    if (p < 1 || ft < 1) requestAnimationFrame(paint);
     else if (morphing) {
       morphing = false;
       drawn = target.map((t) => ({ ...t }));
@@ -173,10 +190,10 @@ export function initField(): void {
   }
 
   function setProjection(next: Projection): void {
-    if (next === projection) return;
+    if (next === projectionOf()) return;
     // Freeze what is on screen right now as the morph's origin (§8).
     drawn = target.length ? target.map((t) => ({ ...t })) : [];
-    projection = next;
+    state.projection = next;
     computeTargets();
     if (drawn.length && !reduceMotion()) {
       morphing = true;
@@ -189,12 +206,12 @@ export function initField(): void {
   }
 
   function syncChrome(): void {
-    const meta = PROJECTIONS.find((x) => x.id === projection);
+    const meta = PROJECTIONS.find((x) => x.id === projectionOf());
     if (!meta || !archive) return;
     for (const [i, b] of Array.from(
       document.querySelectorAll<HTMLButtonElement>(".field-projection .pick"),
     ).entries()) {
-      b.classList.toggle("is-active", PROJECTIONS[i]?.id === projection);
+      b.classList.toggle("is-active", PROJECTIONS[i]?.id === projectionOf());
     }
     // VISIBLE counts records with the data this projection needs; UNRESOLVED
     // counts those without it. A record behind the camera is neither missing
@@ -206,7 +223,16 @@ export function initField(): void {
       const el = document.querySelector(sel);
       if (el) el.textContent = text;
     };
-    set(".field-caption", `${n(archive.rows.length)} confirmed worlds`);
+    // FIELD.md §2c: sentence case, and it names the filter when one is on —
+    // it is the author speaking, not the instrument.
+    const arc = archive;
+    const inPoolCount = arc.rows.filter((r) => inPool(arc, r)).length;
+    set(
+      ".field-caption",
+      state.methodFilter === "all"
+        ? `${n(archive.rows.length)} confirmed worlds`
+        : `${n(inPoolCount)} of ${n(archive.rows.length)} found by ${state.methodFilter}`,
+    );
     set(".strip-header .dim", `${n(archive.rows.length)} confirmed worlds`);
     set("#footer-view", `${meta.label}`);
     set("#footer-axes", meta.axes);
@@ -231,8 +257,21 @@ export function initField(): void {
       archive = a;
       ext = extentsOf(a.rows);
       cam.dist = fitCameraDist(ext.dist[1]);
+      prevIn = a.rows.map(() => true);
+      nowIn = a.rows.map((r) => inPool(a, r));
+      ftStart = performance.now() - FILTER_MS;
       computeTargets();
       drawn = target.map((t) => ({ ...t }));
+      initPanels(a);
+      subscribe(() => {
+        // A filter change starts the transition from wherever the last one got
+        // to, so rapid clicking never snaps.
+        prevIn = nowIn;
+        nowIn = a.rows.map((r) => inPool(a, r));
+        ftStart = performance.now();
+        syncChrome();
+        paint();
+      });
       syncChrome();
       paint();
 
@@ -243,7 +282,7 @@ export function initField(): void {
       const bad = checks.filter((c) => !c.pass);
       if (bad.length) console.error("verifySkyTransform FAILED", bad);
       else console.info("verifySkyTransform: %d/%d pass", checks.length, checks.length);
-      const audit = auditSky3D(a, projection, ext, cam);
+      const audit = auditSky3D(a, projectionOf(), ext, cam);
       console.info(
         "auditSky3D: %d rows, %d drawn, %d unresolved",
         audit.rows,

@@ -1082,10 +1082,6 @@ which are squashed radial gradients rather than a conic sweep.
   border: 1px solid var(--line);
 }
 
-.panel-left {
-  padding: 14px 12px;
-}
-
 .panel-right {
   padding: 16px 14px;
 }
@@ -1097,12 +1093,6 @@ which are squashed radial gradients rather than a conic sweep.
   letter-spacing: 0.19em;
   color: #8f9ad4;
   text-transform: uppercase;
-}
-
-.tabs {
-  display: flex;
-  gap: var(--gap);
-  margin-bottom: 14px;
 }
 
 /* §5 rule 4 wraps actions in brackets, and the brackets are in the markup so a
@@ -1159,7 +1149,7 @@ which are squashed radial gradients rather than a conic sweep.
 
 .field-title {
   position: absolute;
-  top: 12px;
+  top: 14px;
   left: 50%;
   margin: 0;
   font-size: 11.5px;
@@ -1169,14 +1159,26 @@ which are squashed radial gradients rather than a conic sweep.
   translate: -50% 0;
 }
 
+/* FIELD.md §2b. A WRAPPING ROW, not a column — the four projections are peers
+   read left to right, and stacking them made the picker a menu. The negative
+   margin cancels the panel's own padding so the label aligns optically to the
+   box edge while the scrim still extends behind the text. */
 .field-projection {
   position: absolute;
-  top: 12px;
-  left: 14px;
+  top: 44px;
+  left: 16px;
+  width: fit-content;
+  max-width: 360px;
+  margin: -8px 0 0 -12px;
+  padding: 8px 12px 10px;
+
+  /* The scrim: the picker must survive being read over the fan. In CLEAR it
+     swaps for a text-shadow instead (§5 rule 3). */
+  background: linear-gradient(180deg, rgb(3 4 10 / 90%), rgb(3 4 10 / 72%));
 }
 
 .field-projection .sub {
-  margin: 0 0 8px;
+  margin: 0 0 7px;
   font-size: 10.5px;
   letter-spacing: 0.18em;
   color: #8f9ad4;
@@ -1185,11 +1187,23 @@ which are squashed radial gradients rather than a conic sweep.
 
 .field-projection ul {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 8px 14px;
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.field-projection .pick {
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  color: #6c7699;
+  transition: color 0.2s;
+}
+
+.field-projection .pick.is-active {
+  color: #fff;
+  text-shadow: 0 0 12px rgb(190 205 255 / 50%);
 }
 
 /* §5 rule 1: sentence case is allowed for the field caption and nothing else. */
@@ -1374,5 +1388,284 @@ which are squashed radial gradients rather than a conic sweep.
   .cta-hover #glitch-c4 {
     animation: none;
     opacity: 1;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   LEFT-OBSERVE.md and LEFT-FIND.md — the left rail's two tabs.
+   -------------------------------------------------------------------------- */
+
+/* LEFT-FIND.md §1: THE COLUMN is the scroller, not the list. Making the list
+   scroll collapses it to zero — it becomes the only shrinkable child of a
+   definite-height column and absorbs the whole deficit. */
+.panel-left {
+  min-height: 0;
+
+  /* LEFT-FIND.md §2's own padding, kept here now that the two rules are one. */
+  padding: 14px 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* The one rule that cannot be inline (§1). */
+.panel-left::-webkit-scrollbar {
+  width: 10px;
+}
+
+.panel-left::-webkit-scrollbar-track {
+  background: rgb(70 50 120 / 14%);
+}
+
+.panel-left::-webkit-scrollbar-thumb {
+  border: 2px solid rgb(3 4 10 / 90%);
+  border-radius: 6px;
+  background: #7a5cc4;
+  box-shadow: 0 0 7px rgb(154 116 255 / 75%);
+}
+
+.panel-left::-webkit-scrollbar-thumb:hover {
+  background: #a184f0;
+}
+
+/* LEFT-OBSERVE.md §1 — the tab pair, shared by both panels. */
+.tabs {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 14px;
+}
+
+.tabs .tab {
+  flex: 1;
+  padding: 6px 4px;
+  border: 1px solid rgb(150 170 255 / 26%);
+  background: transparent;
+  color: #8f9ad4;
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+}
+
+.tabs .tab.is-active {
+  border-color: rgb(200 215 255 / 60%);
+  background: rgb(150 170 255 / 16%);
+  color: #fff;
+}
+
+.tabpanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.tabpanel[hidden] {
+  display: none;
+}
+
+/* §2: heading to list is 12px, row to row is 2px. */
+.methods,
+.requirements {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* §3 — the rows. They get no box: they are text with a mark, not controls with
+   chrome. Without the reset the browser paints its own button background and
+   border, which is what made the filter read as five filled boxes. */
+.method-row,
+.req-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 5px 4px;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: #9aa3ca;
+  text-align: left;
+  transition: color 0.2s;
+}
+
+.method-row.is-active,
+.req-row.is-active {
+  color: #fff;
+}
+
+.method-row .dot,
+.req-row .box {
+  display: inline-block;
+  width: 12px;
+  font-size: 10px;
+  color: rgb(150 170 255 / 45%);
+}
+
+/* LEFT-FIND.md §1 — column gap 11px top to bottom. */
+.find {
+  gap: 11px;
+}
+
+.find-input {
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid rgb(150 170 255 / 32%);
+  background: rgb(3 4 10 / 85%);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+.find-input::placeholder {
+  color: #5f6889;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.chip {
+  padding: 4px 7px;
+  border: 1px solid rgb(150 170 255 / 26%);
+  background: transparent;
+  color: #8f9ad4;
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chip:hover {
+  color: var(--ink);
+}
+
+.sort-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.sort-select {
+  flex: 1;
+  padding: 5px 6px;
+  border: 1px solid rgb(150 170 255 / 32%);
+  background: rgb(3 4 10 / 85%);
+  color: var(--ink-2);
+  font-family: inherit;
+  font-size: 10.5px;
+}
+
+.count-row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+/* §5: the empty state names WHICH constraint bit, in the caution colour. */
+.find-empty:not(:empty) {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+  color: #e8c37a;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.find-empty p {
+  margin: 0;
+}
+
+.find-rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* §3 — the result row. flex: 0 0 auto because the COLUMN scrolls, not this. */
+.find-row {
+  flex: 0 0 auto;
+  padding: 9px 9px 10px;
+  border-left: 2px solid transparent;
+  line-height: 1.45;
+}
+
+.find-row .l1 {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: var(--ink);
+}
+
+.find-row .cov {
+  letter-spacing: 0.1em;
+  color: #8f9ad4;
+}
+
+.find-row .l2 {
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  color: #8f9ad4;
+  text-transform: uppercase;
+}
+
+.find-row .l3 {
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  color: #5f6889;
+}
+
+.show-more {
+  padding: 6px;
+  border: 1px dashed rgb(150 170 255 / 32%);
+  background: transparent;
+  color: #8f9ad4;
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.show-more[hidden] {
+  display: none;
+}
+
+/* §1: the list never pretends to be complete, so this is always present. */
+.showing {
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid rgb(150 170 255 / 20%);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  color: #5f6889;
+  text-transform: uppercase;
+}
+
+/* LEFT-FIND.md §1, narrow only: the list gets its own scroller so the column
+   does not become one long page. */
+@media (width <= 640px) {
+  .find-rows {
+    overflow-y: auto;
+    max-height: 300px;
   }
 }

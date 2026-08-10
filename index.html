@@ -475,14 +475,13 @@
           <div class="grid">
             <!-- §4 left column: tab pair, then the active panel.
                  SECTION2-LEFT-OBSERVE.md / -LEFT-FIND.md own the panel bodies. -->
-            <aside class="panel panel-left" aria-label="Observation controls">
-              <div class="tabs" role="tablist" aria-label="Left panel">
-                <button class="tab is-active" role="tab" aria-selected="true" type="button">Observe</button>
-                <button class="tab" role="tab" aria-selected="false" type="button">Find</button>
-              </div>
-              <h3>Observation method</h3>
-              <p class="micro" data-placeholder>Unresolved</p>
-            </aside>
+            <!-- LEFT-OBSERVE.md / LEFT-FIND.md. Built by panels.ts once the
+                 archive is in hand: the method rows carry their bucket colours
+                 and the FIND list is 6,336 records deep, so neither can be
+                 written out here honestly. Empty in the markup rather than
+                 filled with placeholder rows that would ship if the fetch
+                 failed. -->
+            <aside class="panel panel-left" aria-label="Observe and find"></aside>
 
             <!-- §4 field: the centre column. §1's inner pass is cut away behind
                  it so this reads against solid ground. -->

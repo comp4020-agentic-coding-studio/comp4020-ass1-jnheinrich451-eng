@@ -181,7 +181,8 @@ Three parts, in scroll order:
 ### Structural — from the fan (see STRIPE.md)
 
 Outer → central: `#8A1538` `#E86132` `#D11F3A` `#345587` `#D9A83E` `#F1F1EE`.
-These are the *only* saturated colours in the layout. They are never used for data encoding — mixing chrome colour with data colour destroys the read.
+These are the *only* saturated colours in the layout. They are never used for
+data encoding — mixing chrome colour with data colour destroys the read.
 
 ### Grounds — at most two per page
 
@@ -203,16 +204,59 @@ its text brightness — do not introduce a colour.
 ### Data encoding — earned, and only in the field
 
 ```
-#9fc4ff  transit          #e8c37a  radial velocity
-#c79bff  microlensing     #81d8ff  imaging
-#e2664a  other methods    #ff0033  active selection / cursor
+#e8c37a  transit          #9fc4ff  radial velocity (WOBBLE)
+#c79bff  imaging          #ffffff  microlensing
+#6c7699  other methods
 ```
 
-Selection red `#ff0033` is reserved: one element on screen may wear it.
+These five are the whole categorical scale. **Selection is not a colour** — a
+selected record keeps its method colour and is marked by rings instead: a white
+1.3 px ring at r+6 and a `rgba(255,255,255,.32)` ring at r+13, over a
+`rgba(3,4,10,.82)` bed. Hover gets one method-coloured ring at r+5. Adding a
+sixth hue for "selected" would break the one thing the field encodes.
 
 ### Accents
 
-`#F1F1EE` (fan white) is the active-HUD accent — the tab you're on, the axis you're reading. `#7a5cc4 / #a184f0` are the search-panel scrollbar only.
+`#F1F1EE` (fan white) is the active-HUD accent — the tab you're on, the axis
+you're reading. `#7a5cc4 / #a184f0` are the search-panel scrollbar only.
+
+---
+
+## 2b. Page 2 — where the detail lives
+
+The field page is specified in seven documents. They are the numbers; this file
+is only the posture. Read `LAYOUT.md` first.
+
+| document | owns |
+|---|---|
+| `LAYOUT.md` | stack, grid, type scale, palette, **every word on the page** |
+| `FIELD.md` | the centre canvas: overlays, navigation, FIELD GROUND toggle |
+| `LEFT-OBSERVE.md` | method filter, the shared OBSERVE/FIND tab pair |
+| `INTERACTION.md` | the input grammar and **every transition, timed** |
+| `LEFT-FIND.md` | search — and how it connects to OBSERVE |
+| `RIGHT-TARGET.md` | the TARGET readout and its two actions |
+| `AXES.md` | HUD tape formula: domains, envelope, ticks, cross-fade |
+| `LOAD_DATA.md` | archive → mapping → render pass, and the morph |
+| `OPEN-SYSTEM.md` | the dive, the entry, zoom limits, the return |
+
+Four rules from those documents that outrank anything else on this page:
+
+1. **A tape reads the exact expression that placed the points.** Never a
+   re-derived scale. Axis domains are computed over the whole archive and cached,
+   so a method filter can never renormalise an axis.
+2. **Missing is a value.** `null` is never coerced, never dropped. Unresolved
+   records are drawn in a labelled holding cloud outside the 0–1 scientific
+   region and counted in the footer.
+3. **The amount of axis equals the amount of science.** A display-only
+   coordinate (the DISCOVERY TIME y spread, the EARTH DISTANCE angle) gets a
+   shape and a disclosure, never ticks.
+4. **Panels never mutate the archive.** Switching OBSERVE↔FIND, opening a
+   system, or returning from one leaves projection, filter, camera, selection and
+   query exactly as they were.
+
+The realised grid is `210px / minmax(0,1fr) / 230px` with an 18 px gap inside
+the 26 px ring — the 20/50/20 spine expressed in fixed rails, so the plot column
+absorbs every viewport change and the rails never reflow their labels.
 
 
 ## 3. Art style
@@ -285,7 +329,34 @@ instrument says (`DISCOVERED // YEAR`, `[ ENTER OBSERVATORY ]`); sentence case i
 only for prose the *author* says. Slashes `//` separate instrument fields.
 Brackets `[ ]` wrap actions. Never below 8 px, and 8 px only for axis ticks.
 
-## 6. Bug fixing rules
+## 6. Motion
+
+| Event | Duration | Curve |
+|---|---|---|
+| Projection morph | 900 ms | ease-in-out, per-point |
+| Field → system dive | 720 ms accelerate, then veil | ease-in |
+| Orbit scale toggle | 600 ms | ease-out |
+| Camera follow | continuous | critically damped smoothing |
+| Hover / value change | ≤ 120 ms | linear |
+
+Rules: HUD tapes stream freely under camera motion — no element gets its own
+transition. Nothing pulses except the CTA and the selection cursor. Everything
+respects `prefers-reduced-motion`.
+
+## 7. Data-display conventions
+
+- Axes are logarithmic by default with 1-2-5 ticking; the envelope tracks the
+  live data extent rather than a fixed domain.
+- Unresolved records are always visible, never dropped — they scale and move
+  with the projection they sit beside (perspective in the spatial view, static
+  offset elsewhere).
+- HUD label placement is a collision search against reserves and furniture, with
+  staggered angles per ring — never a fixed offset.
+- Star size uses flux, compressed for display and clamped at 14° so it cannot
+  swallow its planets; periapsis clearance is enforced before any scale factor.
+- Counts are always shown against the total (`1,204 of 6,336`), never alone.
+
+## 8. Bug fixing rules
 
 Do:
 - Find the anchors or connectors of the bug or wrong implementation, adjust the design and layout based on relations.
