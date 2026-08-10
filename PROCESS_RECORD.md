@@ -1318,3 +1318,76 @@ its 30 % opacity, which is by design. `pnpm check` green 59/59.
    implemented only the frame box; the section is not mentioned anywhere in the
    spec and still had to change. Checking three viewports rather than the one
    that was reported is what caught it — the reported viewport was already green.
+
+## 2026-08-10 20:50 — The archive, loaded and drawn
+
+**Prompt:**
+
+> And this part we load data. you can find the source in
+> /assets/PSCompPars_2026.08.08_10.48.26.csv and processed .json of
+> /assets/exoplanets.json. The standards to load and display in LOAD_DATA.md,
+> and the math formula to compute distance and shape. Please read it!
+
+**Result:**
+`data.ts` owns the numbers and never touches the DOM; `field.ts` draws and never
+computes a position. That split is what lets `spec/data.test.ts` assert §5's
+transform contract in CI, where there is no canvas and no browser.
+
+§1's shape was already correct in `exoplanets.json` — column-indexed, 6,336 rows,
+shared methods table — so nothing was regenerated. `bucketFor` matches the four
+techniques **exactly** rather than by prefix: "Transit Timing Variations" is not
+Transit, and a `startsWith` would have quietly inflated the largest bucket.
+
+§2 is the rule the whole file is built around. Nulls are never coerced, extents
+are taken over resolved values only, and a record missing what a projection needs
+goes to the holding cloud outside the 0–1 region rather than being dropped or
+mapped to zero.
+
+§5 calls `verifySkyTransform()` and `auditSky3D()` "the contract", so they return
+their results instead of only logging. **A console.log is not a contract, because
+nothing fails when it stops being true.** Fourteen tests assert the same table,
+including that ordering survives the log compression across all 6,336 real rows.
+
+**Verified:**
+Against reality, not only against the schema: Proxima Cen b closest to Sol at
+r = 0.028, 51 Peg b at short period and large radius, TRAPPIST-1 e small and
+high, and the nearest list reading Proxima → Barnard at their true distances.
+Counts per projection match the data exactly — orbit 5,945/391, distance
+6,309/27, time 6,336/none, spatial 6,309/27. 52,581 painted pixels on the
+spatial canvas, so it is genuinely drawing. `pnpm check` green 74/74.
+
+**Commit:** [`f5440de`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/f5440de)
+
+**What happened:** three things, and the first is the worst of this project.
+
+1. **I called a console "clean" on the strength of a check that could not see.**
+   `uSeam` was added to the uniforms object but never declared in the GLSL, so
+   the limb-glow material has failed to compile since `0da1937` and the rim has
+   not drawn at all. Three.js logs "undeclared identifier" and carries on with a
+   dead material, so the page looked fine and the hot spot I verified so
+   carefully was the DOM overlay doing the work alone. My console check that
+   turn printed `Binary file (standard input) matches` and found nothing, and I
+   read that as no errors. **The grep failed and I recorded its silence as a
+   pass** — the same failure mode as the `grep -P` loop that checked zero shas,
+   two turns after I wrote that lesson down. The fix went into the harness: a
+   test asserts every `uName` referenced in a shader is declared in that shader,
+   verified by deleting the declaration and watching it fail by name.
+
+2. **I reported 2,044 measured records as missing.** SPATIAL said 2,071
+   UNRESOLVED when only 27 rows lack ra/dec/distance. The rest were complete and
+   merely behind the camera, and I was sending them to the holding cloud — which
+   is to say, telling the user their data was absent when it was not. That is
+   precisely the fabrication §2 exists to forbid, and I built it while
+   implementing §2. Behind-the-eye is a camera state now, not a data state. The
+   root cause was a camera distance of 2.75 — the number §5 quotes in the
+   holding-cloud formula — inside a cloud whose radius runs to 9.05. The
+   distance is derived from the archive's own maximum radius now.
+
+3. **The reality check earned its keep again.** Schema-shaped tests would have
+   passed on a projection with the axes swapped. Naming four planets whose
+   positions I could predict — the nearest star, the first hot Jupiter, a small
+   temperate world — is what actually confirms the mapping means what it says.
+   The rendered field agreed: gold transit records clustered at short period and
+   small radius, blue radial-velocity records forming the giant-planet band.
+   **A distribution that looks like the science is evidence; a green schema test
+   is not.**
