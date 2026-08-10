@@ -1146,6 +1146,17 @@ which are squashed radial gradients rather than a conic sweep.
   border: 1px solid rgb(150 170 255 / 20%);
 }
 
+
+/* LOAD_DATA.md §7: the field canvas sits under the overlay labels, which is
+   why they stay readable over a dense region. Sized in JS at DPR <= 2. */
+#field-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .field-title {
   position: absolute;
   top: 12px;

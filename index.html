@@ -487,6 +487,11 @@
             <!-- §4 field: the centre column. §1's inner pass is cut away behind
                  it so this reads against solid ground. -->
             <div class="field-box">
+              <!-- LOAD_DATA.md §7: one canvas, ordered. aria-hidden with the
+                   counts spoken in the footer instead — 6,336 points is not
+                   something a screen reader can be walked through, and the
+                   footer already carries what the field says. -->
+              <canvas id="field-canvas" aria-hidden="true"></canvas>
               <p class="field-title">Planet field</p>
 
               <div class="field-projection">
@@ -514,9 +519,10 @@
           <!-- §4 footer strip: three groups, wrapping. §5 rule 2 — an absent
                value is UNRESOLVED, never 0 and never a dash. -->
           <footer class="strip strip-footer">
-            <p><span class="dim">View:</span> Orbit × Size <span class="dim">/</span>
-              <span class="dim" data-placeholder>X: Orbital period [d] &nbsp; Y: Radius [R⊕]</span></p>
-            <p data-placeholder><span class="dim">Visible:</span> Unresolved · <span class="dim">Unresolved:</span> Unresolved</p>
+            <p><span class="dim">View:</span> <span id="footer-view">Orbit × Size</span> <span class="dim">/</span>
+              <span class="dim" id="footer-axes">X: Orbital period [d] &nbsp; Y: Radius [R⊕]</span></p>
+            <p><span class="dim">Visible:</span> <span id="footer-visible">Unresolved</span> ·
+              <span class="dim">Unresolved:</span> <span id="footer-unresolved">Unresolved</span></p>
             <p>
               <span class="dim">Field ground:</span> Solid ·
               <button class="pick" type="button">Expand field</button> ·

@@ -60,6 +60,28 @@ describe("shader source (hero.ts)", () => {
     expect(offenders).toEqual([]);
   });
 
+  // A uniform added to the JS `uniforms` object but never declared in the GLSL
+  // compiles to nothing: three.js logs "undeclared identifier" and carries on
+  // with a dead material, so the page keeps rendering minus one layer. That is
+  // exactly what happened to uSeam — the limb glow silently stopped drawing and
+  // only a console line said so.
+  //
+  // Every uName referenced in a shader must be declared in that same shader.
+  it("declares every uniform it references", () => {
+    for (const r of regions) {
+      const body = r.lines.join("\n");
+      const declared = new Set(
+        [...body.matchAll(/uniform\s+\w+\s+(\w+)\s*;/g)].map((m) => m[1]),
+      );
+      const referenced = new Set(
+        [...body.matchAll(/\bu[A-Z]\w*/g)].map((m) => m[0]),
+      );
+      const undeclared = [...referenced].filter((n) => !declared.has(n));
+      expect(undeclared, `${r.name} references undeclared ${undeclared.join(", ")}`)
+        .toEqual([]);
+    }
+  });
+
   // The seam is the contract the hot spot and the rim shader now share. If the
   // shader ever goes back to deriving its own direction, the two cores separate
   // by a quarter turn again and nothing else here would catch it.

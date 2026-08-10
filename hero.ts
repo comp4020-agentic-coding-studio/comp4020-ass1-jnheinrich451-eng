@@ -207,6 +207,7 @@ function buildLimbGlow(radius: number): {
     fragmentShader: `
       uniform vec3 uLightDir;
       uniform vec3 uViewAxis;
+      uniform vec3 uSeam;
       uniform vec3 uLimb;
       uniform vec3 uHot;
       uniform float uRimWrap;
