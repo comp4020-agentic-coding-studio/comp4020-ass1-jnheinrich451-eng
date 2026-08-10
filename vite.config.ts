@@ -28,6 +28,17 @@ function htmlEntries(dir = "."): string[] {
 // GitHub Pages path (username.github.io/your-repo/) without further config.
 export default defineConfig({
   base: "./",
+  // The dev server has been killed twice by its own file watcher: Vite treats a
+  // watcher error as fatal, and on Windows attaching to a file that is locked
+  // mid-save throws EBUSY. Both times the locked file was a spec document in
+  // instructions/ being written while the server ran.
+  //
+  // Nothing under instructions/ is imported by the build — they are prose the
+  // agent reads, not modules — so watching them buys nothing and costs the
+  // whole server. reference/ is the same: a saved HTML reference, never built.
+  server: {
+    watch: { ignored: ["**/instructions/**", "**/reference/**"] },
+  },
   build: {
     rollupOptions: {
       input: htmlEntries(),

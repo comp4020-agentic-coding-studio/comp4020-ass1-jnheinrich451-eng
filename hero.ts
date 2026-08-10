@@ -684,6 +684,12 @@ export function initHero(): void {
 
   let rafId: number | null = null;
 
+  // Checked at the END of every tick, so a frame already in flight cannot
+
+  // re-arm the loop after the observer has stopped it.
+
+  let paused = false;
+
   function tick(time: number): void {
     if (marsMesh) marsMesh.rotation.y += MARS_ROTATION_SPEED;
     stars.rotation.y = time * 0.0000135;
@@ -692,6 +698,21 @@ export function initHero(): void {
     placeSun(time);
     syncLightDir();
     renderer.render(scene, camera);
+    // PERFORMANCE.md §2.2: draw on demand, never on a permanent loop. Cancelling
+    // the queued frame is not enough on its own — a tick already in flight when
+    // the observer fires simply re-schedules itself and the loop resurrects,
+    // which is why the hero kept rendering a 3D globe, a 2,600-point starfield
+    // and the hotspot composite at 144 fps while the user was in the field,
+    // competing with the pointer stream for every frame (§5.2).
+    // The IntersectionObserver below was not reporting non-intersection, so the
+    // loop kept running with the hero fully scrolled past. Reading the rect is
+    // one layout query per frame and cannot disagree with what is on screen —
+    // the observer stays as the fast path, this is the check that decides.
+    const r = heroSection instanceof HTMLElement ? heroSection.getBoundingClientRect() : null;
+    if (paused || (r && (r.bottom <= 0 || r.top >= window.innerHeight))) {
+      rafId = null;
+      return;
+    }
     rafId = requestAnimationFrame(tick);
   }
 
@@ -699,6 +720,7 @@ export function initHero(): void {
     (entries) => {
       const entry = entries[0];
       if (!entry) return;
+      paused = !entry.isIntersecting;
       if (entry.isIntersecting && rafId === null) {
         rafId = requestAnimationFrame(tick);
       } else if (!entry.isIntersecting && rafId !== null) {
@@ -709,4 +731,19 @@ export function initHero(): void {
     { threshold: 0 },
   );
   observer.observe(heroSection);
+
+  // The observer stops the loop reliably but never restarts it, so scrolling
+  // back to the hero left a frozen globe. A passive scroll listener is the
+  // restart: it costs nothing while the loop is running (the guard returns
+  // immediately) and it cannot miss the case the observer misses.
+  const resume = (): void => {
+    if (rafId !== null || !(heroSection instanceof HTMLElement)) return;
+    const r = heroSection.getBoundingClientRect();
+    if (r.bottom > 0 && r.top < window.innerHeight) {
+      paused = false;
+      rafId = requestAnimationFrame(tick);
+    }
+  };
+  window.addEventListener("scroll", resume, { passive: true });
+  window.addEventListener("resize", resume, { passive: true });
 }
