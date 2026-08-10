@@ -431,8 +431,96 @@
           </g>
         </svg>
 
-        <h2>Observatory</h2>
-        <p>This section is under construction.</p>
+        <!-- CLAUDE.md §4's topology, as structure rather than decoration. The
+             26px margin ring is the page's one spacing constant: it is also the
+             gutter between every column and the gap between every strip, so
+             nothing here carries a bespoke number. Rails are exactly 20% and the
+             plot field takes the remainder, which is §4's "~50%" — the tilde is
+             what the two gutters cost. Skeleton only: no record data is bound
+             yet, and every value below is a placeholder marked as such. -->
+        <div class="field">
+          <!-- Header strip, 84px. Identity left, actions right (§5: slashes
+               separate instrument fields, brackets wrap actions). -->
+          <header class="field-header">
+            <h2 class="archive-id">
+              NASA Exoplanet Archive
+              <span class="sep" aria-hidden="true">//</span>
+              <span class="record-count" data-placeholder>6336 records</span>
+            </h2>
+            <nav class="projections" aria-label="Projection">
+              <ul>
+                <li><a class="tab is-active" href="#" aria-current="page">[ Sky ]</a></li>
+                <li><a class="tab" href="#">[ Mass ]</a></li>
+                <li><a class="tab" href="#">[ Time ]</a></li>
+                <li><a class="tab" href="#">[ Distance ]</a></li>
+              </ul>
+            </nav>
+          </header>
+
+          <div class="field-cols">
+            <!-- The rails sit ON the stripes: no ground of their own, so the
+                 fan reads through them at its 30% opacity (§4). -->
+            <aside class="rail rail-left" aria-label="Filters">
+              <section class="panel">
+                <h3>Discovery method</h3>
+                <ul class="legend" data-placeholder>
+                  <li><span class="swatch" data-method="transit"></span>Transit</li>
+                  <li><span class="swatch" data-method="radial"></span>Radial velocity</li>
+                  <li><span class="swatch" data-method="microlensing"></span>Microlensing</li>
+                  <li><span class="swatch" data-method="imaging"></span>Imaging</li>
+                  <li><span class="swatch" data-method="other"></span>Other</li>
+                </ul>
+              </section>
+              <section class="panel">
+                <h3>Discovered</h3>
+                <p class="readout" data-placeholder>1992 <span class="sep">//</span> 2026</p>
+              </section>
+              <section class="panel">
+                <h3>Distance</h3>
+                <p class="readout" data-placeholder>1.30 <span class="sep">//</span> 8500 pc</p>
+              </section>
+            </aside>
+
+            <!-- The only dark ground on the page, and the only place the fan is
+                 cut out — an opaque field so points will read against plain
+                 ground rather than against stripes (§4). -->
+            <div class="plot" role="img" aria-label="Sky projection, no data loaded">
+              <div class="plot-frame">
+                <span class="axis axis-y" data-placeholder>Declination</span>
+                <span class="axis axis-x" data-placeholder>Right ascension</span>
+                <p class="plot-empty" data-placeholder>No data bound</p>
+              </div>
+            </div>
+
+            <aside class="rail rail-right" aria-label="Selection">
+              <section class="panel">
+                <h3>Selection</h3>
+                <p class="readout" data-placeholder>None</p>
+              </section>
+              <section class="panel">
+                <h3>Record</h3>
+                <dl class="readout record" data-placeholder>
+                  <dt>Host</dt><dd>—</dd>
+                  <dt>Period</dt><dd>—</dd>
+                  <dt>Radius</dt><dd>—</dd>
+                  <dt>Distance</dt><dd>—</dd>
+                </dl>
+              </section>
+            </aside>
+          </div>
+
+          <!-- Footer clears the apex band below it, per §4's "never place UI on
+               the apex". -->
+          <footer class="field-footer">
+            <p class="readout" data-placeholder>
+              PSCompPars <span class="sep">//</span> 2026.08.08
+            </p>
+            <p class="readout" data-placeholder>Skeleton <span class="sep">//</span> no data bound</p>
+          </footer>
+
+          <!-- §4: the V closes in the bottom 190px, and nothing may sit on it. -->
+          <div class="apex-band" aria-hidden="true"></div>
+        </div>
       </section>
     </main>
 

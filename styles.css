@@ -56,21 +56,33 @@ main {
   display: block;
 }
 
-section {
+/* The PAGE sections, scoped to direct children of main. This was a bare
+   `section` selector, which was true only while the page had no other sections:
+   the field's panels are sections too, and each inherited height:100vh, making
+   the left rail 3292px tall inside a 1080px viewport.
+   §4 also splits the two cases, so one rule could not have served both — the
+   hero is exactly 100vh and clips, the field is a MINIMUM of 100vh and grows.
+   The bare selector was additionally clipping the field to one screen. */
+main > section {
   position: relative;
   width: 100%;
-  height: 100vh;
-  overflow: hidden;
 }
 
 /* STRIPE.md §A.6 layers the hero bottom-to-top: black ground, fan at full
    opacity, then the starfield canvas over it, then the vignette and scanlines,
    then the title. Only the fan supplies colour here — #000 is the hero's one
-   extra ground (§0). */
+   extra ground (§0).
+
+   CLAUDE.md §4: "Hero — 100vh, overflow hidden". Exactly one screen, and it
+   clips, because the trails and the scout routes deliberately run past the
+   edges. The field below is the opposite case — a minimum, free to grow — which
+   is why these two no longer share a selector. */
 #hero {
   display: flex;
   align-items: center;
   justify-content: center;
+  height: 100vh;
+  overflow: hidden;
   background: #000;
 }
 
@@ -908,37 +920,281 @@ which are squashed radial gradients rather than a conic sweep.
 }
 
 #observatory {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
+  display: block;
+  min-height: 100vh;
   background: #070812;
-  text-align: center;
 }
 
-/* Both sit above the fan, which is a positioned z-index:0 layer. */
-#observatory h2,
-#observatory p {
+/* ---------------------------------------------------------------------------
+   CLAUDE.md §4 — the field's topology.
+
+   One spacing constant. --ring is the 26px margin ring, and it is also the
+   gutter between columns and the gap between strips, so the page has a single
+   rhythm and no bespoke offsets to drift (§6 forbids absolute offsets, and the
+   surest way not to write one is to have only one number to write).
+
+   The columns are 20% / remainder / 20%. Stated honestly, because the measured
+   result is not what §4's diagram implies: with the rails at exactly 20% and
+   the gutters at 26px, the centre lands at 57.2% at 1920, not ~50%. 20/50/20
+   sums to 90, so the diagram's own arithmetic reserves 10% — about 187px at
+   1920 — for the two gutters, which is seven times the margin ring.
+
+   The two rules cannot both hold: 26px intervals everywhere and a 50% centre
+   need rails at 23.6%, and 20% rails with a 50% centre need 93px gutters. This
+   file implements 20% rails and a 26px rhythm, and the discrepancy is recorded
+   here rather than papered over, because the next person to read §4 will expect
+   the centre to be half the width and it is not.
+   -------------------------------------------------------------------------- */
+.field {
+  --ring: 26px;
+  --header-h: 84px;
+  --apex-h: 190px;
+  --rail-w: 20%;
+
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ring);
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: var(--ring);
+  font-family: "Space Grotesk", sans-serif;
 }
 
-#observatory h2 {
+/* Instrument furniture: hairlines, never boxes with shadows (§3). */
+.field-header,
+.field-footer,
+.panel,
+.plot {
+  border: 1px solid rgb(150 170 255 / 22%);
+}
+
+.field-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--ring) / 2) var(--ring);
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  min-height: var(--header-h);
+  padding: 0 var(--ring);
+}
+
+/* §5: every number is mono, IDs included — so the whole identity line is mono,
+   not just the count sitting inside it. */
+.archive-id {
   margin: 0;
-  font-family: "Space Grotesk", sans-serif;
-  font-size: 19px;
-  font-weight: 700;
-  letter-spacing: 0.15em;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  color: var(--ink);
   text-transform: uppercase;
+}
+
+.sep {
+  color: #6c7699;
+  padding: 0 0.25em;
+}
+
+.projections ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ring);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Bracketed actions (§5). The brackets are in the markup, not generated, so a
+   screen reader reads what the page shows. */
+.tab {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  color: #9aa3ca;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.tab:hover {
   color: var(--ink);
 }
 
-#observatory p {
-  margin: 0;
-  color: var(--ink-2);
+/* §2: fan white is the active-HUD accent — the tab you are on. */
+.tab.is-active {
+  color: #f1f1ee;
+}
+
+.tab:focus-visible {
+  outline: 1px solid rgb(150 170 255 / 50%);
+  outline-offset: 4px;
+}
+
+.field-cols {
+  display: grid;
+  flex: 1;
+  grid-template-columns: var(--rail-w) 1fr var(--rail-w);
+  gap: var(--ring);
+  align-items: stretch;
+}
+
+/* The rails carry NO ground: the V shows through them at its own 30%, which is
+   §4's "the side rails sit on the stripes". Only the plot field cuts it out. */
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ring);
+  min-width: 0;
+}
+
+.panel {
+  padding: calc(var(--ring) / 2) calc(var(--ring) / 2) calc(var(--ring) * 0.65);
+}
+
+.panel h3 {
+  margin: 0 0 calc(var(--ring) / 2);
   font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--ink-2);
+  text-transform: uppercase;
+}
+
+/* §5: body and labels are Space Grotesk 400 at 11–13px. */
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--ring) / 3);
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
   letter-spacing: 0.06em;
+  color: var(--label);
+  list-style: none;
+}
+
+/* The one place data colour is allowed (§2), and it is the encoding legend —
+   so the swatch is the only saturated thing in the rails. */
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 0.7em;
+  vertical-align: baseline;
+  background: currentcolor;
+}
+
+.swatch[data-method="transit"] { color: #9fc4ff; }
+.swatch[data-method="radial"] { color: #e8c37a; }
+.swatch[data-method="microlensing"] { color: #c79bff; }
+.swatch[data-method="imaging"] { color: #81d8ff; }
+.swatch[data-method="other"] { color: #e2664a; }
+
+/* Every readout is a number or an ID, so every readout is mono (§5). */
+.readout {
+  margin: 0;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--ink-2);
+  text-transform: uppercase;
+}
+
+.record {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: calc(var(--ring) / 4) var(--ring);
+}
+
+.record dt {
+  color: var(--label);
+}
+
+.record dd {
+  margin: 0;
+  color: var(--ink);
+  text-align: right;
+}
+
+/* §4: the only dark ground, and the only place the fan is cut out. Opaque, so
+   points will read against plain ground rather than against stripes. */
+.plot {
+  position: relative;
+  min-width: 0;
+  background: #03040a;
+}
+
+.plot-frame {
+  position: absolute;
+  inset: var(--ring);
+  border-left: 1px solid rgb(150 170 255 / 35%);
+  border-bottom: 1px solid rgb(150 170 255 / 35%);
+}
+
+/* §5: axis labels are mono, and 8px is allowed only for ticks — these are
+   labels, so they sit at the 10px end. */
+.axis {
+  position: absolute;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--label);
+  text-transform: uppercase;
+}
+
+.axis-x {
+  bottom: calc(var(--ring) * -0.75);
+  left: 0;
+}
+
+/* writing-mode turns the line vertical without a rotation whose origin has to be
+   reasoned about; the 180deg then makes it read bottom-to-top, which is the
+   convention for a y axis. The earlier version rotated about 0 0 and pushed the
+   label clean out of the plot and up into the header gutter — visible instantly
+   in the render, invisible in the rule. */
+.axis-y {
+  top: 50%;
+  left: calc(var(--ring) * -1);
+  writing-mode: vertical-rl;
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.plot-empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin: 0;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: #6c7699;
+  text-transform: uppercase;
+  translate: -50% -50%;
+}
+
+/* Mirrors the header rather than merely echoing it: same height, so the top and
+   bottom of the field weigh the same. Without the min-height it collapsed to
+   42px on its content and the symmetry was only in the intent. */
+.field-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--ring) / 2) var(--ring);
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  min-height: var(--header-h);
+  padding: calc(var(--ring) / 2) var(--ring);
+}
+
+/* Reserved emptiness, not a spacer: §4 keeps the bottom 190px for the V's apex
+   and forbids UI on it. It is an element so that the reservation is visible in
+   the markup and cannot be quietly absorbed by a later layout change. */
+.apex-band {
+  height: var(--apex-h);
+  flex: none;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1002,6 +1258,42 @@ which are squashed radial gradients rather than a conic sweep.
    The horizontal clamps are deliberately left alone. They already bottom out at
    their 12px floor at these widths, and that floor is a margin from the frame,
    not a correction to anything. */
+
+/* The 20/50/20 spine is a desktop structure, and there is a width below which
+   it stops being one. The plot field measures 0.6·(vw − 52) − 52, so it falls
+   under 420px — the narrowest a two-axis projection can be and still be read —
+   at vw = 840. Below that the columns stack: plot first, because it is the
+   instrument, then the rails as its controls.
+   Derived from the column formula rather than picked, so it moves if the
+   20% ever does. Measured at 390: the three-column layout leaves the plot
+   150.8px, which is a label, not a field. */
+@media (width <= 840px) {
+  .field-cols {
+    grid-template-columns: 1fr;
+  }
+
+  /* Stacked, the plot no longer inherits its height from the tallest rail, so
+     it needs one of its own or it collapses to its absolutely-positioned
+     children — which is to say, to nothing.
+
+     order:-1 puts the instrument above its controls. The DOM order is
+     left-rail / plot / right-rail because that is the reading order the three
+     columns need, and reordering visually here is exactly what `order` is for.
+     Without it the phone opens on a filter list and the field is below the
+     fold. */
+  .plot {
+    order: -1;
+    min-height: 56vh;
+  }
+
+  /* The rails stop being rails and become stacked panel groups, so they read in
+     one column rather than two cramped ones. */
+  .rail {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+}
+
 @media (width <= 900px) {
   #glitch-c3 {
     top: auto;
