@@ -1485,3 +1485,65 @@ Velocity, so methodFilter survived. `pnpm check` green 74/74, no overflow at 390
    §2b rather than rewriting every comment. **A rename that no check can fail is
    the kind that rots documentation quietly** — the files moved, and only prose
    knew where they used to be.
+
+## 2026-08-10 22:50 — TARGET and the tapes
+
+**Prompt:**
+
+> Yes please continue, when we finished all new components, we define their
+> behaviours in detail!
+
+**Result:**
+The last two components before the behaviour pass: RIGHT-TARGET and AXES.
+
+AXES.md §1 shaped this more than anything else — *a tape reads the exact
+expression that placed the points; if the two can drift, the axis is a
+decoration that lies.* So `axes.ts` owns no mapping at all. It calls data.ts's
+`logNorm`/`linNorm` to ask where a value goes and new exact inverses
+`logDenorm`/`linDenorm` to ask what sits at a position, and the frame hands it
+the screen inverses rather than letting it rebuild them. §2 writes the mapping
+in log10 and data.ts uses natural log; the normalised ratio is base-independent,
+so they are the same function — proven by round-trip over all 6,336 real records
+rather than argued.
+
+§6's budget is the second idea, and the most opinionated thing in the document:
+four projections get four *different* amounts of axis. DISCOVERY TIME's y is a
+display spread, so it gets an unnumbered bracket and a rotated disclosure and
+**never a tick**, because ticks would invent a measurement.
+
+RIGHT-TARGET.md §6 is its own rule — the panel is a readout, so a missing value
+prints `UNRESOLVED` in its slot rather than a dash, a zero or a blank.
+
+**Verified:**
+Against the archive, not the schema. 11 Com b reads 1.178 AU, 323.2 D, 12.20 R⊕,
+4914.9 M⊕, 803 K, 93.2 PC — every value the archive's own at §3's precision. PSR
+B1620-26 b prints UNRESOLVED in three slots, and in ORBIT its note reads
+"Missing // ORBITAL PERIOD"; switching to DISCOVERY TIME clears the note,
+because there it *is* resolved. The year tape emits whole years only.
+`pnpm check` green 83/83, console clean.
+
+**Commit:** [`ddbf96a`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/ddbf96a)
+
+**What happened:** three things.
+
+1. **The strongest test in this project came from taking one sentence
+   literally.** "A tape reads the exact expression that placed the points" could
+   have been satisfied by writing a tick formula that looks like the mapping.
+   Instead it became: the tape may not own a mapping, so it must import the
+   inverse, and the inverse must round-trip. Running that over every real
+   orbital period and radius rather than a handful of round numbers is what
+   makes it a contract instead of a demo. **A spec sentence with "never" in it
+   is usually a test waiting to be written.**
+
+2. **Two disabled buttons rather than two live-looking ones.** CENTER TARGET and
+   OPEN SYSTEM are specified in RIGHT-TARGET.md §5 but their behaviour lives in
+   the two documents scheduled last. Rendering them enabled would have shipped
+   controls that silently do nothing, which reads as a bug rather than as
+   sequencing. Disabled, with the owning document named in the title attribute.
+
+3. **Lint caught a real ordering bug in my CSS, not a style nit.** `no-descending-
+   specificity` flagged `.action:disabled` sitting after `.action:hover` — and
+   it was right that the hover would have won over the disabled state, so a
+   control I had deliberately marked unavailable would still have lit up under
+   the cursor. That is the third time a lint rule in this project has pointed at
+   something worse than the thing it reported.
