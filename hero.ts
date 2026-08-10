@@ -711,8 +711,15 @@ export function initHero(): void {
     const r = heroSection instanceof HTMLElement ? heroSection.getBoundingClientRect() : null;
     if (paused || (r && (r.bottom <= 0 || r.top >= window.innerHeight))) {
       rafId = null;
+      // The rAF work stops here, but the scout ships, the title float and the
+      // CTA are CSS animations, and CSS keeps those running off-screen — two
+      // 60s infinite loops translating five layers each across the viewport,
+      // forever, behind the archive. Pausing them is a class, and it is the
+      // rest of the same idea: nothing out of sight should cost a frame.
+      heroSection?.classList.add("is-idle");
       return;
     }
+    heroSection?.classList.remove("is-idle");
     rafId = requestAnimationFrame(tick);
   }
 
@@ -741,6 +748,7 @@ export function initHero(): void {
     const r = heroSection.getBoundingClientRect();
     if (r.bottom > 0 && r.top < window.innerHeight) {
       paused = false;
+      heroSection.classList.remove("is-idle");
       rafId = requestAnimationFrame(tick);
     }
   };

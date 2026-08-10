@@ -2186,3 +2186,16 @@ which are squashed radial gradients rather than a conic sweep.
   min-height: 0;
   overflow: visible;
 }
+
+/* PERFORMANCE.md §2.2, extended to the declarative half of the hero. The rAF
+   loop stops itself when the hero leaves the viewport, but CSS animations are
+   not on that loop: the two scout crossings (60s infinite, five layers each),
+   the title float and the CTA keep the compositor working behind a section the
+   user is interacting with. Pausing rather than removing them means they resume
+   mid-cycle exactly where they were, so scrolling back does not restart the
+   scout run from the right edge. */
+#hero.is-idle *,
+#hero.is-idle::before,
+#hero.is-idle::after {
+  animation-play-state: paused;
+}
