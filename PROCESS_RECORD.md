@@ -1547,3 +1547,57 @@ because there it *is* resolved. The year tape emits whole years only.
    control I had deliberately marked unavailable would still have lit up under
    the cursor. That is the third time a lint rule in this project has pointed at
    something worse than the thing it reported.
+
+## 2026-08-10 23:10 — OPEN SYSTEM, and a red commit
+
+**Prompt:**
+
+> Yes please add the OPEN-SYSTEM
+
+**Result:**
+The last component. §0 shaped the code more than the visuals did: *the archive
+is never mutated — it is saved, restored under cover, and found untouched on
+RETURN.* So the field supplies a snapshot and a restore closure rather than the
+system view reaching into it, and the restore runs at 720 ms **behind the veil**,
+which is what makes RETURN land on the frame the user left rather than on a
+re-derived one.
+
+§2's entry is the nicest piece of reasoning in the document and ported intact:
+yaw is measured from the planet→star direction, so π would be a dead-on full-lit
+disc; π ± 0.95 keeps most of the lit face *plus a terminator* and throws the star
+off the disc, so the default frame is never an accidental eclipse poster. The
+side is deterministic per planet name, so the same planet always opens the same
+way.
+
+§6's disclosure block — "not optional" — is built from a list in code rather
+than written into markup, so adding a compression to the scene without
+disclosing it now takes a deliberate omission rather than an oversight.
+
+**Verified:**
+The contract, not the pixels. Kepler-22 b's panel reads 0.812 AU, 289.86 D,
+0.720 ecc, 2.10 R⊕, 9.10 M⊕, 279 K, 5596 K, 0.869 R☉ — all archive values at
+their stated precision. After RETURN the shell and veil are gone and the archive
+is exactly as it was: projection Orbit × Size, 5,945 visible, the FIND query
+still typed, the selection still locked, its row still marked. `pnpm check`
+green 87/87.
+
+**Commit:** [`57b7d45`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/57b7d45), [`b62d4f8`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/b62d4f8)
+
+**What happened:** two things, and the first is a rule I broke.
+
+1. **I committed a red state.** `57b7d45` went in with stylelint failing. My
+   command ran `pnpm check` and `git commit` on separate lines, so the commit
+   never depended on the check, and the "1 problem" line scrolled past above the
+   commit output. CLAUDE.md's rule is plain — *commit when the checks pass,
+   never commit a red state* — and the only reason I noticed is that I read the
+   output afterwards. **A check whose result nothing depends on is a check I am
+   choosing to obey, and obedience is not a mechanism.** The two must be chained
+   with `&&` so a red check cannot be followed by a commit. That is the fix
+   worth keeping; the CSS took one line.
+
+2. **The lint error was a real bug wearing a style complaint.** Two
+   `.system-disclosure dd` rules, the second silently overriding the first's
+   colour, so the disclosure text rendered dimmer than intended — in the one
+   block the document calls non-optional. That is the fourth time in this
+   project a lint rule has pointed at something worse than the thing it
+   reported, and the second time inside the same file.
