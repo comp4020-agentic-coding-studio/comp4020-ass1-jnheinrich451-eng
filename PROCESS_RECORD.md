@@ -1104,3 +1104,77 @@ line 201 says to comment it out once the user confirms the fix, and confirming
 is theirs, not mine. Also reported and not fixed: the same fan row still dips at
 x=617/1301 where red meets slate blue — real colour boundaries rather than the
 phantom edge, pre-existing, and the user chose to leave them.
+
+## 2026-08-10 18:00 — The observatory skeleton
+
+**Prompt:**
+
+> Good, then first page closed! It is a symbolic page! But functions are totally
+> in second page. And I made a graph in CLAUDE.md, the topology section […] I use
+> lines to express the layout, yet some place will be ambiguous. there will be
+> intervals between sections, the left rail, plot field, right rail, and to
+> header stripes, archive id, and the footer. […] This time, we build the
+> skeleton of the second page, no actual data import.
+
+**Result:**
+Asked before building, because the diagram is precise about the spine and silent
+about the spacing: how the columns and gutters divide, whether the footer exists
+and where it sits against the apex band, and how the header's three fields
+distribute. All three came back as the recommended option.
+
+Built to §4 with **one spacing constant**. `--ring` is the 26px margin ring and
+also every column gutter and every gap between strips, so the page has a single
+rhythm and no bespoke number that can drift. §6 forbids absolute offsets, and
+the surest way not to write one is to have only one number available to write.
+
+Rails exactly 20%, plot takes the remainder. The plot is the only dark ground and
+the only place the fan is cut out; the rails carry no ground, so the V reads
+through them at its own 30% — §4's "the side rails sit on the stripes". The apex
+band is an element rather than a margin, so the reservation is visible in the
+markup and cannot be quietly absorbed later.
+
+**Verified:**
+Both marked viewports, measured rather than eyeballed. 1920: rails 20.02%, every
+gutter and strip gap 26px, header 84, apex 190 and empty, field exactly 1080 —
+and the parts sum to it. 390: plot 338×473, no horizontal overflow, three
+columns become one. `pnpm check` green 59/59.
+
+**Commit:** [`ba11d3a`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/ba11d3a), [`284556c`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/284556c)
+
+**What happened:** four things.
+
+1. **I recommended an option on a reason that turned out to be false.** I offered
+   "rails 20%, gutters 26px, centre takes the rest" and described it as matching
+   §4's "~50%". It does not. 20/50/20 sums to 90, so the diagram's own arithmetic
+   reserves 10% — about 187px at 1920, seven times the ring — for the gutters.
+   With 26px gutters the centre lands at **57.2%**. The two rules cannot both
+   hold: a 50% centre needs either 23.6% rails or 93px gutters. I found this only
+   by measuring the built page, having asserted the opposite in the option text
+   *and* written it into a CSS comment. Corrected the comment to state the
+   conflict beside the code, and reported it rather than letting the number pass.
+   **A recommendation is a claim, and mine went out unchecked.**
+
+2. **A bare `section` selector that was true only while it was alone.** `section
+   { height: 100vh; overflow: hidden }` predates there being any section but the
+   two page sections. My panels are `<section>`, so each inherited 100vh and made
+   the left rail 3292px tall inside a 1080px viewport — and the rule was also
+   clipping the whole field to one screen. Scoped to `main > section`, with the
+   hero keeping 100vh/overflow-hidden and the field taking a min-height, because
+   §4 specifies those two cases differently and one rule could never have served
+   both. The arithmetic identified it precisely: three panels at 1080 plus two
+   26px gaps is 3292, exactly what was measured, which turned "something is
+   wrong" into "the panels are page-height" in one step.
+
+3. **The render caught two things the rules could not.** The y-axis label rotated
+   about `0 0` and left the plot entirely, landing up in the header gutter — a
+   rule that reads fine and is wrong. And on the phone the stack opened on a
+   filter list with the field below the fold, while my own CSS comment claimed
+   "plot first, because it is the instrument". The comment described the intent
+   and the code did something else; `order: -1` made the code true. **I wrote a
+   false comment and the screenshot is what disagreed with it.**
+
+4. **The breakpoint is derived, not picked.** The plot measures
+   `0.6·(vw − 52) − 52`, so it falls under 420px — the narrowest a two-axis
+   projection can be read at — exactly at vw = 840. At 390 the three-column
+   layout leaves the plot 150.8px, which is a label, not a field. Solving for the
+   width means the breakpoint moves on its own if the 20% ever changes.
