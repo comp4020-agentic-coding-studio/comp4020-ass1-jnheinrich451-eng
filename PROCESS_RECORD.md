@@ -1253,3 +1253,68 @@ horizontal overflow. `pnpm check` green 59/59, the fan test confirming the
    retrying. The lesson is the same one the shader taught twice: **backticks
    belong in a file, not in a command line.** Non-trivial scripts now go to the
    scratchpad and run as files.
+
+## 2026-08-10 20:15 — The 26px that left the section
+
+**Prompt:**
+
+> there is one, the seam between page one and two. The reversed triangle and the
+> big Stripes, there is a gap. […] To me it is like we extend the window
+> vertically by an offset (unknown produced by which process), and the layouts,
+> the boxes you just implemented, it is at the correct location. Then the
+> solution will be, move the background, above this offset. And reduce the total
+> height by this offset
+
+**Result:**
+The offset was 26px, and it was the margin ring itself. `.frame` carries the ring
+as `margin: 26px`, and `#observatory` was a plain block with no border, padding
+or formatting context — so the child's vertical margins **collapsed through it**.
+The ring left the section rather than insetting the frame inside it: the section
+was pushed 26px down the page, and the document ran to 2186px against a correct
+2160px.
+
+`display: flow-root` establishes a block formatting context, which is exactly the
+rule that stops a child's margin escaping. Nothing is offset to compensate and no
+height has a constant subtracted from it — the ring goes back to being 26px of
+space inside the section, which is what it always meant.
+
+Fixing it exposed a second bug on narrow: §2 relaxes the *frame* to min-height so
+the stack may grow, but the section stayed pinned at `height: 100vh`, so at 390
+the frame ran 177px past it and the bottom ring measured −177.5. The container
+has to relax with the thing inside it.
+
+**Verified:**
+1920, 1440 and 390: seam gap 0, ring 26 top and bottom, document height equal to
+hero + observatory with no tail slack at every one. A vertical pixel scan across
+the seam steps straight from rgb(153,119,44) to rgb(110,86,36) in a single row
+with no dark line between — the brightness step that remains is page 2's fan at
+its 30 % opacity, which is by design. `pnpm check` green 59/59.
+
+**Commit:** [`93b0ea0`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/93b0ea0)
+
+**What happened:** three things.
+
+1. **The user's model of the bug was right and their proposed fix would have been
+   wrong — and the difference is exactly what §6 is about.** "Extend the window by
+   an unknown offset, the boxes are correct, so move the background up and reduce
+   the total height" describes the symptom precisely. But implementing it
+   literally means subtracting 26 from a height and translating a background by
+   26: two absolute offsets, compensating for a cause still in place, and both
+   would have needed re-tuning the moment the ring changed. §6's "find the
+   anchors or connectors" is the difference between cancelling a symptom and
+   deleting it. **A precise description of a symptom is not a specification for
+   the fix, and taking it as one is how offsets get written.**
+
+2. **One cause, two symptoms that looked unrelated.** A gap at the seam and slack
+   at the foot of the page read as two problems in two places. Measuring both in
+   the same breath — `seamGap: 26` and `docH 2186` against `expectedDocH 2160` —
+   made them one number appearing twice. The tell was `frame.y === obs.y`: the
+   frame was not inset at all, which no theory about a stretched background
+   explains and margin collapsing explains immediately.
+
+3. **The fix moved the failure rather than finishing it.** Closing the escape at
+   1920 left the phone worse, because the frame was now free to grow inside a
+   section still pinned to one viewport. §2 names only the frame box, and I
+   implemented only the frame box; the section is not mentioned anywhere in the
+   spec and still had to change. Checking three viewports rather than the one
+   that was reported is what caught it — the reported viewport was already green.
