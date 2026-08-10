@@ -1178,3 +1178,78 @@ columns become one. `pnpm check` green 59/59.
    projection can be read at — exactly at vw = 840. At 390 the three-column
    layout leaves the plot 150.8px, which is a label, not a field. Solving for the
    width means the breakpoint moves on its own if the 20% ever changes.
+
+## 2026-08-10 19:55 — Note! closed, and the frame rebuilt to LAYOUT.md
+
+**Prompt:**
+
+> yes the sunrise is fixed. You can comment out. And what is 57.2% center
+> decision? If it is related with the layout, we can discuss with it
+
+then mid-turn:
+
+> We are modifying the layout, then please refer to LAYOUT.md, for detailed info!
+
+**Result:**
+Commented out HOTSPOT.md's Note! per its own last line, kept rather than deleted
+because it is why the code looks the way it does, with a resolved-on line above
+so a reader knows it is closed rather than pending.
+
+Explained the 57.2%: 20/50/20 sums to 90, so the diagram was implicitly spending
+10% — about 187px at 1920, seven times the ring — on its two gutters. A 50%
+centre, 20% rails and one 26px gutter are three rules of which only two can
+hold. The author chose to keep the ring and widen the centre.
+
+Then LAYOUT.md arrived and made the whole question moot: fixed 210px / 230px
+rails with an 18px gap. Reset the amendment I had just written and built the
+frame to LAYOUT.md instead — §1's four fan passes, §2's grid, §3's type, §4's
+copy. The fan path data is written once and referenced by `<use>`, because four
+literal copies would be four things to keep in step and `spec/hero.test.ts` can
+only guard the one it can see.
+
+**Verified:**
+1920: left 210, right 230, both gaps 18, frame 1868×1028 — the viewport less the
+52px ring exactly — four passes present, `<use>` resolving, IBM Plex Mono
+computed. 390: field 489.5px = exactly 58vh, stacked controls/field/target, no
+horizontal overflow. `pnpm check` green 59/59, the fan test confirming the
+`<use>` refactor left the six paths intact.
+
+**Commit:** [`40e26fc`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/40e26fc), [`1e1d43a`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/1e1d43a)
+
+**What happened:** four things.
+
+1. **I shipped a decision the next document reversed, and had to undo my own
+   doc edit.** The 57.2% amendment to §4 was committed-ready when LAYOUT.md
+   replaced percentage columns with fixed px. Reset it rather than layering a
+   correction on a correction. Worth noting the cost was small only because the
+   amendment was still uncommitted — had I committed it, §4 would now carry two
+   contradicting paragraphs about the same columns. **The gap between deciding
+   and writing it down is where a superseding instruction is cheapest to
+   absorb.**
+
+2. **`order` and a positional row template cannot both be honoured.** I carried
+   `order: -1` on the field across from the previous layout. §2's
+   `rows: auto 58vh auto` assigns tracks positionally, so the field landed in
+   the first track and took `auto` — which is 2px, because every one of its
+   children is absolutely positioned — while the left panel took the 58vh. The
+   desktop was perfect and the phone was a 2px sliver. Same shape as the panels
+   inheriting `height: 100vh`: a rule written for one arrangement quietly
+   applying to another.
+
+3. **Two places where LAYOUT.md contradicts something and the specific document
+   should win.** §3 says IBM Plex Mono is the only face in section 2, narrower
+   than CLAUDE.md §5's Space Grotesk for headings and body. And §2 puts
+   `height: calc(100vh - 52px)` under GRID, though a full-height grid with a
+   header and footer around it must overflow — the frame has to carry it, which
+   is what §2's own narrow rule implies when it says the FRAME BOX switches to
+   min-height. Implemented both readings and wrote the reasoning beside the
+   code, rather than following the letter into a layout that cannot work.
+
+4. **Backticks again, in a different disguise.** I wrote a `node -e` script
+   containing a template literal, and bash consumed the backticks before node
+   ever saw them — the script died at parse time, so nothing was written, and
+   the shell then tried to execute the CSS comment as commands. Harmless because
+   the write never happened, and I checked the file was untouched before
+   retrying. The lesson is the same one the shader taught twice: **backticks
+   belong in a file, not in a command line.** Non-trivial scripts now go to the
+   scratchpad and run as files.
