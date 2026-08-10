@@ -1373,6 +1373,20 @@ spatial canvas, so it is genuinely drawing. `pnpm check` green 74/74.
    test asserts every `uName` referenced in a shader is declared in that shader,
    verified by deleting the declaration and watching it fail by name.
 
+   **Corrected the next turn, after the user said both bugs looked fine to
+   them.** They were right, and I had overstated this one. "The rim has not
+   drawn at all" describes the material's state, not what anyone could see.
+   Measured properly — freezing both builds and sampling at each one's own
+   published `--hot-x`/`--hot-y`, because my first attempt compared two
+   different sun phases and produced a meaningless 255-against-2 — the hot core
+   reads **255 in both**: it is drawn by `hotspot.ts`'s canvas overlay, which
+   never depended on the shader. The real loss is the limb sheen away from the
+   core, 247 against 213 at 60° off, about 14 %. So: a genuine compile failure
+   across five commits, and a visible consequence far smaller than I reported.
+   **Two lessons, and the second is the sharper one — I nearly published a
+   number from a comparison that was not phase-matched, having written down
+   that exact trap two turns earlier.**
+
 2. **I reported 2,044 measured records as missing.** SPATIAL said 2,071
    UNRESOLVED when only 27 rows lack ra/dec/distance. The rest were complete and
    merely behind the camera, and I was sending them to the holding cloud — which
@@ -1382,6 +1396,14 @@ spatial canvas, so it is genuinely drawing. `pnpm check` green 74/74.
    root cause was a camera distance of 2.75 — the number §5 quotes in the
    holding-cloud formula — inside a cloud whose radius runs to 9.05. The
    distance is derived from the archive's own maximum radius now.
+
+   **Also corrected: this never shipped.** It lived in my working tree for one
+   turn and was fixed before `f5440de`, the only commit that has ever contained
+   the spatial projection — so the committed page has always said 27, and there
+   was nothing here for the user to have noticed. I reported it as though it
+   were a defect in what they were looking at. **A bug caught before committing
+   is worth recording, but it must be labelled as one, or the reader goes
+   hunting for a symptom that was never there.**
 
 3. **The reality check earned its keep again.** Schema-shaped tests would have
    passed on a projection with the axes swapped. Naming four planets whose
