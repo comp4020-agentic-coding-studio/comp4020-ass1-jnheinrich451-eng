@@ -209,11 +209,25 @@ rotation about an axis preserves every vector's component along that axis, so
 rolling the light **cannot** change the width of the shadow — only where it
 falls.
 
+Resolved 2026-08-10, confirmed by the author. The seam placement is
+`N = ±(L×V)/|L×V|` with the side re-rolled once per sunrise; the brief that
+asked for it is kept below, commented out per its own last line, because the
+reasoning is why the code looks the way it does.
+
+<!--
 **Note!** We introduced Azimuth later, later than we defined the terminator and the Hotspot's logic.
 - Current issue, the terminator's direction is misaligned with the sunrise location and the Hotspot. The Hotspot and sunrise location remain the same, yet terminator's plane changes.
 - Potential fix, if can, formulate the trajectory of the terminator. The Hotspot and the sunrise sector collide when the Mars is from pure dark to leak a bit light, like cresent moon. The lit area should be opposite with the shadowed area, it is a fixed and true rule.
 - The hotspot should emerge on the seam of shadowed and sunlight area. You can decide which way (left or right) to go. The senario is we have a break of light and it expands to a bigger light area, but hotspots follows the transient area of light and shadow. Each time you can decide which way to move, maybe use a random number generator, <0.5 then to left, >= 0.5 then to right.
 - If user confirmed successful fixation, comment the Note! section out.
+-->
+
+Both causes are documented above: the two-light-directions bug in **Azimuth —
+rolling the light**, and the seam formula in **The terminator** below. What is
+worth carrying forward is that neither was the bug the symptom pointed at. The
+misalignment looked like an azimuth problem, and half of it was; the other half
+was that the hot spot had never been on the seam at all, and would still have
+been a quarter turn out with azimuth switched off.
 
 ### The terminator
 
