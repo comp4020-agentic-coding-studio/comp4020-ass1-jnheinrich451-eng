@@ -5,6 +5,7 @@
 // assert §5's contract in CI where no browser exists.
 
 import {
+  BUCKETS,
   BUCKET_COLOUR,
   C,
   type Archive,
@@ -129,6 +130,18 @@ export function initField(): void {
   let ftStart = 0;
   let prevIn: boolean[] = [];
   let nowIn: boolean[] = [];
+  // §2.4: allocated once and reused, so the draw loop creates no garbage. A
+  // sawtooth heap shows up as periodic hitches rather than steady slowness.
+  let methodIdx: Int32Array = new Int32Array(0);
+  const groups: {
+    colour: string;
+    wasIn: number;
+    isIn: number;
+    resolved: boolean;
+    xs: Float64Array;
+    ys: Float64Array;
+    n: number;
+  }[] = [];
 
   // AXES.md §3: the envelope is approached exponentially, never snapped.
   let env: Env | null = null;
@@ -204,41 +217,59 @@ export function initField(): void {
     }
 
     // §7 step 3 — every row.
+    //
+    // PERFORMANCE.md §2.6 and §6, written after measuring 115ms a frame here.
+    // The cost was never the NUMBER of points, it was the per-point canvas
+    // state: the old loop set fillStyle and globalAlpha and built a fresh arc
+    // path 6,336 times a frame. Every fillStyle assignment parses a colour
+    // string; every beginPath/arc/fill allocates and rasterises its own path.
+    //
+    // Three changes, all from the document:
+    //   §2.6  cull first — off-screen points cost nothing
+    //   §6.1  bucket the loop — ~20 state changes a frame instead of 12,672
+    //   §6.2  fillRect for the dots — at 2px the visual difference is nil and
+    //         rects are markedly cheaper than arcs
     const zg = 1; // zoom gain; wheel zoom is not wired yet
     const ft = Math.min(1, (performance.now() - ftStart) / FILTER_MS);
+    const fe = easeInOut(ft);
+
+    // Buckets are (method x wasIn x isIn), so every point in a bucket shares
+    // one radius and one alpha for the whole frame — including mid-transition,
+    // where a point is genuinely between the two filter states. Reused across
+    // frames, so the draw loop allocates nothing (§2.4).
+    for (const g of groups) g.n = 0;
     for (let i = 0; i < archive.rows.length; i++) {
-      const from = drawn[i] ?? target[i];
       const to = target[i];
-      if (!to || to.behind) continue; // behind the eye: not drawable this frame
-      const x = from.x + (to.x - from.x) * e;
-      const y = from.y + (to.y - from.y) * e;
-      const bucket = archive.bucketOf[archive.rows[i][C.method] as number];
+      if (!to || to.behind) continue;
+      const from = drawn[i] ?? to;
+      const x = sx(from.x + (to.x - from.x) * e);
+      const y = sy(from.y + (to.y - from.y) * e);
+      if (x < -20 || y < -20 || x > w + 20 || y > h + 20) continue; // §2.6
+      const g =
+        groups[
+          methodIdx[i] * 8 +
+            (prevIn[i] === false ? 4 : 0) +
+            (nowIn[i] === false ? 2 : 0) +
+            (to.resolved ? 0 : 1)
+        ];
+      g.xs[g.n] = x;
+      g.ys[g.n] = y;
+      g.n++;
+    }
 
-      // Interpolate between the two filter states rather than branching on the
-      // current one: mid-transition a point is genuinely between them.
-      const wasIn = prevIn[i] ?? true;
-      const isIn = nowIn[i] ?? true;
-      const w = (wasIn ? 1 : 0) + ((isIn ? 1 : 0) - (wasIn ? 1 : 0)) * ft;
-      let r = (1.2 + 0.8 * w) * zg;
-      let a = 0.1 + 0.7 * w;
-      if (!to.resolved) {
-        // Unresolved records are drawn — §2 — but dimmed, so the cloud reads as
-        // "not measured" rather than as a dense cluster of findings.
-        r = (1.0 + 0.2 * w) * zg;
-        a = (0.1 + 0.25 * w);
+    for (const g of groups) {
+      if (!g.n) continue;
+      // One interpolated weight for the whole bucket, set once.
+      const weight = g.wasIn + (g.isIn - g.wasIn) * fe;
+      // Unresolved records keep their dimmer, smaller treatment: §2 draws them
+      // but must not let the holding cloud read as a dense cluster of findings.
+      const r = (g.resolved ? 1.2 + 0.8 * weight : 1.0 + 0.2 * weight) * zg;
+      ctx!.globalAlpha = g.resolved ? 0.1 + 0.7 * weight : 0.1 + 0.25 * weight;
+      ctx!.fillStyle = g.colour;
+      const d = r * 2;
+      for (let k = 0; k < g.n; k++) {
+        ctx!.fillRect(g.xs[k] - r, g.ys[k] - r, d, d);
       }
-      if (projectionOf() === "spatial" && to.depth) {
-        // §7's depth cue, SPATIAL only.
-        const cue = Math.min(1.5, Math.max(0.45, cam.dist / to.depth));
-        r *= cue;
-        a *= Math.min(1, cue);
-      }
-
-      ctx!.globalAlpha = a;
-      ctx!.fillStyle = BUCKET_COLOUR[bucket];
-      ctx!.beginPath();
-      ctx!.arc(sx(x), sy(y), r, 0, Math.PI * 2);
-      ctx!.fill();
     }
     ctx!.globalAlpha = 1;
 
@@ -612,6 +643,26 @@ export function initField(): void {
       cam.dist = fitCameraDist(ext.dist[1]);
       prevIn = a.rows.map(() => true);
       nowIn = a.rows.map((r) => inPool(a, r));
+      methodIdx = Int32Array.from(a.rows, (r) =>
+        BUCKETS.indexOf(a.bucketOf[r[C.method] as number]),
+      );
+      for (const b of BUCKETS) {
+        for (const wasIn of [1, 0]) {
+          for (const isIn of [1, 0]) {
+            for (const resolved of [true, false]) {
+            groups.push({
+              colour: BUCKET_COLOUR[b],
+              wasIn,
+              isIn,
+              resolved,
+              xs: new Float64Array(a.rows.length),
+              ys: new Float64Array(a.rows.length),
+              n: 0,
+            });
+            }
+          }
+        }
+      }
       ftStart = performance.now() - FILTER_MS;
       computeTargets();
       drawn = target.map((t) => ({ ...t }));
