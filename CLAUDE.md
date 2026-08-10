@@ -188,6 +188,28 @@ These are the *only* saturated colours in the layout. They are never used for da
 `#000000` hero fan · `#04050a` hero section · `#070812` field section ·
 `#03040a` plot field.
 
+### Instrument palette — everything UI
+
+```
+#e8ecff  primary text          #cfd6f6  secondary text
+#9aa3ca  tertiary / labels     #6c7699  disabled, gridlines
+rgba(150,170,255,.20–.50)      borders, ticks, rules
+#bcd0ff / #ffffff              link, link hover
+```
+
+Cool blue-grey only. If a UI element needs emphasis, raise its border opacity or
+its text brightness — do not introduce a colour.
+
+### Data encoding — earned, and only in the field
+
+```
+#9fc4ff  transit          #e8c37a  radial velocity
+#c79bff  microlensing     #81d8ff  imaging
+#e2664a  other methods    #ff0033  active selection / cursor
+```
+
+Selection red `#ff0033` is reserved: one element on screen may wear it.
+
 ### Accents
 
 `#F1F1EE` (fan white) is the active-HUD accent — the tab you're on, the axis you're reading. `#7a5cc4 / #a184f0` are the search-panel scrollbar only.
@@ -210,7 +232,54 @@ Don't:
 - drop shadows, rounded cards, glass blur, emoji, icon sets
 - SVG illustration of planets or ships — real imagery or nothing
 
-## 4. Bug fixing rules
+**Empty black is a material.** The corners the V leaves are meant to stay empty
+except for stars. Resist filling them.
+
+## 4. Topology
+
+```
+┌─ Hero ───────────────────── 100vh, overflow hidden
+│    launch point at top-centre, trails fall outward
+│    title floats mid-screen, CTA pinned bottom
+└─ seam ─── colour boundaries continue exactly (STRIPE.md §A.4)
+┌─ Field ──────────────────── min 100vh, 26px margin ring
+│    ┌ header strip (84px) ─────────────────────────┐
+│    │ archive id · record count · projection tabs  │
+│    ├──────┬──────────────────────────┬────────────┤
+│    │ left │        plot field        │   right    │
+│    │ rail │   (the only dark ground) │   rail     │
+│    │ 20%  │          ~50%            │    20%     │
+│    └──────┴──────────────────────────┴────────────┘
+│    apex of the V closes in the bottom 190px
+└─ dive ─── continuous zoom, 720ms, black veil
+┌─ System ─────────────────── full-bleed overlay, escape returns to field
+```
+
+The **20 / 50 / 20 column rhythm is the spine of the whole site.** The fan is cut
+out of the centre column so points read against plain ground; the side rails sit
+*on* the stripes at 30 % and carry all controls and readouts. Nothing floats in
+the centre except data.
+
+The V is a load-bearing structure, not decoration: its apex marks the bottom of
+the page, its arms frame the field, and the corners it leaves black are where
+stars are allowed to be. Never place UI on the apex.
+
+## 5. Type
+
+| Role | Face | Size | Tracking |
+|---|---|---|---|
+| Hero title | ITC Avant Garde Gothic Bold (fallback Poppins 700) | fluid, ~18vw | .02em |
+| Section / panel headings | Space Grotesk 500–700 | 13–19 px | .12–.18em, uppercase |
+| Body & labels | Space Grotesk 400 | 11–13 px | .04–.09em |
+| All numbers, axes, readouts, IDs | IBM Plex Mono 400–500 | 8–12 px | .10–.22em |
+
+Rules: **every number is mono**, no exceptions — tick values, RA/Dec, periods,
+record counts, catalogue IDs. Uppercase + wide tracking marks anything the
+instrument says (`DISCOVERED // YEAR`, `[ ENTER OBSERVATORY ]`); sentence case is
+only for prose the *author* says. Slashes `//` separate instrument fields.
+Brackets `[ ]` wrap actions. Never below 8 px, and 8 px only for axis ticks.
+
+## 6. Bug fixing rules
 
 Do:
 - Find the anchors or connectors of the bug or wrong implementation, adjust the design and layout based on relations.
