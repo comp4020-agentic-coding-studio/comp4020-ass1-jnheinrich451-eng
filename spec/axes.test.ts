@@ -2,9 +2,11 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { logTicks, tickLabel, yearStep, yearTicks } from "../axes";
+import { teffColour, zoomLimits } from "../system";
 import {
   C,
   buildArchive,
+  hash01,
   extentsOf,
   linDenorm,
   linNorm,
@@ -104,5 +106,43 @@ describe("ticks (AXES.md §4)", () => {
     expect(yearStep(1992, 2026, 400, true)).toBeGreaterThanOrEqual(
       yearStep(1992, 2026, 400, false),
     );
+  });
+});
+
+describe("open system (OPEN-SYSTEM.md)", () => {
+  // §3: "The floor is derived from the guaranteed periapsis clearance, so the
+  // camera can never enter the planet and never escape toward the star."
+  it("clamps the camera outside the planet and inside the system", () => {
+    for (const orbitR of [22, 60, 400]) {
+      const { min, max } = zoomLimits(1, orbitR);
+      expect(min).toBeGreaterThan(1); // never inside the planet
+      expect(max).toBeGreaterThanOrEqual(orbitR * 2.6); // whole ellipse fits
+      expect(min).toBeLessThan(max);
+    }
+  });
+
+  // §4: orbit scale is a display unit and must not touch the inspection view —
+  // "the close view is identical at every setting; only the space around it
+  // changes". planetR is what sets the floor, so the floor cannot move.
+  it("leaves the inspection floor unchanged at every orbit scale", () => {
+    const floors = [1, 3, 5].map((s) => zoomLimits(1, 22 * s).min);
+    expect(new Set(floors).size).toBe(1);
+  });
+
+  // §2: the side is chosen deterministically per planet name, never randomly,
+  // so the same planet always opens on the same face.
+  it("picks the entry side deterministically from the name", () => {
+    const side = (n: string): number => (hash01(n, 17) < 0.5 ? -1 : 1);
+    expect(side("Kepler-22 b")).toBe(side("Kepler-22 b"));
+    const sides = new Set(archive.rows.slice(0, 400).map((r) => side(String(r[C.name]))));
+    expect(sides).toEqual(new Set([-1, 1])); // both sides actually occur
+  });
+
+  // §6: "The disclosure block is not optional." Ten compressions are named, and
+  // the star's colour stays a function of the archive temperature.
+  it("keeps star colour a function of the archive temperature", () => {
+    expect(teffColour(3000)).not.toBe(teffColour(6000));
+    expect(teffColour(12000)).not.toBe(teffColour(6000));
+    expect(teffColour(5500)).toBe(teffColour(5500));
   });
 });

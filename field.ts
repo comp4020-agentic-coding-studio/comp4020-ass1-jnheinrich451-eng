@@ -22,7 +22,7 @@ import {
 } from "./data";
 import { type Env, approach, drawAxes } from "./axes";
 import { initPanels } from "./panels";
-import { initTarget, renderTarget } from "./target";
+import { initTarget, renderTarget, setFieldSnapshotter } from "./target";
 import { inPool, state, subscribe } from "./store";
 
 const PROJECTIONS: { id: Projection; label: string; axes: string }[] = [
@@ -330,6 +330,24 @@ export function initField(): void {
       drawn = target.map((t) => ({ ...t }));
       initPanels(a);
       initTarget(a);
+      // OPEN-SYSTEM.md §1: save { layout, cx, cy, zoom } before the dive and
+      // replay it at 720ms behind the veil, so RETURN lands on exactly the
+      // frame the user left. Pan and zoom are not wired yet (INTERACTION.md
+      // owns them), so today the snapshot carries the projection and the
+      // envelope — the two things that would otherwise be re-derived on the way
+      // back and land the user somewhere new.
+      setFieldSnapshotter(() => {
+        const saved = { projection: projectionOf(), env: env ? { ...env } : null };
+        return {
+          restore: () => {
+            state.projection = saved.projection;
+            env = saved.env;
+            computeTargets();
+            syncChrome();
+            paint();
+          },
+        };
+      });
       subscribe(() => {
         // A filter change starts the transition from wherever the last one got
         // to, so rapid clicking never snaps.

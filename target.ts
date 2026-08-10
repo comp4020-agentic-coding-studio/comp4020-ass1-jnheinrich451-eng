@@ -8,6 +8,18 @@
 
 import { C, type Archive, type Projection, missingFor } from "./data";
 import { state, targetIdx } from "./store";
+import { openSystem, systemIsOpen } from "./system";
+
+/** Set by field.ts. OPEN-SYSTEM.md §0: the archive is never mutated — it is
+ *  SAVED, restored under cover, and found untouched on RETURN. The field owns
+ *  what "saved" means, so it supplies the snapshot rather than this panel
+ *  reaching into it. */
+export let snapshotField: () => { restore: () => void } = () => ({
+  restore: () => {},
+});
+export const setFieldSnapshotter = (fn: typeof snapshotField): void => {
+  snapshotField = fn;
+};
 
 /** §3's six rows, in fixed order at fixed precision. */
 const ROWS: { label: string; col: number; dp: number; unit: string }[] = [
@@ -116,10 +128,15 @@ export function initTarget(archive: Archive): void {
       centre.title = "Behaviour defined in INTERACTION.md — not yet wired";
       rail.append(centre);
     }
+    // §5: OPEN SYSTEM is shown once a record is loaded, whatever the current
+    // projection makes of it — a record you cannot plot is still a system you
+    // can visit.
     const open = el("button", "action action-open", "[ Open system ]");
     open.type = "button";
-    open.disabled = true;
-    open.title = "Behaviour defined in OPEN-SYSTEM.md — not yet wired";
+    open.addEventListener("click", () => {
+      if (systemIsOpen()) return;
+      openSystem(archive, idx, snapshotField());
+    });
     rail.append(open);
   }
 
