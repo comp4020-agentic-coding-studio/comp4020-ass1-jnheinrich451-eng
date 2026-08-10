@@ -1955,8 +1955,7 @@ which are squashed radial gradients rather than a conic sweep.
   color: #8f9ad4;
 }
 
-.system-values dd,
-.system-disclosure dd {
+.system-values dd {
   margin: 0;
   color: var(--ink-2);
   text-align: right;
@@ -1992,12 +1991,9 @@ which are squashed radial gradients rather than a conic sweep.
 }
 
 .system-disclosure dd {
-  color: #cfd6f6;
-  text-align: left;
-}
-
-.system-disclosure dd {
+  margin: 0;
   color: #8f9ad4;
+  text-align: left;
 }
 
 .system-foot {
