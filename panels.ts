@@ -5,6 +5,7 @@
 // methodFilter. FIND reaches a record; OBSERVE chooses a population.
 
 import { BUCKET_COLOUR, C, type Archive, type Row } from "./data";
+import { renderTarget } from "./target";
 import {
   REQUIREMENTS,
   type MethodFilter,
@@ -316,6 +317,25 @@ export function initPanels(archive: Archive): void {
         el("div", "l2", `${methodLabel(row)} · ${year}`),
         el("div", "l3", values(row)),
       );
+      // §4: hover is PREVIEW, click is LOCK — and a row hover writes the same
+      // state a field hover will, so the two can never fight.
+      li.addEventListener("pointerenter", () => {
+        if (window.matchMedia("(hover: none)").matches) return; // §4: not narrow
+        state.previewIdx = i;
+        renderTarget();
+      });
+      li.addEventListener("pointerleave", () => {
+        if (state.previewIdx === i) state.previewIdx = null;
+        renderTarget();
+      });
+      li.addEventListener("click", () => {
+        state.selectedIdx = i;
+        state.previewIdx = null;
+        for (const n of rows.querySelectorAll(".find-row")) n.classList.remove("is-selected");
+        li.classList.add("is-selected");
+        renderTarget();
+      });
+      li.tabIndex = 0;
       rows.append(li);
     }
 

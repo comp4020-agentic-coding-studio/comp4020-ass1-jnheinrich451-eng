@@ -20,7 +20,9 @@ import {
   positionOf,
   verifySkyTransform,
 } from "./data";
+import { type Env, approach, drawAxes } from "./axes";
 import { initPanels } from "./panels";
+import { initTarget, renderTarget } from "./target";
 import { inPool, state, subscribe } from "./store";
 
 const PROJECTIONS: { id: Projection; label: string; axes: string }[] = [
@@ -87,6 +89,10 @@ export function initField(): void {
   let ftStart = 0;
   let prevIn: boolean[] = [];
   let nowIn: boolean[] = [];
+
+  // AXES.md §3: the envelope is approached exponentially, never snapped.
+  let env: Env | null = null;
+  let lastFrame = 0;
 
   function sizeCanvas(): { w: number; h: number } {
     const dpr = Math.min(window.devicePixelRatio || 1, 2); // §7 step 1
@@ -182,7 +188,66 @@ export function initField(): void {
     }
     ctx!.globalAlpha = 1;
 
-    if (p < 1 || ft < 1) requestAnimationFrame(paint);
+    // §7 step 4 — the HUD tapes, after the points.
+    // FIELD.md §2: the reserves are MEASURED from the overlays' live geometry
+    // every frame. They change height with content and viewport (the NAV hint
+    // wraps on a narrow field), and hard-coding either prints tick labels over
+    // the text — "the one thing that must not be a magic number".
+    const panel = box!.querySelector<HTMLElement>(".field-projection");
+    const caption = box!.querySelector<HTMLElement>(".field-caption");
+    const topReserve = panel ? panel.offsetTop + panel.offsetHeight + 10 : 145;
+    const bottomReserve = caption ? caption.offsetTop - 26 : h - 26;
+
+    // The envelope's target is the bounding box of the visible RESOLVED points.
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (let i = 0; i < target.length; i++) {
+      const t = target[i];
+      if (!t || t.behind || !t.resolved) continue;
+      if (!(nowIn[i] ?? true)) continue;
+      const px = sx(t.x);
+      const py = sy(t.y);
+      if (px < x0) x0 = px;
+      if (px > x1) x1 = px;
+      if (py < y0) y0 = py;
+      if (py > y1) y1 = py;
+    }
+    if (Number.isFinite(x0)) {
+      const wanted: Env = { x0, y0, x1, y1 };
+      const now = performance.now();
+      const dt = Math.min(0.05, lastFrame ? (now - lastFrame) / 1000 : 0.016);
+      lastFrame = now;
+      env = env ? approach(env, wanted, dt).env : wanted;
+      // §9: the tapes are alpha-mixed on the morph clock rather than switched —
+      // source out over the first 35%, destination in over the last 35%, so the
+      // POINTS own the middle of the move.
+      const axisAlpha = morphing ? Math.max(0, (p - 0.65) / 0.35) : 1;
+      drawAxes(
+        ctx!,
+        {
+          sx,
+          sy,
+          inv: {
+            x: (px: number) => ((px - pad) / (w - pad * 2)) * fitRight,
+            y: (py: number) => (py - pad) / (h - pad * 2),
+          },
+          w,
+          h,
+          topReserve,
+          bottomReserve,
+          narrow: w < 640,
+        },
+        env,
+        projectionOf(),
+        ext,
+        axisAlpha,
+      );
+    }
+
+    if (p < 1 || ft < 1 || (env && !approach(env, env, 0.016).settled))
+      requestAnimationFrame(paint);
     else if (morphing) {
       morphing = false;
       drawn = target.map((t) => ({ ...t }));
@@ -202,6 +267,7 @@ export function initField(): void {
       drawn = target.map((t) => ({ ...t }));
     }
     syncChrome();
+    renderTarget(); // §4's note names the CURRENT projection, so it must follow
     paint();
   }
 
@@ -263,6 +329,7 @@ export function initField(): void {
       computeTargets();
       drawn = target.map((t) => ({ ...t }));
       initPanels(a);
+      initTarget(a);
       subscribe(() => {
         // A filter change starts the transition from wherever the last one got
         // to, so rapid clicking never snaps.
@@ -270,6 +337,7 @@ export function initField(): void {
         nowIn = a.rows.map((r) => inPool(a, r));
         ftStart = performance.now();
         syncChrome();
+        renderTarget();
         paint();
       });
       syncChrome();

@@ -152,6 +152,22 @@ export function hash01(name: string, salt: number): number {
   return ((h >>> 0) % 100000) / 100000;
 }
 
+/** AXES.md §1's one law: a tape must read THE EXACT EXPRESSION that placed the
+ *  points, never a re-derived scale — "if the two can drift, the axis is a
+ *  decoration that lies". These are the exact inverses of logNorm/linNorm, so
+ *  the tape asks the mapping where a value went rather than computing its own
+ *  answer. §2 writes the mapping in log10 and this file uses natural log; the
+ *  normalised ratio is base-independent, so they are the same function. Proven
+ *  by round-trip in spec/data.test.ts rather than by argument. */
+export const logDenorm = (t: number, lo: number, hi: number): number => {
+  const a = Math.log(Math.max(lo, Number.MIN_VALUE));
+  const b = Math.log(Math.max(hi, Number.MIN_VALUE));
+  return Math.exp(a + ((t - 0.06) / 0.88) * (b - a));
+};
+
+export const linDenorm = (t: number, lo: number, hi: number): number =>
+  lo + ((t - 0.06) / 0.88) * (hi - lo);
+
 export interface Extent {
   orbper: [number, number];
   rade: [number, number];

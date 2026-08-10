@@ -39,6 +39,11 @@ export interface State {
   sort: SortKey;
   limit: number;
   projection: Projection;
+  /** RIGHT-TARGET.md §2's three states. A click locks (selected), a hover
+   *  previews. LEFT-FIND.md §4: a row hover and a point hover write the SAME
+   *  state, so the two can never fight. */
+  selectedIdx: number | null;
+  previewIdx: number | null;
 }
 
 export const state: State = {
@@ -49,7 +54,14 @@ export const state: State = {
   sort: "name",
   limit: 80,
   projection: "orbit",
+  selectedIdx: null,
+  previewIdx: null,
 };
+
+/** The record the TARGET panel shows: the preview wins while it exists, because
+ *  previewing is what you are doing right now. */
+export const targetIdx = (): number | null =>
+  state.previewIdx ?? state.selectedIdx;
 
 type Listener = () => void;
 const listeners = new Set<Listener>();

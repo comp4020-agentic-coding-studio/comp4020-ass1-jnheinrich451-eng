@@ -1082,10 +1082,6 @@ which are squashed radial gradients rather than a conic sweep.
   border: 1px solid var(--line);
 }
 
-.panel-right {
-  padding: 16px 14px;
-}
-
 .panel h3 {
   margin: 0 0 10px;
   font-size: 11.5px;
@@ -1668,4 +1664,173 @@ which are squashed radial gradients rather than a conic sweep.
     overflow-y: auto;
     max-height: 300px;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   RIGHT-TARGET.md — the readout. §6: it never edits, never rounds silently,
+   never substitutes.
+   -------------------------------------------------------------------------- */
+.panel-right {
+  gap: 14px;
+  min-height: 0;
+
+  /* §1's own padding, folded in now that the two rules are one. */
+  padding: 16px 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.panel-right::-webkit-scrollbar {
+  width: 10px;
+}
+
+.panel-right::-webkit-scrollbar-track {
+  background: rgb(70 50 120 / 14%);
+}
+
+.panel-right::-webkit-scrollbar-thumb {
+  border: 2px solid rgb(3 4 10 / 90%);
+  border-radius: 6px;
+  background: #7a5cc4;
+  box-shadow: 0 0 7px rgb(154 116 255 / 75%);
+}
+
+.target-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.target-head h3 {
+  margin: 0;
+}
+
+.target-clear {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #8f9ad4;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.target-clear:hover {
+  color: #fff;
+}
+
+/* §2: a status, not a label — hence sentence case and the loose leading. */
+.target-empty {
+  margin: 0;
+  color: #5f6889;
+  font-size: 11.5px;
+  line-height: 1.8;
+}
+
+/* §2: the record arrived by hover, not by click. */
+.target-preview {
+  margin: 0;
+  color: #e8c37a;
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.target-host {
+  margin: 0;
+  color: #8f9ad4;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.target-method {
+  margin: 0 0 14px;
+  color: #8f9ad4;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* §3: a leader-dot row, not a table. The values form a hard left column
+   because the labels are padded to equal width in the text itself. */
+.target-rows {
+  margin: 0;
+  color: var(--ink-2);
+  font-family: inherit;
+  font-size: 11.5px;
+  line-height: 2.1;
+  white-space: pre;
+}
+
+/* §4: why this record sits in the holding cloud rather than the plot. */
+.target-note {
+  padding-top: 12px;
+  border-top: 1px solid rgb(150 170 255 / 22%);
+  margin-top: 16px;
+  color: #e8c37a;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.target-note p {
+  margin: 0;
+  line-height: 1.7;
+}
+
+/* §5: both actions full width, transparent, bracketed. */
+.action {
+  width: 100%;
+  background: none;
+  font-family: inherit;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.action-centre {
+  padding: 8px;
+  border: 1px solid rgb(150 170 255 / 32%);
+  margin-top: 14px;
+  color: #9aa3ca;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+}
+
+.action-open {
+  padding: 10px 8px;
+  border: 1px solid rgb(150 170 255 / 50%);
+  margin-top: 10px;
+  color: #cfd6f6;
+  font-size: 11.5px;
+  letter-spacing: 0.16em;
+}
+
+.action:focus-visible {
+  outline: 1px solid #cfd6f6;
+  outline-offset: 2px;
+}
+
+/* Not yet wired: INTERACTION.md and OPEN-SYSTEM.md own what these do, and the
+   author scheduled those last. Shown as unavailable rather than live-looking —
+   a control that silently does nothing is worse than one that says so. */
+.action:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.action:hover:not(:disabled) {
+  border-color: #fff;
+  color: #fff;
+}
+
+/* LEFT-FIND.md §3's row states. */
+.find-row.is-selected {
+  border-left-color: #cfd6f6;
+  background: rgb(150 170 255 / 16%);
+}
+
+.find-row:hover {
+  border-left-color: rgb(150 170 255 / 50%);
+  background: rgb(150 170 255 / 8%);
+  cursor: pointer;
 }
