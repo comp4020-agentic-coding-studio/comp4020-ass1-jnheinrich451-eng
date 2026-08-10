@@ -1485,7 +1485,11 @@ which are squashed radial gradients rather than a conic sweep.
   min-height: 0;
 }
 
-.tabpanel[hidden] {
+/* Must out-specify .tabpanel.find below, which sets display:grid and would
+   otherwise win on source order — that is why TARGET SEARCH was rendering
+   inside the OBSERVE tab. */
+.tabpanel[hidden],
+.tabpanel.find[hidden] {
   display: none;
 }
 
@@ -2175,10 +2179,10 @@ which are squashed radial gradients rather than a conic sweep.
   background: #a184f0;
 }
 
-/* The OBSERVE tab is short, so it keeps its own scroller rather than borrowing
-   FIND's row structure. */
+/* OBSERVE is a heading and five buttons. It has nothing to scroll, so it gets
+   no scroller — a scrollbar on a five-item list is chrome pretending there is
+   more to see. */
 .tabpanel:not(.find) {
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: visible;
 }

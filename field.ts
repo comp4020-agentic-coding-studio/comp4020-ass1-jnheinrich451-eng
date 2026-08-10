@@ -98,6 +98,20 @@ export function initField(): void {
   // tween set is empty. `pending` is that set, and one loop advances all of it.
   let rafId = 0;
   const pending = new Set<string>();
+  /** Coalesce input-driven repaints onto the next frame. Painting straight from
+   *  a pointermove handler means several full repaints per displayed frame —
+   *  the work is thrown away and the input queue backs up, which is what a drag
+   *  feels like when it lags. */
+  let queued = false;
+  function schedulePaint(): void {
+    if (queued || rafId) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      paint();
+    });
+  }
+
   function drive(): void {
     if (rafId) return; // a loop is already running — do NOT start a second
     const tick = (): void => {
@@ -125,10 +139,19 @@ export function initField(): void {
     const dpr = Math.min(window.devicePixelRatio || 1, 2); // §7 step 1
     const w = box!.clientWidth;
     const h = box!.clientHeight;
-    canvas!.width = Math.round(w * dpr);
-    canvas!.height = Math.round(h * dpr);
-    canvas!.style.width = `${w}px`;
-    canvas!.style.height = `${h}px`;
+    const bw = Math.round(w * dpr);
+    const bh = Math.round(h * dpr);
+    // Assigning canvas.width ALWAYS reallocates and clears the backing store,
+    // even when the value is unchanged — so doing it unconditionally meant a
+    // fresh 1352x925 surface every frame of every drag. Only touch it when the
+    // size actually changed; the transform still has to be reset because the
+    // reallocation is what used to reset it.
+    if (canvas!.width !== bw || canvas!.height !== bh) {
+      canvas!.width = bw;
+      canvas!.height = bh;
+      canvas!.style.width = `${w}px`;
+      canvas!.style.height = `${h}px`;
+    }
     ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
     return { w, h };
   }
@@ -435,7 +458,7 @@ export function initField(): void {
       if (hit !== state.previewIdx) {
         state.previewIdx = hit;
         renderTarget();
-        paint();
+        schedulePaint();
       }
       return;
     }
@@ -459,7 +482,7 @@ export function initField(): void {
       view.cx -= (dx / (box.clientWidth - 52)) * (fitRight / view.zoom);
       view.cy -= dy / (box.clientHeight - 52) / view.zoom;
     }
-    paint();
+    schedulePaint();
   });
 
   const endDrag = (): void => {
@@ -474,7 +497,7 @@ export function initField(): void {
     state.selectedIdx = nearest(e.clientX - r.left, e.clientY - r.top, HIT.click);
     state.previewIdx = null;
     renderTarget();
-    paint();
+    schedulePaint();
   });
   canvas.addEventListener("pointercancel", endDrag);
   canvas.addEventListener("pointerleave", () => {
@@ -482,7 +505,7 @@ export function initField(): void {
     if (state.previewIdx !== null) {
       state.previewIdx = null;
       renderTarget();
-      paint();
+      schedulePaint();
     }
   });
 
@@ -514,7 +537,7 @@ export function initField(): void {
           fitRight,
         );
       }
-      paint();
+      schedulePaint();
     },
     { passive: false },
   );
@@ -536,7 +559,7 @@ export function initField(): void {
     };
     if (reduceMotion()) {
       Object.assign(view, to); // §8: skip, not shorten
-      paint();
+      schedulePaint();
       return;
     }
     const t0 = performance.now();
@@ -546,7 +569,7 @@ export function initField(): void {
       view.cx = from.cx + (to.cx - from.cx) * e;
       view.cy = from.cy + (to.cy - from.cy) * e;
       view.zoom = from.zoom + (to.zoom - from.zoom) * e;
-      paint();
+      schedulePaint();
       if (p < 1) requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
@@ -558,7 +581,7 @@ export function initField(): void {
     const on = document.body.classList.toggle("ground-clear");
     const b = e.currentTarget as HTMLElement;
     b.textContent = on ? "Clear" : "Solid";
-    paint();
+    schedulePaint();
   });
   document.querySelector("#expand-field")?.addEventListener("click", () => {
     document.body.classList.toggle("focus-mode");
@@ -568,7 +591,7 @@ export function initField(): void {
   });
   document.querySelector("#fit-field")?.addEventListener("click", () => {
     resetView(projectionOf(), fitRight);
-    paint();
+    schedulePaint();
   });
 
   document
