@@ -88,27 +88,42 @@ export function openSystem(
   document.body.append(veil);
   const instant = reduceMotion();
   if (!instant) {
-    veil.animate([{ opacity: 0 }, { opacity: 1 }], {
-      duration: 600,
-      easing: "cubic-bezier(.7,0,.9,.3)",
-      fill: "forwards",
-    });
+    // FIX.md #4: the veil is DELAYED, not co-timed. It used to ramp 0->1 over
+    // 600ms on an accelerating curve, which is past half-black by ~250ms of a
+    // 720ms dive — so the zoom the user is meant to see happened behind an
+    // opaque veil. "The veil is a hand-off, not a curtain": transparent while
+    // anything is moving that the user is supposed to see, opaque only across
+    // the instant where two renderers swap.
+    // Explicit offsets: 0.556 x 720 = 400ms held fully transparent (the visible
+    // dive), then 400 -> 720 is the hand-off. Without the offsets the three
+    // keyframes distribute evenly and the veil starts closing at 360ms.
+    veil.animate(
+      [
+        { opacity: 0, offset: 0 },
+        { opacity: 0, offset: 0.556 },
+        { opacity: 1, offset: 1 },
+      ],
+      { duration: 720, easing: "ease-in", fill: "forwards" },
+    );
   } else {
     veil.style.opacity = "1";
   }
 
   const mount = (): void => {
     // At 720ms: mount, THEN silently restore the field behind the veil.
-    const shell = buildShell(archive, row, () => closeSystem(shell, veil));
+    const shell = buildShell(archive, row, () => closeSystem(shell, veil, snapshot));
     document.body.append(shell);
-    snapshot.restore();
     requestAnimationFrame(() => shell.classList.add("is-in"));
   };
   if (instant) mount();
   else window.setTimeout(mount, 720);
 }
 
-function closeSystem(shell: HTMLElement, veil: HTMLElement): void {
+function closeSystem(
+  shell: HTMLElement,
+  veil: HTMLElement,
+  snapshot: FieldSnapshot,
+): void {
   if (!open) return;
   open = false;
   // §5: the scene keeps animating throughout — freezing it first is what made
@@ -118,9 +133,25 @@ function closeSystem(shell: HTMLElement, veil: HTMLElement): void {
     shell.remove();
     veil.remove();
   };
-  if (reduceMotion()) return done();
+  if (reduceMotion()) {
+    snapshot.restore();
+    return done();
+  }
   shell.classList.remove("is-in");
-  window.setTimeout(done, 560);
+  // FIX.md #4's missing half — the SURFACING tween. The field used to be
+  // restored instantly under the veil, so there was no zoom-out at all: only
+  // the 3D camera pulled back. Now the field is handed back AT THE DIVE'S END
+  // STATE and tweens out to the saved view while the veil lifts over it.
+  window.setTimeout(() => {
+    shell.remove();
+    snapshot.restore();
+    veil.animate([{ opacity: 1 }, { opacity: 0 }], {
+      duration: 380,
+      easing: "ease-out",
+      fill: "forwards",
+    });
+    window.setTimeout(() => veil.remove(), 620);
+  }, 260);
 }
 
 function buildShell(

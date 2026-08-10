@@ -201,19 +201,26 @@ export function initPanels(archive: Archive): void {
   countRow.append(countText, clear);
   find.append(countRow);
 
+  // FIX.md #1: three explicit rows. Everything above the results is row 1,
+  // the results are row 2 and the ONLY scroller, SHOWING is row 3.
+  const head = el("div", "find-head");
+  head.append(...find.childNodes);
+  const scroll = el("div", "find-scroll");
   const empty = el("div", "find-empty");
-  find.append(empty);
+  scroll.append(empty);
   const rows = el("ul", "find-rows");
-  find.append(rows);
+  scroll.append(rows);
   const more = el("button", "show-more");
   more.type = "button";
   more.addEventListener("click", () => {
     state.limit += 120; // §5: 80, then +120
     render();
   });
-  find.append(more);
+  scroll.append(more);
+  const foot = el("div", "find-foot");
   const showing = el("p", "showing");
-  find.append(showing);
+  foot.append(showing);
+  find.append(head, scroll, foot);
 
   rail.append(find);
 

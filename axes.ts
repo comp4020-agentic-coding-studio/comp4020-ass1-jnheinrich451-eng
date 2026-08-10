@@ -142,6 +142,20 @@ function corners(ctx: CanvasRenderingContext2D, f: Frame, env: Env): void {
   }
 }
 
+/** CONTRACT D. The tape belongs to the DATA, not to the unresolved cloud: the
+ *  annotation may push the tape left but must never pull it right of
+ *  env.x1 + 26, and the rect can neither collapse nor flee. */
+export function plotRect(f: Frame, env: Env): { l: number; r: number; t: number; b: number } {
+  const l = Math.max(env.x0, 16);
+  const b = Math.min(env.y1 + 26, f.bottomReserve);
+  const r = Math.min(
+    Math.max(Math.min(env.x1 + 26, f.w - 14), l + 140),
+    f.w - 14,
+  );
+  const tp = Math.max(env.y0, f.topReserve);
+  return { l, r, t: Math.min(tp, b - 120), b };
+}
+
 /** Draw the tapes for a projection. Returns nothing: it is furniture. */
 export function drawAxes(
   ctx: CanvasRenderingContext2D,
@@ -157,26 +171,39 @@ export function drawAxes(
   ctx.font = FONT;
   ctx.lineWidth = 1;
 
-  // §3: the tape yields to the caption strip and the projection overlay.
-  const ax = Math.min(env.x1 + 26, f.w - 14);
-  const ay = Math.min(env.y1 + 26, f.bottomReserve);
-  const top = Math.max(env.y0, f.topReserve);
+  // FIX.md CONTRACT D: ONE rect per frame, and every tape, tick and bracket
+  // reads it. The four extents used to be computed independently, which is why
+  // the tapes never met: ax was pulled to the unresolved cloud's edge, ay and
+  // top came from different clamps, and the brackets used a third set of
+  // numbers. Corner connection is structural now, not coincidental.
+  const rect = plotRect(f, env);
 
-  corners(ctx, f, env);
+  // "No tape without a span." A five-tick stub is worse than no axis.
+  if (rect.r - rect.l < 140 || rect.b - rect.t < 120) {
+    ctx.restore();
+    return;
+  }
+
+  const ax = rect.r;
+  const ay = rect.b;
+  const top = rect.t;
+  const box: Env = { x0: rect.l, y0: rect.t, x1: rect.r, y1: rect.b };
+
+  corners(ctx, f, box);
 
   if (projection === "orbit") {
-    horizontalLog(ctx, f, ext.orbper, env, ay, f.narrow ? "PERIOD [D]" : "ORBITAL PERIOD [D]");
+    horizontalLog(ctx, f, ext.orbper, box, ay, f.narrow ? "PERIOD [D]" : "ORBITAL PERIOD [D]");
     verticalLog(ctx, f, ext.rade, top, ay, ax, f.narrow ? "R⊕" : "PLANET RADIUS [R⊕]");
   } else if (projection === "time") {
-    horizontalYear(ctx, f, ext.year, env, ay);
+    horizontalYear(ctx, f, ext.year, box, ay);
     // §6: the right side is the rule made visible. y here is a display spread,
     // so it gets a SHAPE AND A DISCLOSURE, never a scale — ticks would invent a
     // measurement that does not exist.
     bracket(ctx, f, top, ay, ax);
   } else if (projection === "distance") {
-    rings(ctx, f, ext.dist, env);
+    rings(ctx, f, ext.dist, box);
   } else {
-    degreeStrips(ctx, f, env, ay, ax);
+    degreeStrips(ctx, f, box, ay, ax);
   }
 
   ctx.restore();
@@ -373,13 +400,21 @@ function rings(
   for (const frac of [0.25, 0.5, 0.75, 1]) {
     const t = 0.06 + 0.88 * frac;
     const pc = logDenorm(t, 1 + span[0], 1 + span[1]) - 1;
-    const r = Math.abs(f.sx(0.5 + frac * 0.46) - cx);
+    // FIX.md #5, Option B: draw the ring through the SAME anisotropic transform
+    // the points get, so ring and cloud coincide by construction. The points
+    // are placed at 0.5 + r·cos/sin in normalised space and then scaled by sx
+    // and sy independently, so a locus of constant distance IS an ellipse of
+    // ratio sy/sx on screen. A circle here was furniture disagreeing with the
+    // thing it measures. The picture is an ellipse and honestly so; the angle
+    // stays labelled DISPLAY DISTRIBUTION either way.
+    const rx = Math.abs(f.sx(0.5 + frac * 0.46) - cx);
+    const ry = Math.abs(f.sy(0.5 + frac * 0.46) - cy);
     ctx.strokeStyle = frac === 1 ? LINE : DIM;
     ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
     ctx.stroke();
     ctx.fillStyle = TEXT;
-    ctx.fillText(`${tickLabel(pc)} PC`, cx, cy - r - 3);
+    ctx.fillText(`${tickLabel(pc)} PC`, cx, cy - ry - 3);
   }
   ctx.fillStyle = DIM;
   ctx.textAlign = "left";

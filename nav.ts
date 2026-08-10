@@ -44,21 +44,30 @@ const defaults = (fitRight: number): View => ({
   zoom: 1,
 });
 
-const views = new Map<Projection, View>();
+// FIX.md #7b, an INTENT CHANGE that supersedes FIELD.md §3's "each projection
+// keeps its own pan/zoom": ONE view, shared across projections. A projection
+// change is a change of representation, not of camera, and swapping the view
+// underneath the user was the camera being taken away from them.
+let shared: View | null = null;
 
-export function viewFor(p: Projection, fitRight: number): View {
-  let v = views.get(p);
-  if (!v) {
-    v = defaults(fitRight);
-    views.set(p, v);
-  }
-  return v;
+export function viewFor(_p: Projection, fitRight: number): View {
+  if (!shared) shared = defaults(fitRight);
+  return shared;
 }
 
-export function resetView(p: Projection, fitRight: number): View {
-  const v = defaults(fitRight);
-  views.set(p, v);
-  return v;
+export function resetView(_p: Projection, fitRight: number): View {
+  shared = defaults(fitRight);
+  return shared;
+}
+
+/** #7b: when the fit rect differs between projections, CLAMP the existing view
+ *  into the new rect rather than interpolating toward its centre. "A clamp is a
+ *  correction, an interpolation is a hijack." */
+export function clampView(v: View, fitRight: number): void {
+  const half = fitRight / (2 * v.zoom);
+  v.cx = Math.min(fitRight - half, Math.max(half, v.cx));
+  const halfY = 1 / (2 * v.zoom);
+  v.cy = Math.min(1 - halfY, Math.max(halfY, v.cy));
 }
 
 export interface Mapping {

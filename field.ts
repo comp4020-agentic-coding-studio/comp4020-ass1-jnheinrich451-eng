@@ -22,7 +22,18 @@ import {
 } from "./data";
 import { type Env, approach, drawAxes } from "./axes";
 import { initPanels } from "./panels";
-import { HIT, MS, type View, easeInOut, mapping, reduceMotion, resetView, viewFor, zoomAt } from "./nav";
+import {
+  HIT,
+  MS,
+  type View,
+  clampView,
+  easeInOut,
+  mapping,
+  reduceMotion,
+  resetView,
+  viewFor,
+  zoomAt,
+} from "./nav";
 import { initTarget, renderTarget, setCentreTarget, setFieldSnapshotter } from "./target";
 import { inPool, state, subscribe } from "./store";
 
@@ -83,13 +94,31 @@ export function initField(): void {
   // switched. Radius and alpha interpolate between the previous filter's
   // targets and the new ones on one clock, so the excluded population dims in
   // place. No record is ever removed from the draw loop.
-  const FILTER_MS = 380;
+  // CONTRACT C: never early-return on the handle; early-return only when the
+  // tween set is empty. `pending` is that set, and one loop advances all of it.
+  let rafId = 0;
+  const pending = new Set<string>();
+  function drive(): void {
+    if (rafId) return; // a loop is already running — do NOT start a second
+    const tick = (): void => {
+      rafId = 0;
+      paint();
+      if (pending.size) {
+        rafId = requestAnimationFrame(tick);
+      }
+    };
+    rafId = requestAnimationFrame(tick);
+  }
+
+  // FIX.md #7a: 420ms easeInOut, one clock for both directions.
+  const FILTER_MS = 420;
   let ftStart = 0;
   let prevIn: boolean[] = [];
   let nowIn: boolean[] = [];
 
   // AXES.md §3: the envelope is approached exponentially, never snapped.
   let env: Env | null = null;
+  let envSettled = true;
   let lastFrame = 0;
 
   function sizeCanvas(): { w: number; h: number } {
@@ -256,7 +285,14 @@ export function initField(): void {
       const now = performance.now();
       const dt = Math.min(0.05, lastFrame ? (now - lastFrame) / 1000 : 0.016);
       lastFrame = now;
-      env = env ? approach(env, wanted, dt).env : wanted;
+      if (env) {
+        const r = approach(env, wanted, dt);
+        env = r.env;
+        envSettled = r.settled;
+      } else {
+        env = wanted;
+        envSettled = true;
+      }
       // §9: the tapes are alpha-mixed on the morph clock rather than switched —
       // source out over the first 35%, destination in over the last 35%, so the
       // POINTS own the middle of the move.
@@ -280,8 +316,14 @@ export function initField(): void {
       );
     }
 
-    if (p < 1 || ft < 1 || (env && !approach(env, env, 0.016).settled))
-      requestAnimationFrame(paint);
+    // CONTRACT C: report what is still pending; the driver owns the rAF.
+    if (p < 1) pending.add("morph");
+    else pending.delete("morph");
+    if (ft < 1) pending.add("filter");
+    else pending.delete("filter");
+    if (envSettled) pending.delete("envelope");
+    else pending.add("envelope");
+    if (pending.size) drive();
     else if (morphing) {
       morphing = false;
       drawn = target.map((t) => ({ ...t }));
@@ -297,12 +339,16 @@ export function initField(): void {
     if (drawn.length && !reduceMotion()) {
       morphing = true;
       morphStart = performance.now();
+      pending.add("morph");
     } else {
       drawn = target.map((t) => ({ ...t }));
     }
+    // #7b: the view is NOT interpolated. Clamp it into the new fit rect, which
+    // is a correction; interpolating toward the new centre would be a hijack.
+    clampView(viewFor(next, fitRight), fitRight);
     syncChrome();
     renderTarget(); // §4's note names the CURRENT projection, so it must follow
-    paint();
+    drive();
   }
 
   function syncChrome(): void {
@@ -555,26 +601,60 @@ export function initField(): void {
       // envelope — the two things that would otherwise be re-derived on the way
       // back and land the user somewhere new.
       setFieldSnapshotter(() => {
-        const saved = { projection: projectionOf(), env: env ? { ...env } : null };
+        // FIX.md #4: the dive happens IN THE FIELD, and it must be visible.
+        // Save { cx, cy, zoom } before anything moves, tween into the point at
+        // zoom x11 over 720ms accelerating, and hand the same saved view back
+        // on the way out as a decelerating surfacing tween.
+        const view = viewFor(projectionOf(), fitRight);
+        const saved = { ...view, projection: projectionOf() };
+        const i = state.selectedIdx;
+        const pt = i !== null ? target[i] : null;
+        const runTween = (to: View, ms: number, accel: boolean): void => {
+          const from = { ...view };
+          const t0 = performance.now();
+          const step = (): void => {
+            const p = Math.min(1, (performance.now() - t0) / ms);
+            // Accelerating in reads as gravity; decelerating out reads as
+            // surfacing. Neither is the symmetric easeInOut used elsewhere.
+            const e = accel ? p * p * p : 1 - (1 - p) ** 3;
+            view.cx = from.cx + (to.cx - from.cx) * e;
+            view.cy = from.cy + (to.cy - from.cy) * e;
+            view.zoom = from.zoom + (to.zoom - from.zoom) * e;
+            paint();
+            if (p < 1) requestAnimationFrame(step);
+          };
+          requestAnimationFrame(step);
+        };
+        if (pt && !pt.behind && !reduceMotion()) {
+          runTween({ cx: pt.x, cy: pt.y, zoom: view.zoom * 11 }, MS.dive, true);
+        }
         return {
           restore: () => {
             state.projection = saved.projection;
-            env = saved.env;
             computeTargets();
             syncChrome();
-            paint();
+            if (reduceMotion()) {
+              Object.assign(view, { cx: saved.cx, cy: saved.cy, zoom: saved.zoom });
+              paint();
+              return;
+            }
+            runTween({ cx: saved.cx, cy: saved.cy, zoom: saved.zoom }, 620, false);
           },
         };
       });
       subscribe(() => {
         // A filter change starts the transition from wherever the last one got
         // to, so rapid clicking never snaps.
+        // #7a: retarget from the CURRENT values so rapid filter clicks do not
+        // pop, and no record leaves the draw loop at any point — this is a dim,
+        // not a removal.
         prevIn = nowIn;
         nowIn = a.rows.map((r) => inPool(a, r));
         ftStart = performance.now();
+        pending.add("filter");
         syncChrome();
         renderTarget();
-        paint();
+        drive();
       });
       syncChrome();
       paint();

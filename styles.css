@@ -959,6 +959,9 @@ which are squashed radial gradients rather than a conic sweep.
      always meant. */
   display: flow-root;
   height: 100vh;
+
+  /* #2: the section ground is the same pure dark as the field, so nothing
+     between them can tint the plot. */
   background: #03040a;
   font-family: "IBM Plex Mono", monospace;
 }
@@ -987,10 +990,26 @@ which are squashed radial gradients rather than a conic sweep.
   );
 }
 
+/* #2: SOLID is stronger than it was. The inner pass drops 0.3 -> 0.18 so the
+   fan FRAMES the instrument instead of tinting it, and the ring pass carries
+   the identity. CLEAR is unchanged and remains the composition view.
+   Both mask properties are set, on the painting <svg> and not a wrapper: with
+   only the unprefixed one the cut silently did not apply in some engines and
+   the fan bled straight across the plot. */
 .fan-inner {
-  opacity: 0.3;
+  z-index: 11;
+  opacity: 0.18;
   clip-path: inset(26px);
   mask-image: linear-gradient(90deg, #000 0 20%, transparent 30%, transparent 70%, #000 80%);
+  mask-repeat: no-repeat;
+
+  /* FIX.md #2 asks for the -webkit-mask-* pair as well. Dropped deliberately:
+     .stylelintrc bans vendor prefixes, and the site is marked in Chrome, which
+     has shipped unprefixed mask-image since 120 — so the prefix was never what
+     was broken here. mask-size/mask-repeat ARE the fix: without them the
+     gradient tiled at its intrinsic size instead of spanning the box, so the
+     centre cut landed in the wrong place. */
+  mask-size: 100% 100%;
 }
 
 .fan-header-patch {
@@ -1070,6 +1089,12 @@ which are squashed radial gradients rather than a conic sweep.
 .grid {
   display: grid;
   flex: 1;
+
+  /* CONTRACT A. Without this the row is content-driven: a 1,197-row FIND list
+     inflates the grid, the frame, the section and the page, so the rail never
+     overflows and `overflow-y: auto` has nothing to do. The scrollbar was not
+     missing — there was no overflow to scroll. */
+  min-height: 0;
   grid-template-columns: 210px minmax(0, 1fr) 230px;
   grid-template-rows: minmax(0, 1fr);
   gap: var(--gap);
@@ -1127,8 +1152,15 @@ which are squashed radial gradients rather than a conic sweep.
    centre cut is for. overflow:hidden because the field will own a canvas. */
 .field-box {
   position: relative;
+  z-index: 30; /* CONTRACT B: nothing paints between 30 and 39 but the field */
   min-width: 0;
+  min-height: 0;
+
+  /* `contain: paint` is the belt to overflow:hidden's braces — it guarantees
+     the canvas cannot paint outside the box even if a descendant escapes the
+     clip, which is how the point cloud leaked across the section. */
   overflow: hidden;
+  contain: paint;
   border: 1px solid rgb(150 170 255 / 20%);
 }
 
@@ -1397,10 +1429,10 @@ which are squashed radial gradients rather than a conic sweep.
 .panel-left {
   min-height: 0;
 
-  /* LEFT-FIND.md §2's own padding, kept here now that the two rules are one. */
+  /* LEFT-FIND.md §2's own padding, kept here now that the two rules are one.
+     FIX.md #1: the RAIL no longer scrolls — the FIND results row does. */
   padding: 14px 12px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
 }
 
 /* The one rule that cannot be inline (§1). */
@@ -2063,6 +2095,7 @@ which are squashed radial gradients rather than a conic sweep.
 }
 
 .ground-clear .fan-inner {
+  opacity: 0.3; /* CLEAR runs edge to edge at the rails' 30% */
   mask-image: none;
 }
 
@@ -2093,4 +2126,59 @@ which are squashed radial gradients rather than a conic sweep.
 .focus-mode .panel-left,
 .focus-mode .panel-right {
   display: none;
+}
+
+/* ---------------------------------------------------------------------------
+   FIX.md #1 — the FIND rail rebuilt as three explicit rows rather than one flex
+   column. "A grid row of 1fr with min-height:0 cannot be inflated by its
+   content, which removes the failure mode entirely." The scroller is row 2 and
+   only row 2; the list inside it is plain flow.
+   -------------------------------------------------------------------------- */
+.tabpanel.find {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 0;
+  height: 100%;
+  gap: 11px;
+}
+
+.find-head,
+.find-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  min-height: 0;
+}
+
+.find-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.find-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.find-scroll::-webkit-scrollbar-track {
+  background: rgb(70 50 120 / 14%);
+}
+
+.find-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid rgb(3 4 10 / 90%);
+  border-radius: 6px;
+  background: #7a5cc4;
+  box-shadow: 0 0 7px rgb(154 116 255 / 75%);
+}
+
+.find-scroll::-webkit-scrollbar-thumb:hover {
+  background: #a184f0;
+}
+
+/* The OBSERVE tab is short, so it keeps its own scroller rather than borrowing
+   FIND's row structure. */
+.tabpanel:not(.find) {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
