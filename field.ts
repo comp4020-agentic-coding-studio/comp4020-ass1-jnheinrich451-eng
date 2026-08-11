@@ -18,10 +18,11 @@ import {
   extentsOf,
   fitCameraDist,
   loadArchive,
+  missingFor,
   positionOf,
   verifySkyTransform,
 } from "./data";
-import { type Env, approach, drawAxes } from "./axes";
+import { type Env, approach, drawAxes, solArrowAt } from "./axes";
 import { initPanels } from "./panels";
 import {
   HIT,
@@ -306,8 +307,12 @@ export function initField(): void {
     ctx!.strokeStyle = "rgba(150,170,255,0.12)";
     ctx!.lineWidth = 1;
     if (fitRight > 1) {
-      // The holding cloud's own ellipse, so the region reads as deliberate
-      // rather than as points that escaped the plot.
+      // PROJECTIONS.md §7: dashed [2,5] at 0.18. Solid would read as a plot
+      // boundary; dashed reads as the edge of a PLACE, which is what it is —
+      // records live here, they have not escaped from anywhere.
+      ctx!.save();
+      ctx!.strokeStyle = "rgba(150,170,255,0.18)";
+      ctx!.setLineDash([2, 5]);
       ctx!.beginPath();
       ctx!.ellipse(
         sx(1.15),
@@ -319,6 +324,7 @@ export function initField(): void {
         Math.PI * 2,
       );
       ctx!.stroke();
+      ctx!.restore();
     }
 
     // §7 step 3 — every row.
@@ -479,6 +485,39 @@ export function initField(): void {
       // source out over the first 35%, destination in over the last 35%, so the
       // POINTS own the middle of the move.
       const axisAlpha = morphing ? Math.max(0, (p - 0.65) / 0.35) : 1;
+
+      // PROJECTIONS.md's per-projection furniture. All three are derived here
+      // rather than inside axes.ts, because axes.ts must not reach into the
+      // archive — its whole guarantee is that it only ever asks the MAPPING
+      // where something goes (§1).
+      const curIdx = state.selectedIdx ?? state.previewIdx;
+      const curRow = curIdx !== null ? archive.rows[curIdx] : null;
+      const curYear = curRow && typeof curRow[C.year] === "number"
+        ? (curRow[C.year] as number)
+        : null;
+      const unresolvedNow = target.reduce((n, q) => (q && !q.resolved ? n + 1 : n), 0);
+      const extras = {
+        cam: projectionOf() === "spatial" ? cam : null,
+        cursor:
+          curYear !== null
+            ? { year: curYear, locked: state.selectedIdx !== null }
+            : null,
+        // §7's first line names the field that is actually absent, taken from
+        // the same missingFor() that decided the record was unresolved. A
+        // generic "no data" would throw away the only interesting part.
+        cloud:
+          unresolvedNow > 0 && archive.rows.length
+            ? {
+                label:
+                  missingFor(
+                    archive.rows.find((r, i) => target[i] && !target[i].resolved) ??
+                      archive.rows[0],
+                    projectionOf(),
+                  )[0] ?? "unresolved",
+                count: unresolvedNow,
+              }
+            : null,
+      };
       drawAxes(
         ctx!,
         {
@@ -495,6 +534,7 @@ export function initField(): void {
         projectionOf(),
         ext,
         axisAlpha,
+        extras,
       );
     }
 
@@ -672,6 +712,18 @@ export function initField(): void {
     const r = canvas.getBoundingClientRect();
     // §1: click LOCKS. Outside the radius it clears, rather than keeping a
     // selection the user has just aimed away from.
+    // §5.3: the chevron is a 32x32 hit area, and it is checked BEFORE the
+    // records — it sits on the box edge where no point can be, and a click that
+    // recentred the origin must not also select whatever was underneath.
+    const arrow = solArrowAt();
+    if (arrow) {
+      const ax = e.clientX - r.left;
+      const ay = e.clientY - r.top;
+      if (Math.abs(ax - arrow.x) <= 16 && Math.abs(ay - arrow.y) <= 16) {
+        recentreOnSol();
+        return;
+      }
+    }
     state.selectedIdx = nearest(e.clientX - r.left, e.clientY - r.top, HIT.click);
     state.previewIdx = null;
     renderTarget();
@@ -719,6 +771,30 @@ export function initField(): void {
     },
     { passive: false },
   );
+
+  /** §5.3: click the chevron and the origin comes back — 420 ms easeInOut,
+   *  ZOOM UNCHANGED. Recentring that also zoomed would be answering a question
+   *  the user did not ask. */
+  function recentreOnSol(): void {
+    const view = viewFor(projectionOf(), fitLive());
+    const from = { cx: view.cx, cy: view.cy };
+    if (reduceMotion()) {
+      view.cx = 0.5;
+      view.cy = 0.5;
+      schedulePaint();
+      return;
+    }
+    const t0 = performance.now();
+    const step = (): void => {
+      const q = Math.min(1, (performance.now() - t0) / 420);
+      const e2 = easeInOut(q);
+      view.cx = from.cx + (0.5 - from.cx) * e2;
+      view.cy = from.cy + (0.5 - from.cy) * e2;
+      schedulePaint();
+      if (q < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
 
   // §5: CENTER TARGET moves the VIEW, never the point, and stops at a moderate
   // zoom so the record keeps its neighbourhood — a target alone in an empty

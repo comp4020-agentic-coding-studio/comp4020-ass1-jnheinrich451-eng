@@ -232,19 +232,30 @@ function buildShell(
     foot.append(b);
     return b;
   });
-  // Two states on one control, naming the state it is IN rather than the action
-  // — the same convention EXPAND FIELD uses, so the two read alike. Default OFF:
-  // entering a system starts it still, and any camera motion after that has an
-  // author (Law I).
-  const spin = el("button", "sys-btn sys-spin", "Camera rotation off");
-  spin.type = "button";
-  foot.append(spin);
+  // TARGET, not CAMERA ROTATION. The control's real effect is which body the
+  // camera is pointed at — the rotation is a consequence of framing the system
+  // rather than the thing being switched — so the label now says the thing it
+  // sets. Built as ORBIT SCALE is: a plain word carrying no state, then the two
+  // states as buttons, so the row reads as one instrument rather than as two
+  // unrelated controls.
+  foot.append(el("span", "dim", "Target"));
+  const targetBtns: HTMLButtonElement[] = [
+    ["planet", "Planet"],
+    ["system", "System"],
+  ].map(([id, label]) => {
+    const b = el("button", "sys-btn sys-target", label);
+    b.type = "button";
+    b.dataset.target = id;
+    foot.append(b);
+    return b;
+  });
+  targetBtns[0].classList.add("is-active"); // §3.3: the entry frames the planet
   foot.append(
     el("span", "sys-legend", "Drag to inspect · Wheel to zoom · Esc to return"),
   );
   shell.append(foot);
 
-  const scene = buildScene(canvas, row, zoomIn, zoomOut, scaleBtns, scaleNote, spin);
+  const scene = buildScene(canvas, row, zoomIn, zoomOut, scaleBtns, scaleNote, targetBtns);
   shell.addEventListener("keydown", (e) => {
     if (e.key === "Escape") onReturn(); // §5
   });
@@ -272,7 +283,7 @@ function buildScene(
   zoomOut: HTMLButtonElement,
   scaleBtns: HTMLButtonElement[],
   scaleNote: HTMLElement,
-  spin: HTMLButtonElement,
+  targetBtns: HTMLButtonElement[],
 ): { stop: () => void } {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -426,8 +437,9 @@ function buildScene(
   let distTo = 0;
   let planetDist = 0; // the framing to give back when rotation stops
 
-  spin.addEventListener("click", () => {
-    spinning = !spinning;
+  const setTarget = (system: boolean): void => {
+    if (system === spinning) return; // idempotent: re-clicking the lit one is a no-op
+    spinning = system;
     focusFrom = focusMix;
     focusTo = spinning ? 1 : 0;
     focusT0 = performance.now();
@@ -443,9 +455,13 @@ function buildScene(
     } else {
       distTo = Math.min(maxDist(), Math.max(minDist, planetDist || dist));
     }
-    spin.textContent = spinning ? "Camera rotation on" : "Camera rotation off";
-    spin.classList.toggle("is-active", spinning);
-  });
+    for (const b of targetBtns) {
+      b.classList.toggle("is-active", (b.dataset.target === "system") === spinning);
+    }
+  };
+  for (const b of targetBtns) {
+    b.addEventListener("click", () => setTarget(b.dataset.target === "system"));
+  }
 
   let stopped = false;
   const start = performance.now();

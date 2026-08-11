@@ -2255,9 +2255,9 @@ which are squashed radial gradients rather than a conic sweep.
   animation-play-state: paused;
 }
 
-/* The camera-rotation toggle is wider than the icon buttons beside it, since it
-   states its state in words rather than a glyph. */
-.sys-spin {
+/* The TARGET pair is wider than the icon buttons beside it, since each states a
+   body by name rather than by glyph. */
+.sys-target {
   width: auto;
   padding: 0 10px;
   margin-left: 10px;
