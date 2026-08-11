@@ -2293,3 +2293,82 @@ takes — so the field stepped while the rails slid. That was invisible while th
 rails simply `display: none`d, and only became a defect once the thing beside it
 started moving properly. Third time this week that making one thing continuous
 exposed the next thing that was not.
+
+## 2026-08-12 00:20 — Motion that lives in the scene, not in the camera
+
+**Prompt:**
+
+> could you make the twinkling points from square to circle? [...] in OPEN
+> SYSTEM, the first default planet, the camera will lock in one direction [...]
+> the planet drags a tail [...] add an animation between ORBIT SCALE 1, 3, 5
+> [...] PLANET as TARGET, we use planet as center, and for SYSTEM, we use star
+> as center. And we can cancel the pan [...] make the starfield sphere larger
+> [...] in SYSTEM mode, please consider the radius, and automatically zoom out
+> [...] 85% of the orbit [...] BLINDSPOTS, I feel they are stretched vertically
+> too much [...] 5/6 [...] scout ship [...] 1/15
+
+**Result:**
+Points are circles. PERFORMANCE.md §6.2 recommends `fillRect` *precisely
+because* an arc costs more, so the cost had to be bought back rather than
+ignored: one path per bucket with n subpaths and a single `fill()`, which keeps
+state changes and path submissions at one per bucket instead of one per record.
+That is the same argument bucketing was introduced under. Measured after: 7 ms
+median frame, 7.7 p95.
+
+The system's motion moved out of the camera and into the scene. The planet
+carries a **tail built from its own past positions**, so it can never point the
+wrong way, and it stretches at periapsis and bunches at apoapsis for free —
+deriving it from history rather than from a velocity vector is what makes that
+true without a special case for eccentricity.
+
+ORBIT SCALE tweens over 480 ms easeInOut, which is EFFECT.md's own table, and
+retargets from where the tween actually is so ×5 then ×1 mid-move continues from
+the size on screen. It was instant, which made ×1 → ×5 read as a *different
+system* rather than the same one drawn larger — the one thing that control
+exists to say.
+
+SYSTEM framing is now computed rather than picked: back off until the orbit's
+widest extent fills 85% of the shorter screen axis, re-derived every frame from
+the CURRENT `orbitR` so the framing follows the scale tween instead of only
+agreeing at its ends. The old `maxDist()` was a fixed multiple chosen for one
+aspect ratio and one ×1 orbit, and ×5 walked straight out of frame.
+
+Pan removed, both drag buttons rotate about the current target. It earns the
+removal: with a pivot that is already the thing you came to look at, panning
+could only ever move that thing off-centre, and the control that undid it was
+the same drag in the other direction. Starfield shell doubled — at ×5 the camera
+could reach the old one, and a backdrop you can arrive at is a wall, not a sky.
+
+Hero: `--title-stretch` 1.42 → 1.1833. scaleY's origin is the element centre and
+the anchor is a 0×0 centred flex box, so it shrinks about its own middle and
+needs no compensating offset — which is the rule in CLAUDE.md §6 about not
+fixing position with an absolute nudge. The horizontal stretch is untouched
+because that one is load-bearing: it must equal `TITLE_LENGTH_GAIN` in hero.ts
+or the fit and the render disagree. Scout clearance `titleTop/18` → `/15`.
+
+**Verified:**
+Frame time after the switch to arcs: median 7 ms, p95 7.7, max 8.1 — the change
+that PERFORMANCE.md warns about, measured rather than assumed. Screenshots of
+both TARGET modes: PLANET centres the planet, SYSTEM centres the star with the
+whole ellipse in shot and room around it. Hero measured off the DOM: title
+height 191 px against ~229 before (0.834 ≈ 5/6), gaps 28 and 25 either side of a
+word that floats ±6 px, so symmetric by construction.
+
+**Commit:** [`ea420c9`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/ea420c9)
+
+**What happened:**
+One ordering bug, caught by reading the diff rather than the render. The scale
+and focus tweens landed *after* the camera solve, so each wrote `dist` a frame
+after the frame that used it — a one-frame lag that would have shown as a
+soft judder during the scale change and been very easy to blame on the easing.
+Moved both above the solve.
+
+The ambiguity worth naming: "the camera will lock in one direction ... the view
+will always be this view" and "PLANET as TARGET, we use planet as center" pull
+in opposite directions — a camera centred on a moving planet cannot leave the
+star where it is. I read the pair as: the *pivot* is what TARGET selects, the
+camera never moves itself, and the motion the author wants to see is carried by
+the tail and the backdrop instead of by the framing. The supplied image is
+SYSTEM mode, and that is the view it describes. If the intent was for PLANET
+mode to also hold the star still, that is a different change and I have not made
+it — flagging rather than guessing twice.
