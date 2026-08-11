@@ -288,6 +288,31 @@ function buildScene(
   const baseOrbitR = Math.max(starR * 2.2, planetR * 22);
   const ecc = Math.min(0.9, Math.max(0, num(C.ecc, 0)));
 
+  // EFFECT.md §4 / the author's note: a backdrop that rotates with the
+  // revolution, so the system reads as turning even when the camera is still.
+  // It shares the planet's orbit angle rather than a wall clock, so what you
+  // see moving is the revolution and nothing else (Law I: every motion has an
+  // author, and here the author is the simulation).
+  const backdrop = (() => {
+    const n = 900;
+    const pos = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      const th = Math.random() * Math.PI * 2;
+      const ph = Math.acos(2 * Math.random() - 1);
+      const R = 900;
+      pos[i * 3] = R * Math.sin(ph) * Math.cos(th);
+      pos[i * 3 + 1] = R * Math.cos(ph);
+      pos[i * 3 + 2] = R * Math.sin(ph) * Math.sin(th);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    return new THREE.Points(
+      g,
+      new THREE.PointsMaterial({ color: 0xcfd8ff, size: 1.6, sizeAttenuation: false }),
+    );
+  })();
+  scene.add(backdrop);
+
   const star = new THREE.Mesh(
     new THREE.SphereGeometry(starR, 48, 48),
     new THREE.MeshBasicMaterial({ color: teffColour(num(C.teff, 5500)) }),
@@ -368,6 +393,9 @@ function buildScene(
       Math.sin(angle) * b,
     );
     planet.rotation.y += dt * 0.25; // ILLUSTRATIVE, and disclosed as such
+    // Half a turn of backdrop per turn of orbit: enough that the revolution is
+    // legible, little enough that it never competes with the planet.
+    backdrop.rotation.y = -angle * 0.5;
 
     const d = Math.min(maxDist(), Math.max(minDist, dist));
     const eye = new THREE.Vector3(
@@ -375,8 +403,9 @@ function buildScene(
       Math.sin(pitch),
       Math.cos(yaw) * Math.cos(pitch),
     ).multiplyScalar(d);
-    camera.position.copy(planet.position).add(eye);
-    camera.lookAt(planet.position);
+    const focus = planet.position.clone().add(new THREE.Vector3(panX, panY, 0));
+    camera.position.copy(focus).add(eye);
+    camera.lookAt(focus);
 
     const w = canvas.clientWidth || 1;
     const h = canvas.clientHeight || 1;
@@ -393,21 +422,42 @@ function buildScene(
   // §3: camera orbit is USER-DRIVEN ONLY. Nothing moves the viewing angle on
   // its own, so every unprompted motion on screen belongs to the planet.
   let dragging = false;
+  let dragButton = 0;
   let px = 0;
   let py = 0;
+  // §3, and INTERACTION.md §2's grammar carried in unchanged: LEFT = translate,
+  // RIGHT = rotate. The same control set as SPATIAL // RA + DEC, so the muscle
+  // memory transfers between the two 3D views instead of being relearned.
+  //
+  // Rotation runs at a FIFTH of what it did (0.006 -> 0.0012). At the old rate a
+  // small wrist movement threw the system past the terminator, which is the one
+  // thing worth aiming carefully at in this view.
+  let panX = 0;
+  let panY = 0;
   canvas.addEventListener("pointerdown", (e) => {
     dragging = true;
+    dragButton = e.button;
     px = e.clientX;
     py = e.clientY;
     canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener("pointermove", (e) => {
     if (!dragging) return;
-    yaw -= (e.clientX - px) * 0.006;
-    pitch = Math.min(1.35, Math.max(-1.35, pitch + (e.clientY - py) * 0.006));
+    const dx = e.clientX - px;
+    const dy = e.clientY - py;
+    if (dragButton === 2) {
+      yaw -= dx * 0.0012;
+      pitch = Math.min(1.35, Math.max(-1.35, pitch + dy * 0.0012));
+    } else {
+      // Pan moves the framing, not the bodies: the offset is applied to the
+      // camera and its look-at together, so the planet stays the pivot.
+      panX -= dx * dist * 0.0016;
+      panY += dy * dist * 0.0016;
+    }
     px = e.clientX;
     py = e.clientY;
   });
+  canvas.addEventListener("contextmenu", (e) => e.preventDefault());
   const endDrag = (): void => void (dragging = false);
   canvas.addEventListener("pointerup", endDrag);
   canvas.addEventListener("pointercancel", endDrag);
