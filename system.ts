@@ -182,7 +182,14 @@ function buildShell(
   shell.append(head);
 
   // §6 top-right.
-  const ret = el("button", "system-return", "[ Return to field ]");
+  // Short label on a phone, and the conflict is gone at its SOURCE rather than
+  // squeezed: capping the head against a guessed button width still overlapped
+  // by 14px, because the guess was a number I picked and the button's width is
+  // whatever the font makes it. A shorter word is not a workaround here — at
+  // 390px the full phrase is a third of the screen for one control.
+  const short = window.matchMedia("(width <= 640px)").matches;
+  const ret = el("button", "system-return", short ? "[ ← Field ]" : "[ Return to field ]");
+  ret.setAttribute("aria-label", "Return to field");
   ret.type = "button";
   ret.addEventListener("click", onReturn);
   shell.append(ret);
@@ -251,7 +258,16 @@ function buildShell(
   });
   targetBtns[0].classList.add("is-active"); // §3.3: the entry frames the planet
   foot.append(
-    el("span", "sys-legend", "Drag to inspect · Wheel to zoom · Esc to return"),
+    el(
+      "span",
+      "sys-legend",
+      // Same fault the field's NAV hint had: naming a wheel and an Esc key to a
+      // reader who has neither. The legend has to describe the device in front
+      // of the person, or it is instructions for someone else's machine.
+      short
+        ? "Drag to orbit · Pinch to zoom"
+        : "Drag to inspect · Wheel to zoom · Esc to return",
+    ),
   );
   shell.append(foot);
 
