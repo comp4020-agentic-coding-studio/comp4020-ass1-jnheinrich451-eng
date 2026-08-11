@@ -431,6 +431,9 @@ function buildScene(
   const TAIL = 96;
   const tailPos = new Float32Array(TAIL * 3);
   let tailN = 0;
+  /** The orbit scale the stored trail is expressed in, so a change can be
+   *  applied to it as a ratio rather than by rebuilding it. */
+  let tailScale = 1;
   const tailGeo = new THREE.BufferGeometry();
   tailGeo.setAttribute("position", new THREE.BufferAttribute(tailPos, 3));
   const tail = new THREE.Line(
@@ -636,7 +639,26 @@ function buildScene(
       const k = q < 0.5 ? 2 * q * q : 1 - (-2 * q + 2) ** 2 / 2;
       orbitScale = scaleFrom + (scaleTo - scaleFrom) * k;
       layoutOrbit();
-      tailN = 0; // the old trail belongs to the old orbit
+
+      // THE TRAIL SCALES WITH THE ORBIT; IT IS NOT THROWN AWAY.
+      //
+      // It used to be wiped every frame of the tween on the reasoning that "the
+      // old trail belongs to the old orbit". That is wrong, and exactly wrong:
+      // the orbit at ×5 is the ×1 ellipse multiplied by 5, so every stored
+      // sample maps onto the new ellipse by the same multiplication. Scaling
+      // them is not an approximation, it is the identity that defines the
+      // control.
+      //
+      // Wiping it meant the one element that carries the motion snapped to its
+      // canonical empty state at the start of a move whose entire point is to
+      // be continuous, then re-traced over the following ~1.5 s. Measured
+      // before: tailN 96 → 0 on the first frame, still 0 at the end of the
+      // tween.
+      const ratio = orbitScale / tailScale;
+      if (ratio !== 1) {
+        for (let i = tailN * 3 - 1; i >= 0; i--) tailPos[i] *= ratio;
+        tailGeo.attributes.position.needsUpdate = true;
+      }
       if (q >= 1) scaleT0 = 0;
       if (spinning) {
         dist = systemDist();
@@ -644,6 +666,9 @@ function buildScene(
         distTo = dist;
       }
     }
+
+    tailScale = orbitScale; // every frame, tween or not — the trail is now in
+    // the current orbit's units by construction.
 
     // §3.3's focus tween. It runs after the approach block so it wins the
     // distance while it is live; the approach has already finished by the time
@@ -711,6 +736,11 @@ function buildScene(
         starX: +sp.x.toFixed(3),
         starY: +sp.y.toFixed(3),
         starOnScreen: Math.abs(sp.x) <= 1 && Math.abs(sp.y) <= 1 && sp.z < 1,
+        orbitScale: +orbitScale.toFixed(3),
+        dist: +dist.toFixed(1),
+        tailN,
+        px: +planet.position.x.toFixed(1),
+        pz: +planet.position.z.toFixed(1),
         camX: +camera.position.x.toFixed(2),
         camZ: +camera.position.z.toFixed(2),
       };
