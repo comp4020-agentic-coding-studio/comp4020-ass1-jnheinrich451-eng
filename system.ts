@@ -458,7 +458,21 @@ function buildScene(
     if (import.meta.env.DEV) {
       // Marker (CLAUDE.md §6): the toggle either does not fire or does not
       // move the camera enough to see, and those two need different fixes.
-      (window as unknown as { __sys?: unknown }).__sys = { yaw, spinning, backdropSpin };
+      // Screen position of the STAR, not just yaw. Orbiting the camera around
+      // the planet keeps the planet dead centre by construction, so `yaw` can
+      // move a long way while the picture barely changes — the star sweeping
+      // is the visible consequence, so that is the number to read.
+      const sp = star.position.clone().project(camera);
+      (window as unknown as { __sys?: unknown }).__sys = {
+        yaw,
+        spinning,
+        backdropSpin,
+        starX: +sp.x.toFixed(3),
+        starY: +sp.y.toFixed(3),
+        starOnScreen: Math.abs(sp.x) <= 1 && Math.abs(sp.y) <= 1 && sp.z < 1,
+        camX: +camera.position.x.toFixed(2),
+        camZ: +camera.position.z.toFixed(2),
+      };
     }
     renderer.render(scene, camera);
     requestAnimationFrame(frame);

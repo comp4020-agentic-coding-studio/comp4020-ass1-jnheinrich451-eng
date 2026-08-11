@@ -276,7 +276,16 @@ export function initField(): void {
     // always smooth; that is why this was exclusive to DISCOVERY TIME, and why
     // the author's "look at how the other three transit to each other" was the
     // right place to look.
-    clampView(view, fitNow);
+    // ONLY WHILE MORPHING. Unconditionally was a regression, and an obvious one
+    // in hindsight: at zoom 1 clampView pins cx to exactly fitNow/2, so running
+    // it every frame nailed the view to the centre and killed the pan entirely.
+    // Zoom and rotate survived because above zoom 1 the clamp has a range to
+    // move inside, which is exactly the shape of the author's report.
+    //
+    // The clamp is a projection-change correction, so it belongs to the
+    // projection change. Bounding a free pan is a different decision and is not
+    // one this fix gets to make on the way past.
+    if (morphing) clampView(view, fitNow);
     const map = mapping(view, w, h, pad, fitNow);
     const sx = map.sx;
     const sy = map.sy;
