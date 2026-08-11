@@ -34,7 +34,6 @@ import {
   ZOOM,
   distForZoom,
   type View,
-  clampView,
   easeInOut,
   mapping,
   reduceMotion,
@@ -106,8 +105,8 @@ export function initField(): void {
   // none — so switching to or from it changed the divisor in the mapping, and
   // every point's screen x rescaled in a single frame BEFORE the tween began.
   // Interpolated on the morph's own clock, so the rect and the points move
-  // together. That was necessary and NOT sufficient — the clamp that reads the
-  // rect had to move with it too, which is the note in paint().
+  // together — and that IS sufficient, once nothing else touches the view. See
+  // the note in paint() about why the clamp had to go.
   let fitFrom = 1;
 
   /** The fit rect ACTUALLY ON SCREEN this instant, interpolated on the morph's
@@ -194,6 +193,25 @@ export function initField(): void {
     n: number;
   }[] = [];
 
+  /** THE WHEEL IS A TARGET, NOT A JUMP.
+   *
+   *  Measured: 64 paints against 337 frames during a wheel zoom. Each notch
+   *  applied its whole step instantly and scheduled one repaint, so the field
+   *  moved only as often as the wheel fired — and a wheel fires in notches, not
+   *  in frames. Nothing was slow; there was no motion BETWEEN the steps, which
+   *  is exactly what "frame by frame instead of an animation" describes, and it
+   *  is why the paint timings all looked healthy.
+   *
+   *  So the wheel writes a DESTINATION and the view is smoothed toward it on
+   *  the same exponential approach the envelope already uses — CLAUDE.md §6
+   *  lists camera follow as "continuous, critically damped". The rate is
+   *  per-second, so it is frame-rate independent, and a fast scroll still
+   *  arrives quickly because each notch moves the target rather than queueing
+   *  another animation behind the last. */
+  let zoomTo: View | null = null;
+  let distTo: number | null = null;
+  const APPROACH = (dt: number): number => 1 - Math.exp(-dt / 0.045);
+
   // AXES.md §3: the envelope is approached exponentially, never snapped.
   let env: Env | null = null;
   let envSettled = true;
@@ -261,8 +279,14 @@ export function initField(): void {
     fitRight = target.some((q) => !q.resolved) ? 1.26 : 1;
   }
 
+  // Marker: how long a paint actually takes, and how many points it drew.
+  // "Zooming feels laggy" has at least three candidate causes and they need
+  // different fixes, so measure which before changing anything (CLAUDE.md §6).
+  let paintMs = 0;
+  let paintN = 0;
   function paint(): void {
     if (!archive || !ext) return;
+    const __t0 = import.meta.env.DEV ? performance.now() : 0;
     const { w, h } = sizeCanvas();
     ctx!.clearRect(0, 0, w, h);
     if (w < 2 || h < 2) return;
@@ -281,38 +305,32 @@ export function initField(): void {
     let probeSum = 0;
     let probeN = 0;
     const fitNow = fitLive();
-    // THE CLAMP MOVES WITH THE RECT.
+    // NO CLAMP. THE CENTRE IS ALREADY FIXED BY THE MAPPING.
     //
-    // Interpolating the rect alone was not enough, and the author was right
-    // that the align-to-centre survived it. #7b clamps the view into the new
-    // rect on the projection change, and at zoom 1 clampView pins cx to exactly
-    // fitRight/2 — so switching to DISCOVERY TIME, the only projection with no
-    // unresolved records and therefore the only one whose rect is 1 rather than
-    // 1.26, moved cx from 0.63 to 0.5 in a single frame BEFORE the tween began.
-    // The cloud snapped to the centre, then slid. That is the whole effect: the
-    // rect was interpolated, the centre it was measured from was not.
+    // Three fixes to this one transition, each narrowing the clamp's scope, and
+    // the fourth is deleting it — because the arithmetic says it was never
+    // needed. The mapping is
     //
-    // Clamping here, against the LIVE rect, keeps #7b's meaning exactly — it is
-    // still a clamp, never an interpolation toward the new centre — while
-    // making the correction land over the same 900 ms the rect takes. The other
-    // three projections share a rect, so their clamp is a no-op and they were
-    // always smooth; that is why this was exclusive to DISCOVERY TIME, and why
-    // the author's "look at how the other three transit to each other" was the
-    // right place to look.
-    // ONLY WHILE MORPHING. Unconditionally was a regression, and an obvious one
-    // in hindsight: at zoom 1 clampView pins cx to exactly fitNow/2, so running
-    // it every frame nailed the view to the centre and killed the pan entirely.
-    // Zoom and rotate survived because above zoom 1 the clamp has a range to
-    // move inside, which is exactly the shape of the author's report.
+    //     sx(x) = pad + iw · (0.5 + (x − cx) · zoom / fit)
     //
-    // The clamp is a projection-change correction, so it belongs to the
-    // projection change. Bounding a free pan is a different decision and is not
-    // one this fix gets to make on the way past.
-    // ...and only when the RECT IS ACTUALLY CHANGING. The clamp exists to carry
-    // the view across a change of fit rect; on the three projections that share
-    // one it has nothing to correct, so running it there could only ever move a
-    // view the user had set. "From where they are" is the whole requirement.
-    if (morphing && fitFrom !== fitRight) clampView(view, fitNow);
+    // so sx(cx) = pad + iw·0.5 for ANY fit. Changing the fit rect rescales the
+    // picture about the view's centre and cannot move that centre. Interpolating
+    // `fit` alone therefore gives a pure, continuous zoom — which is exactly
+    // what a projection whose rect changes should look like.
+    //
+    // The original jump was never the rect: it was FIX.md #7b's clamp, applied
+    // to the destination rect before the tween began. Every version since has
+    // been a smaller version of the same mistake. At zoom 1 clampView pins cx to
+    // fit/2, so it snaps the view to centre the moment it runs — which is what
+    // the author has now reported twice, first as "aligns to centre first" and
+    // now as "it will back to central". Since the pan was freed, any panned view
+    // is out of the clamp's range by definition, so the clamp could only ever
+    // yank it back.
+    //
+    // #7b's reasoning ("a clamp is a correction, an interpolation is a hijack")
+    // was answering a question that does not arise: nothing needs correcting,
+    // because nothing moves. RESTORE FIELD is the control for recentring, and it
+    // is the user's to press.
     const map = mapping(view, w, h, pad, fitNow);
     const sx = map.sx;
     const sy = map.sy;
@@ -486,6 +504,8 @@ export function initField(): void {
         zoom: view.zoom,
         e,
         morphing,
+        paintMs: +paintMs.toFixed(2),
+        paintN,
         dist: cam.dist,
         pitch: cam.pitch,
         // where normalised x=0 and x=1 actually land this frame
@@ -580,6 +600,35 @@ export function initField(): void {
       if (py < y0) y0 = py;
       if (py > y1) y1 = py;
     }
+    // The smoothing step, on the FRAME clock rather than on the event stream.
+    if (zoomTo || distTo !== null) {
+      const kz = APPROACH(
+        Math.min(0.05, lastFrame ? (performance.now() - lastFrame) / 1000 : 0.016),
+      );
+      if (zoomTo) {
+        view.cx += (zoomTo.cx - view.cx) * kz;
+        view.cy += (zoomTo.cy - view.cy) * kz;
+        view.zoom += (zoomTo.zoom - view.zoom) * kz;
+        if (Math.abs(zoomTo.zoom - view.zoom) < 1e-4) {
+          Object.assign(view, zoomTo);
+          zoomTo = null;
+        }
+      }
+      if (distTo !== null) {
+        cam.dist += (distTo - cam.dist) * kz;
+        if (Math.abs(distTo - cam.dist) < distTo * 1e-4) {
+          cam.dist = distTo;
+          distTo = null;
+        }
+        // SPATIAL's positions ARE the camera's, so a dolly is a reprojection —
+        // the one projection where zooming is not a pure affine map.
+        computeTargets();
+      }
+      pending.add("zoom");
+    } else {
+      pending.delete("zoom");
+    }
+
     if (Number.isFinite(x0)) {
       const wanted: Env = { x0, y0, x1, y1 };
       const now = performance.now();
@@ -667,6 +716,10 @@ export function initField(): void {
     // the field is visible — and releases it the moment it is not.
     if (tw0) pending.add("twinkle");
     else pending.delete("twinkle");
+    if (import.meta.env.DEV) {
+      paintMs = performance.now() - __t0;
+      paintN++;
+    }
     // paint() does NOT schedule. Re-entering the driver from inside the thing
     // the driver called is what created the runaway; the tail of tick() is the
     // one place a frame is queued.
@@ -820,6 +873,10 @@ export function initField(): void {
       dragMoved = dragMoved || Math.hypot(dx, dy) > 3;
     lastX = e.clientX;
     lastY = e.clientY;
+    // A drag takes the view back from the wheel: two writers on one value, and
+    // the one with a hand on it wins.
+    zoomTo = null;
+    distTo = null;
     const view = viewFor(projectionOf(), fitLive());
     if (dragButton === 2 && projectionOf() === "spatial") {
       // §2: RIGHT = ROTATE, and only where an orientation exists. The verb that
@@ -897,14 +954,19 @@ export function initField(): void {
       if (projectionOf() === "spatial") {
         // Same range as the other three, expressed as a dolly: the wheel moves
         // one zoom number in every projection (nav.ts ZOOM).
-        cam.dist = Math.min(
+        distTo = Math.min(
           distForZoom(ZOOM.min),
-          Math.max(distForZoom(ZOOM.max), cam.dist * Math.exp(e.deltaY * 0.0012)),
+          Math.max(distForZoom(ZOOM.max), (distTo ?? cam.dist) * Math.exp(e.deltaY * 0.0012)),
         );
-        computeTargets();
       } else if (box) {
+        // Solved on a COPY, and from the destination we already had rather than
+        // from the half-finished position on screen — so consecutive notches
+        // compose instead of each one restarting the glide.
+        const to: View = zoomTo
+          ? { ...zoomTo }
+          : { ...viewFor(projectionOf(), fitLive()) };
         zoomAt(
-          viewFor(projectionOf(), fitLive()),
+          to,
           e.deltaY,
           e.clientX - r.left,
           e.clientY - r.top,
@@ -913,8 +975,11 @@ export function initField(): void {
           26,
           fitLive(),
         );
+        zoomTo = to;
       }
+      pending.add("zoom");
       schedulePaint();
+      drive();
     },
     { passive: false },
   );
