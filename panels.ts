@@ -359,10 +359,16 @@ export function initPanels(archive: Archive): void {
         if (window.matchMedia("(hover: none)").matches) return; // §4: not narrow
         state.previewIdx = i;
         renderTarget();
+        // The field has to repaint for the preview mark to appear. Without it
+        // TARGET filled in correctly while the point stayed unmarked, which is
+        // why the preview looked like it fired only sometimes — it was firing
+        // every time, in one of the two places that show it.
+        emit();
       });
       li.addEventListener("pointerleave", () => {
         if (state.previewIdx === i) state.previewIdx = null;
         renderTarget();
+        emit();
       });
       li.addEventListener("click", () => {
         state.selectedIdx = i;

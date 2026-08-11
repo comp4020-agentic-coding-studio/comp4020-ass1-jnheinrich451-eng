@@ -966,11 +966,21 @@ which are squashed radial gradients rather than a conic sweep.
   font-family: "IBM Plex Mono", monospace;
 }
 
-/* §1's four passes. Every one is the same geometry (a <use> of #fan-v); they
-   differ only in opacity, clip and mask. The inner pass is cut away behind the
-   plot column so the field reads against solid ground, and the header and apex
-   patches restore only what that cut removed — which is why they are masked to
-   the centre rather than drawn everywhere. */
+/* §1's four passes. Every one is the same geometry (a <use> of #fan-v); the
+   ring lights the 26px margin band and the inner pass carries the field. The
+   header and apex patches are inert now — they existed only to refill what the
+   centre cut removed, and the cut is gone.
+
+   All four share this z-index, and it must stay BELOW .frame's. .frame carries
+   z-index 3, which makes it a STACKING CONTEXT, so .field-box's z-index 30 is
+   worth 30 only INSIDE the frame — measured against the fan it is worth 3.
+   .fan-inner had been given 11 of its own, so 11 > 3 and the fan painted over
+   the whole frame, field box included. That is why the V crossed the plot even
+   with an opaque ground: the ground was underneath it.
+
+   A z-index only competes with siblings in the same stacking context. Two
+   numbers from different contexts cannot be compared, and comparing them is the
+   mistake that made this read as a background problem. */
 .fan-pass {
   position: absolute;
   inset: 0;
@@ -1001,7 +1011,6 @@ which are squashed radial gradients rather than a conic sweep.
    this instruction rules out. FIELD.md §5 rule 2 already said the patches exist
    BECAUSE of the cut, so removing the cut removes them. */
 .fan-inner {
-  z-index: 11;
   opacity: 0.3;
   clip-path: inset(26px);
 }
