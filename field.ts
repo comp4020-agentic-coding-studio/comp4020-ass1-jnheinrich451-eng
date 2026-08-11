@@ -110,16 +110,26 @@ export function initField(): void {
     requestAnimationFrame(() => {
       queued = false;
       paint();
+      // An input-driven paint may have left tweens pending (the envelope moves
+      // whenever the view does), so hand over to the driver — from OUTSIDE
+      // paint, which is the distinction that matters.
+      if (pending.size) drive();
     });
   }
 
   function drive(): void {
     if (rafId) return; // a loop is already running — do NOT start a second
     const tick = (): void => {
-      rafId = 0;
+      // rafId stays SET across paint(). It used to be cleared first, which made
+      // drive()'s guard see a falsy handle when paint() re-entered it — so each
+      // frame scheduled one callback from inside paint and another from this
+      // tail, and the count doubled every frame. Measured: 5,067 callbacks
+      // scheduled against 20 real frames, each one a full 6,336-point repaint.
       paint();
       if (pending.size) {
         rafId = requestAnimationFrame(tick);
+      } else {
+        rafId = 0;
       }
     };
     rafId = requestAnimationFrame(tick);
@@ -377,8 +387,13 @@ export function initField(): void {
     else pending.delete("filter");
     if (envSettled) pending.delete("envelope");
     else pending.add("envelope");
-    if (pending.size) drive();
-    else if (morphing) {
+    // paint() does NOT schedule. Re-entering the driver from inside the thing
+    // the driver called is what created the runaway; the tail of tick() is the
+    // one place a frame is queued.
+
+    // The morph has landed: adopt the destination as the new drawn state, so
+    // the next morph retargets from where these points actually are (§4).
+    if (p >= 1 && morphing) {
       morphing = false;
       drawn = target.map((t) => ({ ...t }));
     }
