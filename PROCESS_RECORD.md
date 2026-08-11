@@ -2130,3 +2130,88 @@ like I had broken the archive load. Sleeping longer after an edit fixed it. Wort
 recording because a screenshot taken too early is indistinguishable from a
 screenshot of a broken build, and I nearly went hunting for a bug that was not
 there.
+
+## 2026-08-11 21:10 — Seven small things, and one that was not small
+
+**Prompt:**
+
+> make the currently version more compact, the interval between lines, we reduce
+> them by ratio not a fixed number [...] the UNRESOLVED part will not zoom in,
+> and pan with the left point cloud [...] the UNRESOLVED quantity [...] should
+> change with the OBSERVATION METHOD's change [...] can you make it fully rotate
+> vertically? [...] they cannot zoom out as small as SPATIAL [...] the
+> annotation on axis, currently, they all have different extend collision with
+> axis [...] the x axis for SPATIAL // RA + DEC, it is time unit? The 18 h, 0 h?
+> But it should be angle as the y axis?
+
+**Result:**
+The RA question first, because it is the one item where the answer is "this is
+already right". RA **is** an angle; it is quoted in hours by convention, 24h to
+the full 360°, so 1h = 15°. SPATIAL.md §3.2 is explicit — *"RA is an hour angle.
+Labelling it in degrees is the single most common way an otherwise good sky view
+announces that nobody checked it."* DEC is in degrees because declination has no
+hour convention. The asymmetry is the astronomy, not an inconsistency in the
+instrument. Left as it is.
+
+**Counts follow the filter.** VISIBLE and UNRESOLVED were tallied over the whole
+archive, so switching to Wobble left UNRESOLVED reading 27 — a number describing
+a population the reader is no longer looking at. Now: All 5,945/391, Transit
+4,675/1, Imaging 25/73, Microlens 12/270. Imaging having three times as many
+unresolved as resolved in ORBIT × SIZE is the archive's own story about what
+imaging can and cannot measure, and it was invisible while the number was frozen.
+
+**Zoom parity.** The 2D views were clamped to [1, 6] — 1 being fitted, so they
+could not zoom out at all — while SPATIAL dollied over a different range in a
+different unit. One `ZOOM` range now, with SPATIAL's dolly expressed as
+`dist = fitted / zoom` so both ends match by construction.
+
+**The holding cloud** was pinned at 1.15 and grew on `sqrt(2.75/dist)` while the
+sky scaled on `1/ze`, so dollying slid them apart and it read as a separate
+diagram pasted beside the instrument. One `cloudFrame()` now, anchored in world
+units to the archive's outer radius. Rotation is deliberately NOT applied: the
+cloud is not a place, so swinging it behind the sphere would be furniture
+claiming a position it does not have. Annotation moved beneath the ellipse.
+
+**Full vertical rotation**, as asked. This supersedes SPATIAL.md §6's ±1.45
+pitch clamp, which existed to stop the view inverting over the pole. It does
+invert — that is what a rotation past 90° means — and the DEC tape reads the
+same signed pitch, so the index inverts with the sky rather than contradicting
+it. Flagging the override rather than burying it.
+
+**Axis titles** now take one rule stated in terms of the OTHER axis: horizontal
+right-aligned clear of the vertical tape, vertical above the axis it names. Each
+had been placed where its own tape happened to end, which is why they collided
+differently at every zoom.
+
+**FIND** compacted by one ratio (`--find-lead`), so every gap keeps its relative
+weight — the heading still reads as further from its list than the rows are from
+each other. Twelve new fixed numbers would have destroyed exactly that.
+
+**Verified:**
+Zoom: SPATIAL and ORBIT both reach exactly 0.4× out and 6× in from fitted, read
+off the camera rather than off pixels. Rotation: a full revolution including the
+wrap — 0.35, 1.5, 2.65, −2.48, −1.32, −0.17. Counts: the table above, per method.
+Layout: screenshots of all four projections and of the FIND panel at 2×, where
+four result rows now fit in the space three took. `pnpm check` 90/90.
+
+**Commit:** [`9988997`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/9988997)
+
+**What happened:**
+The zoom-parity change looked done and was not. I set the reference dolly to
+SPATIAL.md's nominal 2.75, and the probe showed the first wheel click snapping
+the camera inward by 4×: this archive's *fitted* distance is ~29.8, and I had
+clamped the range around a number the view never actually sits at. The spec's
+2.75 is a reference for a nominal dataset, not a constant to clamp real data
+against — a distinction I have now got wrong twice in this file, both times by
+treating a stated number as more authoritative than the thing it describes.
+
+The holding cloud repeated it in the same turn. I first anchored it to reproduce
+the 2D constant of 1.15 at dist 2.75, which put it *inside* the sky, because at
+that dolly the sky spans far more than the 0–1 region. Both fixes came from
+looking at the render, not from re-reading the spec.
+
+Cheapest find of the turn: tightening the panel exposed `.readout`, which had no
+CSS rule at all and was inheriting the body face — a number set as prose, which
+CLAUDE.md §5 forbids outright. It had been there since the panel was built and I
+only saw it because everything around it got tighter and it did not. Making one
+thing right is a reliable way to find the next thing that is wrong.
