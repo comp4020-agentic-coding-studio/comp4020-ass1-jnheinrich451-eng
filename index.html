@@ -12,7 +12,13 @@
     />
     <link rel="stylesheet" href="./styles.css" />
   </head>
-  <body>
+  <!-- FIELD.md §5's toggle defaults to CLEAR, for the look: the fan then runs
+       edge to edge behind the points at the rails' own 30% and the section
+       reads as one continuous graphic rather than a dark plate inset into it.
+       The class and the button's label are set together HERE rather than in JS,
+       so the state and the word for it cannot disagree on first paint — the
+       toggle already reads the class on every click, so nothing else changes. -->
+  <body class="ground-clear">
     <!-- The visible top bar collided with the hero, but spec/invariants.test.ts
          requires a navigation landmark on every page — and removing it outright
          would take the only keyboard route past the hero with it. So it stays as
@@ -533,7 +539,7 @@
             <p><span class="dim">Visible:</span> <span id="footer-visible">Unresolved</span> ·
               <span class="dim">Unresolved:</span> <span id="footer-unresolved">Unresolved</span></p>
             <p>
-              <span class="dim">Field ground:</span> <button class="pick" id="ground-toggle" type="button">Solid</button> ·
+              <span class="dim">Field ground:</span> <button class="pick" id="ground-toggle" type="button">Clear</button> ·
               <button class="pick" id="expand-field" type="button">Expand field</button> ·
               <button class="pick" id="fit-field" type="button">Restore field</button>
             </p>

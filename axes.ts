@@ -242,6 +242,22 @@ export function drawAxes(
   ctx.font = FONT;
   ctx.lineWidth = 1;
 
+  // FIELD.md §5 rule 3, finished. In SOLID the tapes are read against #03040a
+  // and need nothing; in CLEAR the fan's saturated bands run behind them, and
+  // §2 is explicit that chrome colour must never sit in the data's read. The
+  // picker already swapped its scrim for a text-shadow when the ground went —
+  // the canvas HUD was simply missed, because it had only ever been seen on the
+  // dark plate.
+  //
+  // A shadow, not a plate: no plates anywhere in this design. PERFORMANCE.md
+  // §2.6 bans shadowBlur "in the cloud", and this is not in the cloud — it is
+  // ~100 HUD draws, not 6,336 points, and it is inside the existing
+  // save/restore so it cannot leak into the draw loop.
+  if (document.body.classList.contains("ground-clear")) {
+    ctx.shadowColor = "rgba(3, 4, 10, 0.92)";
+    ctx.shadowBlur = 4;
+  }
+
   // FIX.md CONTRACT D: ONE rect per frame, and every tape, tick and bracket
   // reads it. The four extents used to be computed independently, which is why
   // the tapes never met: ax was pulled to the unresolved cloud's edge, ay and
