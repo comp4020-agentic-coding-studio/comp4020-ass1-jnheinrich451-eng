@@ -20,9 +20,11 @@ import {
   loadArchive,
   missingFor,
   positionOf,
+  skyXYZ,
   verifySkyTransform,
 } from "./data";
 import { type Env, approach, drawAxes, solArrowAt } from "./axes";
+import { drawDropLine, drawSkyFurniture } from "./sky";
 import { initPanels } from "./panels";
 import {
   HIT,
@@ -327,6 +329,23 @@ export function initField(): void {
       ctx!.restore();
     }
 
+    // SPATIAL.md §2: the reference furniture goes UNDER the points — the
+    // priority order is data first, and the dotted patterns exist so the grid
+    // disappears the moment you look at a record. It is the most expensive
+    // furniture in the section and the only place that is justified, because
+    // this is the one projection whose picture is a MAP and therefore the only
+    // one with a real sphere to reference.
+    if (projectionOf() === "spatial") {
+      // Faded on the morph clock like the tapes, so the sphere arrives with the
+      // projection rather than switching on in one frame.
+      drawSkyFurniture(
+        ctx!,
+        { sx, sy, inv: { x: map.ix, y: map.iy }, w, h, topReserve: 0, bottomReserve: h, narrow: w < 640 },
+        cam,
+        morphing ? Math.max(0, (p - 0.65) / 0.35) : 1,
+      );
+    }
+
     // §7 step 3 — every row.
     //
     // PERFORMANCE.md §2.6 and §6, written after measuring 115ms a frame here.
@@ -443,6 +462,28 @@ export function initField(): void {
     }
 
     // §7 step 4 — the HUD tapes, after the points.
+    // §2.6: for MARKED records only. 6,336 drop lines is a hairball, and the
+    // question it answers — how far above the equator is THIS one — is a
+    // question about one record, which is the whole reason it is gated.
+    if (projectionOf() === "spatial" && archive) {
+      for (const i of [state.selectedIdx, state.previewIdx]) {
+        if (i === null || i === undefined) continue;
+        const r = archive.rows[i];
+        const d = r[C.dist];
+        const ra = r[C.ra];
+        const dec = r[C.dec];
+        if (typeof d !== "number" || typeof ra !== "number" || typeof dec !== "number")
+          continue;
+        drawDropLine(
+          ctx!,
+          { sx, sy, inv: { x: map.ix, y: map.iy }, w, h, topReserve: 0, bottomReserve: h, narrow: false },
+          cam,
+          skyXYZ(d, ra, dec),
+          1,
+        );
+      }
+    }
+
     // FIELD.md §2: the reserves are MEASURED from the overlays' live geometry
     // every frame. They change height with content and viewport (the NAV hint
     // wraps on a narrow field), and hard-coding either prints tick labels over

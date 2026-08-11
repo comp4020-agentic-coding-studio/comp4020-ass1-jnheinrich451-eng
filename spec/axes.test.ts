@@ -66,6 +66,40 @@ describe("the one law (AXES.md §1)", () => {
   });
 });
 
+describe("the padding is applied exactly once (PROJECTIONS.md §3, §4)", () => {
+  // Every projection's mapping is written in the specs as 0.06 + 0.88·norm(v),
+  // and logNorm/linNorm already BAKE THAT IN. Reading the spec line literally
+  // and writing `0.06 + 0.88 * logNorm(v)` therefore pads twice: the reference
+  // rules slid inward off their own ticks, and a 2026 record's cursor landed on
+  // 2024. It looked plausible in both cases, which is exactly why it needs a
+  // test rather than a careful reader.
+  it("normalisers already emit the padded range, so callers must not re-pad", () => {
+    for (const [v, lo, hi] of [
+      [1, 0.1, 100],
+      [365.25, 0.09, 4e8],
+      [2026, 1992, 2026],
+      [1992, 1992, 2026],
+    ] as [number, number, number][]) {
+      const t = hi > 1e5 || lo < 1 ? logNorm(v, lo, hi) : linNorm(v, lo, hi);
+      expect(t).toBeGreaterThanOrEqual(0.06);
+      expect(t).toBeLessThanOrEqual(0.94);
+    }
+  });
+
+  it("the extremes land exactly on the padded edges", () => {
+    expect(linNorm(1992, 1992, 2026)).toBeCloseTo(0.06, 12);
+    expect(linNorm(2026, 1992, 2026)).toBeCloseTo(0.94, 12);
+  });
+
+  it("a second pad is detectable — it moves 2026 back past 2024", () => {
+    const span: [number, number] = [1992, 2026];
+    const once = linNorm(2026, ...span);
+    const twice = 0.06 + 0.88 * once;
+    // The double-padded 2026 sits where a year near 2024 belongs.
+    expect(linDenorm(twice, ...span)).toBeLessThan(2025);
+  });
+});
+
 describe("ticks (AXES.md §4)", () => {
   it("emits 1-2-5 per decade, major only on the 1", () => {
     const t = logTicks(0.9, 60);

@@ -12,6 +12,7 @@
 // DISCOVERY TIME y is a display spread, so it gets a bracket and a disclosure
 // and never a tick.
 
+import { drawAxisStubs, drawSkyTapes } from "./sky";
 import {
   type Camera,
   type Extent,
@@ -237,7 +238,15 @@ export function drawAxes(
     rings(ctx, f, ext.dist, box);
     solMarker(ctx, f, box, "0 PC");
   } else {
-    raDecStrips(ctx, f, box, ay, ax, x.cam);
+    // SPATIAL.md supersedes PROJECTIONS.md §6.1 for this projection: the scale
+    // is plotWidth / (48° · dist/2.75), which IS the camera's field width, and
+    // the interval comes from a ladder rather than the scale changing. My
+    // earlier reading — a constant px/deg — was the right instinct against the
+    // wrong formula, and this file settles it.
+    if (x.cam) {
+      drawSkyTapes(ctx, box, ay, ax, x.cam, f.narrow, alpha, performance.now());
+      drawAxisStubs(ctx, f, x.cam, alpha);
+    }
     solMarker(ctx, f, box, "0 PC · ORIGIN OF THE TRANSFORM");
   }
 
@@ -643,7 +652,7 @@ function orbitReferences(
   ctx.fillStyle = DIM;
   ctx.textBaseline = "middle";
 
-  const yr = f.sy(1 - (0.06 + 0.88 * logNorm(1, ext.rade[0], ext.rade[1])));
+  const yr = f.sy(1 - logNorm(1, ext.rade[0], ext.rade[1]));
   if (yr > env.y0 && yr < env.y1) {
     ctx.beginPath();
     ctx.moveTo(env.x0, yr);
@@ -653,7 +662,7 @@ function orbitReferences(
     ctx.fillText(" 1 R⊕ ", env.x0 + 2, yr - 6);
   }
 
-  const xr = f.sx(0.06 + 0.88 * logNorm(365.25, ext.orbper[0], ext.orbper[1]));
+  const xr = f.sx(logNorm(365.25, ext.orbper[0], ext.orbper[1]));
   if (xr > env.x0 && xr < env.x1) {
     ctx.beginPath();
     ctx.moveTo(xr, env.y0);
@@ -679,7 +688,7 @@ function timeCursor(
   env: Env,
   cur: { year: number; locked: boolean },
 ): void {
-  const x = f.sx(0.06 + 0.88 * linNorm(cur.year, span[0], span[1]));
+  const x = f.sx(linNorm(cur.year, span[0], span[1]));
   if (x < env.x0 || x > env.x1) return;
   ctx.save();
   if (cur.locked) {
@@ -727,152 +736,15 @@ function cloudAnnotation(
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
   ctx.fillStyle = TEXT;
-  ctx.fillText(cloud.label.toUpperCase(), left, y - 7);
+  ctx.fillText("UNRESOLVED", left, y - 7);
   ctx.fillStyle = "rgba(150,170,255,0.30)";
-  ctx.fillText(`${cloud.count.toLocaleString("en-AU")} RECORDS`, left, y + 7);
-  ctx.textAlign = "left";
-  ctx.textBaseline = "alphabetic";
-}
-
-/** §6.1: NOT fitted tapes. A heading tape has a constant scale or it is not a
- *  heading tape (EFFECT.md §2.3) — so these read the CAMERA, tick at a fixed
- *  px/deg, and run off both ends rather than fitting the data. This is the index
- *  SPATIAL had no version of at all: two lines and two titles, with nothing on
- *  them to read. */
-function raDecStrips(
-  ctx: CanvasRenderingContext2D,
-  f: Frame,
-  env: Env,
-  ay: number,
-  ax: number,
-  cam: Camera | null,
-): void {
-  void f;
-  ctx.strokeStyle = LINE;
-  ctx.beginPath();
-  ctx.moveTo(env.x0, ay);
-  ctx.lineTo(env.x1, ay);
-  ctx.moveTo(ax, env.y0);
-  ctx.lineTo(ax, ay);
-  ctx.stroke();
-
-  if (cam) {
-    // §6.1's 2.4 px/deg is "the whole sky across the strip": 360 × 2.4 = 864 px,
-    // which is the plot's own width at the reference layout. So the scale is
-    // derived from the span rather than pinned to a constant that would be
-    // wrong at every other viewport.
-    //
-    // It does NOT scale with the dolly. Reading "scaled with the camera's field
-    // width" as 2.4 × (2.75 / dist) gave 0.33 px/deg at the archive's actual
-    // fitted distance — ticks every 3 px and labels in a solid smear. §6.1's own
-    // headline is the tiebreak: a heading tape has a CONSTANT scale or it is not
-    // a heading tape. A tape that rescaled on the wheel would be a data axis.
-    const pxDeg = clamp((env.x1 - env.x0) / 360, 1.8, 4);
-    const midX = (env.x0 + env.x1) / 2;
-    const midY = (env.y0 + ay) / 2;
-    const yawDeg = (cam.yaw * 180) / Math.PI;
-    const pitchDeg = (cam.pitch * 180) / Math.PI;
-    const spanX = (env.x1 - env.x0) / 2 / pxDeg + 30;
-
-    ctx.textBaseline = "top";
-    ctx.textAlign = "center";
-    // Cyclic: emitted in an UNWRAPPED space and labelled mod 360, so the strip
-    // has no beginning and no end. Wrapping the positions instead would put a
-    // seam in the sky at whatever angle happened to be zero.
-    const from = Math.ceil((yawDeg - spanX) / 10) * 10;
-    let lastRaLabel = -Infinity;
-    for (let d = from; d <= yawDeg + spanX; d += 10) {
-      const x = midX + (d - yawDeg) * pxDeg;
-      if (x < env.x0 || x > env.x1) continue;
-      const major = ((d % 30) + 30) % 30 === 0;
-      // §6.1's fade zones: the outer 24 px go to nothing, so ticks arrive and
-      // leave rather than popping at the ends of the strip.
-      const edge = Math.min(x - env.x0, env.x1 - x);
-      ctx.save();
-      ctx.globalAlpha *= clamp(edge / 24, 0, 1);
-      ctx.strokeStyle = major ? LINE : DIM;
-      ctx.beginPath();
-      ctx.moveTo(x, ay);
-      ctx.lineTo(x, ay + (major ? 8 : 4));
-      ctx.stroke();
-      // §2's collision guard applies here too. It is belt and braces against the
-      // pitch — but the smear that got through was a scale error, and a guard
-      // that would have caught it regardless is worth its four lines.
-      if (major && x - lastRaLabel >= 46) {
-        // Hours, not degrees. RA is an hour angle, and printing it in degrees
-        // would be the axis quietly changing units on the reader.
-        const h = Math.round((((d % 360) + 360) % 360) / 15) % 24;
-        ctx.fillStyle = TEXT;
-        ctx.fillText(`${h}h`, x, ay + 10);
-        lastRaLabel = x;
-      }
-      ctx.restore();
-    }
-
-    ctx.textAlign = "left";
-    for (let d = -90; d <= 90; d += 10) {
-      const y = midY - (d - pitchDeg) * pxDeg;
-      if (y < env.y0 || y > ay) continue;
-      const major = d % 30 === 0;
-      const edge = Math.min(y - env.y0, ay - y);
-      ctx.save();
-      ctx.globalAlpha *= clamp(edge / 24, 0, 1);
-      ctx.strokeStyle = major ? LINE : DIM;
-      ctx.beginPath();
-      ctx.moveTo(ax, y);
-      ctx.lineTo(ax + (major ? 8 : 4), y);
-      ctx.stroke();
-      if (major) {
-        ctx.fillStyle = TEXT;
-        ctx.textBaseline = "middle";
-        ctx.fillText(`${d > 0 ? "+" : ""}${d}`, ax + 12, y);
-        ctx.textBaseline = "top";
-      }
-      ctx.restore();
-    }
-
-    // The caret is the aiming reticle: FIXED at the strip's centre with a live
-    // readout under it, so rotating flips the index past a stationary mark
-    // rather than sliding a mark along a stationary index. That inversion is
-    // the whole difference between a heading tape and a data axis.
-    ctx.fillStyle = "#e6e9fb";
-    ctx.beginPath();
-    ctx.moveTo(midX, ay - 9);
-    ctx.lineTo(midX - 4.5, ay - 1);
-    ctx.lineTo(midX + 4.5, ay - 1);
-    ctx.closePath();
-    ctx.fill();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "bottom";
-    const hh = (((yawDeg % 360) + 360) % 360) / 15;
-    const mm = Math.floor((hh % 1) * 60);
-    ctx.fillText(
-      `${Math.floor(hh).toString().padStart(2, "0")}h ${mm.toString().padStart(2, "0")}m`,
-      midX,
-      ay - 12,
-    );
-
-    ctx.beginPath();
-    ctx.moveTo(ax + 9, midY);
-    ctx.lineTo(ax + 1, midY - 4.5);
-    ctx.lineTo(ax + 1, midY + 4.5);
-    ctx.closePath();
-    ctx.fill();
-    ctx.textAlign = "right";
-    ctx.textBaseline = "middle";
-    ctx.fillText(`${pitchDeg >= 0 ? "+" : ""}${pitchDeg.toFixed(1)}°`, ax - 5, midY);
-  }
-
-  ctx.fillStyle = DIM;
-  ctx.textAlign = "right";
-  ctx.textBaseline = "bottom";
-  ctx.fillText("RA // HOURS", env.x1, ay - 4);
-  ctx.save();
-  ctx.translate(ax - 4, env.y0);
-  ctx.rotate(Math.PI / 2);
-  ctx.textAlign = "left";
-  ctx.fillText("DEC // DEGREES", 0, 0);
-  ctx.restore();
+  // §7's disclosure survives as the detail line: which field is absent is the
+  // finding, and "no data" would throw away the only interesting part of it.
+  ctx.fillText(
+    `NO ${cloud.label.toUpperCase()} · ${cloud.count.toLocaleString("en-AU")} RECORDS`,
+    left,
+    y + 7,
+  );
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
 }
