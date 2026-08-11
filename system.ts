@@ -729,6 +729,17 @@ function buildScene(
       // move a long way while the picture barely changes — the star sweeping
       // is the visible consequence, so that is the number to read.
       const sp = star.position.clone().project(camera);
+      // Two claims to separate: is the planet where the camera says it is, and
+      // is it on the curve the ring draws? The ellipse residual is
+      // ((x + R·e)/R)² + (z/b)², which is exactly 1 for any point ON it — so a
+      // number that is not 1 says the planet and the ring disagree in WORLD
+      // space, and a number that is 1 says they agree and the fault is the
+      // camera's.
+      const pp = planet.position.clone().project(camera);
+      const bb = orbitR * Math.sqrt(1 - ecc * ecc);
+      const resid =
+        ((planet.position.x + orbitR * ecc) / orbitR) ** 2 +
+        (planet.position.z / bb) ** 2;
       (window as unknown as { __sys?: unknown }).__sys = {
         yaw,
         spinning,
@@ -736,6 +747,12 @@ function buildScene(
         starX: +sp.x.toFixed(3),
         starY: +sp.y.toFixed(3),
         starOnScreen: Math.abs(sp.x) <= 1 && Math.abs(sp.y) <= 1 && sp.z < 1,
+        planetNdcX: +pp.x.toFixed(3),
+        planetNdcY: +pp.y.toFixed(3),
+        ellipseResidual: +resid.toFixed(4),
+        orbitR: +orbitR.toFixed(1),
+        camDist: +dist.toFixed(1),
+        focusMix: +focusMix.toFixed(3),
         orbitScale: +orbitScale.toFixed(3),
         dist: +dist.toFixed(1),
         tailN,
