@@ -1708,3 +1708,58 @@ contained by the field box; the field ground samples `rgb(3,4,10)` exactly.
    fading at 360ms" — the exact defect #4 reports, reintroduced by the fix for
    it. Caught by doing the arithmetic (0.556 × 720 = 400) rather than by watching
    it.
+
+## 2026-08-11 14:25 — The frame count was doubling
+
+**Prompt:**
+
+> I believe it is not due to the numbers of the points, for they move in one
+> integrity. And what I observed, not only pan, the zoom, include the CENTER
+> TARGET (Another form of zooming) they all lagged […] We diagnose first then
+> fix!
+
+**Result:**
+The user's observation was the diagnosis. CENTER TARGET has no pointer events,
+no hit-testing and no synthetic input — it is a pure tween. That it stuttered
+*too* ruled out every input-side theory I had been chasing, and pointed at the
+loop structure.
+
+The probe found 5,067 rAF callbacks scheduled against 20 real frames — 253 per
+frame — with `drive()` and `tick()` as the top two call sites, calling each
+other. `tick()` cleared `rafId` before calling `paint()`; `paint()` re-entered
+`drive()` whenever anything was pending; `drive()` guards on that same handle.
+So paint saw a falsy handle and queued a callback, and tick's tail queued
+another. **Every frame doubled the queue, and each callback is a full
+6,336-point repaint.** The envelope never settles while the view moves, so
+`pending` was never empty and the doubling never stopped.
+
+**Verified:**
+Same probe, before and after: rAF scheduled 5067 → 219, frames observed 20 →
+145, worst frame 556ms → 8.1ms, drag median 115ms → 7ms.
+
+**Commit:** [`7f0865a`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/7f0865a)
+
+**What happened:** three things, and the first is the lesson.
+
+1. **I optimised five things that were not the problem, because I never
+   questioned the frame count.** Culling, bucketing 12,672 state changes down to
+   40, fillRect over arc, typed arrays, coalescing — all measured as *no change*,
+   and I read each null result as "not the cause" and moved to the next
+   candidate. The null results were the finding: a change that removes most of
+   the per-frame work and moves the number **not at all** means the number is
+   not measuring one frame's work. I had the evidence three rounds early and
+   drew the wrong conclusion from it.
+
+2. **The user's observation did what my instrumentation could not.** "CENTER
+   TARGET is another form of zooming and it lags too" eliminated input handling,
+   hit-testing, event dispatch and my synthetic harness in one sentence — the
+   four things I had spent three turns on. **Someone watching the artefact can
+   partition the search space faster than someone measuring inside it**, and
+   asking to diagnose before fixing is what made room for that.
+
+3. **The bug was in the fix for the previous bug.** The doubling was introduced
+   when I built FIX.md's Contract C driver: I wrote the guard, then wrote a
+   re-entry into the guarded function from inside the function it guards. Every
+   optimisation after that point was measured through a renderer running an
+   exponential number of paints — which is why the whole list reads as "no
+   change".
