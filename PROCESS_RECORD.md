@@ -2215,3 +2215,81 @@ CSS rule at all and was inheriting the body face — a number set as prose, whic
 CLAUDE.md §5 forbids outright. It had been there since the panel was built and I
 only saw it because everything around it got tighter and it did not. Making one
 thing right is a reliable way to find the next thing that is wrong.
+
+## 2026-08-11 22:05 — Stars, and a rail that had to move rather than vanish
+
+**Prompt:**
+
+> could you make the Ecliptic Equator the radius larger? Pure aesthetic view.
+> Larger 50%. And [...] compensate the y axis, with 90 to +- 180 degrees. And
+> change the x-axis to degree not the time indexes. And for planet points,
+> please make it like stars [...] small, with a slightly larger halo [and]
+> blinks. And for effects, the EXPAND FIELD [...] compress the left and right
+> bar, from fast to slow [...] But if it is implementable? If so then do it, not
+> then quit, stay at the current state
+
+**Result:**
+The sphere scales ×1.5, and **all** of it does, not just the two rings named.
+The equator IS the dec-0 parallel and the ecliptic is that same circle rotated,
+so growing some and not others would draw two concentric versions of one circle
+and invite a reader to find meaning in the gap. Dropped dec 0 from the parallel
+list while I was there — it had been drawing a dotted line underneath the one
+ring the design allows to be solid.
+
+DEC runs ±180 now. It clamped at ±90 because the *pitch* did; the pitch became a
+full rotation last turn, so a tape stopping at 90 would run out of index exactly
+when the view goes over the pole and keeps turning — blank at the moment it is
+hardest to tell where you are.
+
+RA in degrees, at the author's explicit instruction, **overriding SPATIAL.md
+§3.2 and §7's "never label RA in degrees"**. I had defended the convention one
+turn earlier and it is real. So is the case against it here: this tape sits
+opposite a DEC tape in degrees, and one instrument reading two units on its two
+axes asks the reader to convert in their head to compare them. Recording the
+override rather than quietly complying, because the spec says the opposite in
+two places. The ladder became round degrees too — an hour ladder printed in
+degrees ticks at 7.5° and 3.75°, which is the old unit showing through the new
+labels.
+
+Points read as stars: a small core with a halo at 0.16 alpha underneath, and
+EFFECT.md §4.3's twinkle envelope **exactly** —
+`alpha × (0.86 + 0.14·sin(t·f + φ))`, `f ∈ [0.25, 0.7] Hz`, which the document
+itself glosses as *"slow enough to be atmosphere, never a sparkle"*. The author
+asked for a blink; the spec already carried the amplitude that stops it becoming
+one, so the number came from there rather than from taste.
+
+EXPAND FIELD animates. The rails' widths are what changes, so the rails' widths
+are what interpolates — 520 ms fast-then-slow, with the plot column absorbing it
+exactly as it does on a viewport change. No element is repositioned by hand,
+which is CLAUDE.md §6's rule about absolute offsets applied to an animation.
+RESTORE FIELD tweens over 420 ms easeInOut per PROJECTIONS.md §1.4 instead of
+snapping: a reset that teleports is indistinguishable from a reload.
+
+**Verified:**
+Frame-by-frame through the expand: left rail 210 → 168 → 78 → 38 → 26, plot
+1323 → 1763, clearly decelerating, and the reverse decelerating too. Screenshots
+confirm the larger shell, `RA // DEGREES` reading 15° 20° 25° … with the caret at
+34°, and the haloed points. `pnpm check` 90/90.
+
+**Commit:** [`feedf64`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/feedf64)
+
+**What happened:**
+Two things had to be paid for rather than just built, and both are worth naming
+because a later reader will otherwise find them and think they were missed.
+
+The twinkle **adds an idle rAF**, which PERFORMANCE.md §2.2 forbids outright
+("there is no idle requestAnimationFrame"). An always-on animation cannot be
+made to obey that rule; it can only be scoped. So it runs solely while the field
+is actually on screen, via an IntersectionObserver, and not at all under
+`prefers-reduced-motion` — the same bargain the hero's Mars loop makes. It also
+forced a design decision: a per-point twinkle phase would mean one `fillStyle`
+per record, which is exactly the 115 ms frame the bucketing exists to prevent.
+Quantising the phase into 8 bands keeps the loop bucketed, and the eye cannot
+resolve 8 steps.
+
+The expand needed the canvas driven for the CSS transition's whole duration. The
+existing code repainted at 0, 40 and 160 ms — three of the ~31 frames the move
+takes — so the field stepped while the rails slid. That was invisible while the
+rails simply `display: none`d, and only became a defect once the thing beside it
+started moving properly. Third time this week that making one thing continuous
+exposed the next thing that was not.
