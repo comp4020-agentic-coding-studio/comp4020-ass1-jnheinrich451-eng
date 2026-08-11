@@ -14,8 +14,15 @@
          rewrites the href under base "./". An absolute /assets/icon.png would
          resolve to the domain root and 404 on GitHub Pages, which serves the
          site from /<repo>/ — the one mistake this config exists to avoid. -->
-    <link rel="icon" href="./assets/icon.png" />
-    <link rel="apple-touch-icon" href="./assets/icon.png" />
+    <!-- Two sizes rather than one 1254px source. A favicon renders at 16-32px
+         in a tab, so shipping 910 KB meant ~99.9% of those bytes were decoded
+         and thrown away on every visit — more than the CSS and the archive
+         JSON combined. 32 for the tab, 256 for bookmarks and the iOS home
+         screen; the browser picks. The 1254px original stays in assets/ as the
+         source it is, and is not served. -->
+    <link rel="icon" sizes="32x32" href="./assets/icon-32.png" />
+    <link rel="icon" sizes="256x256" href="./assets/icon-256.png" />
+    <link rel="apple-touch-icon" href="./assets/icon-256.png" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <!-- FIELD.md §5's toggle defaults to CLEAR, for the look: the fan then runs
