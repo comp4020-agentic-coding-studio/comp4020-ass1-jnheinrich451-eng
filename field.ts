@@ -207,9 +207,12 @@ export function initField(): void {
     const e = p < 1 ? easeInOut(p) : 1;
 
     // §7 step 2 — furniture UNDER the points.
+    // No bounding box. It was drawn from the envelope, so it tracked the cloud
+    // and read as a second frame inside the field box — AXES.md §7's own
+    // argument against a closed rect applies to it exactly. The corner brackets
+    // carry the same job without enclosing anything.
     ctx!.strokeStyle = "rgba(150,170,255,0.12)";
     ctx!.lineWidth = 1;
-    ctx!.strokeRect(sx(0.06), sy(0.06), sx(0.94) - sx(0.06), sy(0.94) - sy(0.06));
     if (fitRight > 1) {
       // The holding cloud's own ellipse, so the region reads as deliberate
       // rather than as points that escaped the plot.
@@ -629,8 +632,12 @@ export function initField(): void {
     b.textContent = on ? "Clear" : "Solid";
     schedulePaint();
   });
-  document.querySelector("#expand-field")?.addEventListener("click", () => {
-    document.body.classList.toggle("focus-mode");
+  document.querySelector("#expand-field")?.addEventListener("click", (e) => {
+    const expanded = document.body.classList.toggle("focus-mode");
+    // FIELD.md line 141: the label states the state, not the action taken to
+    // reach it — EXPAND FIELD while fitted, FIT FIELD once expanded. A control
+    // that reads the same in both states cannot tell you which one you are in.
+    (e.currentTarget as HTMLElement).textContent = expanded ? "Fit field" : "Expand field";
     // FIELD.md §4: the canvas resizes after the layout commits and the HUD
     // reserves are measured from the DOM, so redraw once it has settled.
     for (const d of [0, 40, 160]) window.setTimeout(paint, d);

@@ -122,27 +122,48 @@ export function initPanels(archive: Archive): void {
   // Presets are shortcuts INTO existing controls, never a hidden fourth filter
   // (§2), so each one writes a control the user can also reach directly.
   const chips = el("div", "chips");
-  const presets: { label: string; run: () => void }[] = [
+  // Each preset is still a shortcut into an existing control (§2), but it now
+  // shows whether it is on and turns itself off — without the light there is no
+  // way to tell a preset apart from a button that did nothing.
+  const presets: { label: string; on: () => boolean; toggle: () => void }[] = [
     {
       label: "System ready",
-      run: () => {
-        state.requirements.add("sysready");
+      on: () => state.requirements.has("sysready"),
+      toggle: () => {
+        if (state.requirements.has("sysready")) state.requirements.delete("sysready");
+        else state.requirements.add("sysready");
       },
     },
-    { label: "Nearest", run: () => (state.sort = "distance") },
-    { label: "Recent", run: () => (state.sort = "year") },
+    {
+      label: "Nearest",
+      on: () => state.sort === "distance",
+      // Cancelling a sort returns to NAME, the default, rather than to whatever
+      // was selected before — a toggle with a hidden memory is worse than one
+      // with a known resting state.
+      toggle: () => {
+        state.sort = state.sort === "distance" ? "name" : "distance";
+      },
+    },
+    {
+      label: "Recent",
+      on: () => state.sort === "year",
+      toggle: () => {
+        state.sort = state.sort === "year" ? "name" : "year";
+      },
+    },
   ];
-  for (const p of presets) {
+  const presetBtns = presets.map((p) => {
     const b = el("button", "chip");
     b.type = "button";
     b.textContent = p.label;
     b.addEventListener("click", () => {
-      p.run();
+      p.toggle();
       state.limit = 80;
       render();
     });
     chips.append(b);
-  }
+    return { p, b };
+  });
   find.append(chips);
 
   find.append(el("h3", undefined, "Require data"));
@@ -264,12 +285,20 @@ export function initPanels(archive: Archive): void {
       dot.style.color = on ? m.dot : "rgba(150,170,255,.45)";
     }
 
+    for (const { p, b } of presetBtns) {
+      const on = p.on();
+      b.classList.toggle("is-active", on);
+      b.setAttribute("aria-pressed", String(on));
+    }
+
     for (const { r, b, box } of reqRows) {
       const on = state.requirements.has(r.id);
       b.classList.toggle("is-active", on);
       b.setAttribute("aria-pressed", String(on));
       box.textContent = on ? "■" : "□";
     }
+
+    sortSel.value = state.sort; // the presets write it, so it must follow
 
     if (!isFind) return; // nothing below is visible, so nothing below is built
 
@@ -338,6 +367,10 @@ export function initPanels(archive: Archive): void {
       li.addEventListener("click", () => {
         state.selectedIdx = i;
         state.previewIdx = null;
+        // The field has to repaint for the mark to appear. Without this the
+        // location only showed on the next hover, which made a click feel like
+        // it had not registered.
+        emit();
         for (const n of rows.querySelectorAll(".find-row")) n.classList.remove("is-selected");
         li.classList.add("is-selected");
         renderTarget();

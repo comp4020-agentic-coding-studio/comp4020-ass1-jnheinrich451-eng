@@ -57,6 +57,14 @@ Background is a gradient scrim `rgba(3,4,10,.9) → .72` when the ground is
 SOLID, and `transparent` + `text-shadow:0 1px 3px rgba(0,0,0,.85)` when CLEAR —
 the label must survive being over the fan.
 
+SOLID mode is for whole PLANET FIELD's background turn black rgba(0,0,0,.85), do
+not influence other areas, including the left bar, right bar, the outer margin, footer.
+Rest area's opacity remain uninfluenced. The meaning of the SOLID mode is to make the
+PLANET FIELD, planet cloud visible, a toggle between functionality and aesthesis.
+
+And change the FIELD GROUND: SOLID and FIELD GROUND: CLEAR, the whole text clickable,
+not only SOLID and CLEAR.
+
 **c. Caption strip** — `bottom:12px; left/right:14px`, `space-between`, wrapping,
 11px .05em `#5f6889`.
 - left: `6,336 confirmed worlds`, or `1,204 of 6,336 found by Transit`
@@ -106,8 +114,9 @@ orbit = yaw ±Δx·0.006, pitch clamp ±1.45
 - Hit radius is larger for hover (18) than for click (16): scanning should be
   generous, committing should be precise.
 
-**FIT FIELD** resets pan/zoom to the projection's fit rect — and in SPATIAL also
+**RESTORE FIELD** resets pan/zoom to the projection's fit rect — and in SPATIAL also
 resets the camera to `yaw 0.62, pitch 0.34, dist 2.75`.
+
 **CENTER TARGET** (from the TARGET panel) eases 650 ms to the record and stops at
 `clamp(zoom, 2.4, 3.2)` — a moderate zoom, so the record keeps its
 neighbourhood. It never switches projection, never changes the filter, never
@@ -128,6 +137,10 @@ and a way out.
 Because the canvas resizes after React commits, `setFocusMode` redraws at
 0 / 40 / 160 ms. The HUD reserves are measured from DOM, so they need the layout
 to have settled.
+
+For EXPAND FIELD, the text changes when toggling, the EXPAND FIELD shows when PLANET FIELD
+is fit, and change to FIT FIELD when PLANET FIELD gets expanded. Replace the original FIT FIELD
+into RESTORE FIELD. See line 121, changed FIT FIELD to RESTORE FIELD.
 
 ---
 

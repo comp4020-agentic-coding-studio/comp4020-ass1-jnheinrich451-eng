@@ -990,36 +990,32 @@ which are squashed radial gradients rather than a conic sweep.
   );
 }
 
-/* #2: SOLID is stronger than it was. The inner pass drops 0.3 -> 0.18 so the
-   fan FRAMES the instrument instead of tinting it, and the ring pass carries
-   the identity. CLEAR is unchanged and remains the composition view.
-   Both mask properties are set, on the painting <svg> and not a wrapper: with
-   only the unprefixed one the cut silently did not apply in some engines and
-   the fan bled straight across the plot. */
+/* FIELD.md line 60, rewritten: SOLID means the PLANET FIELD's background turns
+   black and NOTHING ELSE changes — not the rails, not the margin, not the
+   footer, and no other area's opacity. So the fan runs uniformly at its 30% and
+   the field box is simply opaque on top of it.
+
+   The centre cut, the header patch and the apex patch are all gone. They existed
+   to carve the fan out of the centre column, which an opaque field box does by
+   itself, and each of them altered areas outside the field — which is the thing
+   this instruction rules out. FIELD.md §5 rule 2 already said the patches exist
+   BECAUSE of the cut, so removing the cut removes them. */
 .fan-inner {
   z-index: 11;
-  opacity: 0.18;
+  opacity: 0.3;
   clip-path: inset(26px);
-  mask-image: linear-gradient(90deg, #000 0 20%, transparent 30%, transparent 70%, #000 80%);
-  mask-repeat: no-repeat;
-
-  /* FIX.md #2 asks for the -webkit-mask-* pair as well. Dropped deliberately:
-     .stylelintrc bans vendor prefixes, and the site is marked in Chrome, which
-     has shipped unprefixed mask-image since 120 — so the prefix was never what
-     was broken here. mask-size/mask-repeat ARE the fix: without them the
-     gradient tiled at its intrinsic size instead of spanning the box, so the
-     centre cut landed in the wrong place. */
-  mask-size: 100% 100%;
 }
 
+/* Retained but inert: with no cut there is nothing to patch, and leaving them
+   painting would double the fan over the header and the apex. */
 .fan-header-patch {
-  opacity: 0.2;
+  opacity: 0;
   clip-path: inset(26px 26px calc(100% - 84px) 26px);
   mask-image: linear-gradient(90deg, transparent 18%, #000 30%, #000 70%, transparent 82%);
 }
 
 .fan-apex-patch {
-  opacity: 0.3;
+  opacity: 0;
   clip-path: inset(calc(100% - 190px) 20% 26px 20%);
   mask-image: linear-gradient(180deg, transparent 0, #000 62%);
 }
@@ -1153,6 +1149,13 @@ which are squashed radial gradients rather than a conic sweep.
 .field-box {
   position: relative;
   z-index: 30; /* CONTRACT B: nothing paints between 30 and 39 but the field */
+
+  /* SOLID, and the ONLY surface this mode changes (FIELD.md line 60): the
+     PLANET FIELD's ground turns black and nothing else is touched — not the
+     rails, the margin or the footer, and no other area's opacity. rgba rather
+     than an opaque hex so the V still reads faintly beneath the data instead of
+     the field reading as a hole cut out of the section. */
+  background: rgb(0 0 0 / 85%);
   min-width: 0;
   min-height: 0;
 
@@ -1543,11 +1546,15 @@ which are squashed radial gradients rather than a conic sweep.
   gap: 11px;
 }
 
+/* One style for both controls, matching the rail's own furniture: transparent
+   ground so the fan reads through as it does everywhere else, and the purple of
+   the scrollbar as the edge — the two are the only violet in section 2, and
+   they are both "this is where you type or choose". */
 .find-input {
   width: 100%;
   padding: 7px 8px;
-  border: 1px solid rgb(150 170 255 / 32%);
-  background: rgb(3 4 10 / 85%);
+  border: 1px solid rgb(122 92 196 / 70%);
+  background: transparent;
   color: var(--ink);
   font-family: inherit;
   font-size: 11px;
@@ -1581,6 +1588,14 @@ which are squashed radial gradients rather than a conic sweep.
   color: var(--ink);
 }
 
+/* Latched. Without this a preset is indistinguishable from a button that did
+   nothing, which is exactly how it read. */
+.chip.is-active {
+  border-color: #a184f0;
+  background: rgb(122 92 196 / 22%);
+  color: #fff;
+}
+
 .sort-row {
   display: flex;
   gap: 8px;
@@ -1593,12 +1608,26 @@ which are squashed radial gradients rather than a conic sweep.
 .sort-select {
   flex: 1;
   padding: 5px 6px;
-  border: 1px solid rgb(150 170 255 / 32%);
-  background: rgb(3 4 10 / 85%);
+  border: 1px solid rgb(122 92 196 / 70%);
+  background: transparent;
   color: var(--ink-2);
   font-family: inherit;
   font-size: 10.5px;
 }
+
+.find-input:focus-visible,
+.sort-select:focus-visible {
+  border-color: #a184f0;
+  outline: none;
+}
+
+/* The option list is drawn by the OS, so it needs its own ground or it renders
+   as light-on-light where the page is transparent. */
+.sort-select option {
+  background: #03040a;
+  color: var(--ink-2);
+}
+
 
 .count-row {
   display: flex;
