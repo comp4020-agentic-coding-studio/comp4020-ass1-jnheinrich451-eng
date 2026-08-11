@@ -1821,3 +1821,96 @@ shown as. `pnpm check` green 87/87.
    a substitute: they are per-change, and this file is where the thread between
    changes lives. Noted as a failure of the harness rather than of memory: the
    skill exists precisely so this does not depend on my remembering under load.
+
+## 2026-08-11 18:15 — Necessary is not sufficient, and a rate nobody chose
+
+**Prompt:**
+
+> But nothing is solved, the problem persists the align to center first, and
+> transit, still exclusive to DISCOVERY TIME, and the camera rotation is added,
+> but cannot control. Please probe the auto camera rotation code parts, and the
+> align to center part, I think the align to center problem, you can refer how
+> rest 3 sections, they transit to each other, to find the solution
+
+**Result:**
+The last turn interpolated the fit rect and called the transition fixed. That
+was necessary and not sufficient. FIX.md #7b clamps the view into the new rect
+on a projection change, and at zoom 1 `clampView` pins `cx` to exactly
+`fitRight/2` — so DISCOVERY TIME, the only projection with no unresolved records
+and therefore the only one whose rect is 1 rather than 1.26, moved `cx` from
+0.63 to 0.5 in a single frame before the tween began. The rect slid; the centre
+it was measured from snapped. The clamp now runs in `paint()` against the live
+rect, which keeps #7b's meaning exactly — still a clamp, never an interpolation
+toward the new centre — while making the correction land over the same 900 ms.
+Everything else that maps normalised space to pixels (hit test, drag, wheel,
+CENTER TARGET, the dive) was routed through one `fitLive()`, since a hit test
+computed against a rect the user is not looking at is the same defect wearing a
+different coat.
+
+The author's instruction was the method, not a hint: *look at how the other
+three transit to each other.* They share a rect, so their clamp is a no-op —
+which is exactly why they were always smooth and why the control case is the
+thing that proves the cause.
+
+The camera toggle was never broken. It fired, it flipped, it relabelled. It ran
+at 2.9°/s — one revolution every 126 seconds — so it could not be seen to work,
+which is indistinguishable from broken. The backdrop was worse at 0.7°/s. Both
+numbers were invented by me rather than chosen against anything; the 20% the
+author asked for applied to the *drag* rate, which was already correct. Now
+~8°/s (a revolution in ~45 s) and ~3°/s of backdrop trim on top of the orbital
+term, with the camera's rate added when the toggle is on so the sky accelerates
+rather than fights.
+
+**Verified:**
+Built a CDP probe, and the first run was wrong in an instructive way: headless
+Chrome reports `prefers-reduced-motion: reduce`, the field honours it, and the
+probe dutifully measured a build with no animation at all — it would have
+reported "no jump" for the trivial reason that there was nothing to jump.
+`Emulation.setEmulatedMedia` fixed that.
+
+The second instrument was also wrong: a pixel centroid moves when the HUD
+furniture changes as well as when the cloud does, and it could not say which had
+jumped. So a DEV-only marker (CLAUDE.md §6 — *create markers if the bug happens
+multiple times unsolved*) now publishes the mapping and the cloud's own centroid
+computed inside the draw loop.
+
+With that, old code and new, same probe, frame by frame:
+
+```
+              before   f1     f2     f3    +200   +400   +600   +800
+old  DIST→TIME 531.3  661.3  661.3  661.3  678.9  775.7  901.3  931.2
+new  DIST→TIME 531.3  531.3  531.3  531.3  556.5  700.6  886.9  931.0
+old  TIME→ORB  931.4  766.7  766.7  766.7  726.5  543.2  381.9  351.8
+new  TIME→ORB  931.4  931.4  931.4  931.4  875.3  619.5  394.0  351.9
+old  ORB→DIST  351.5  351.5  351.5  351.5  365.5  437.6  514.9  531.1   ← control
+```
+
+The control is the load-bearing row: ORB→DIST shares a rect and never jumped in
+either build, so the rect is the whole cause and nothing else changed underneath.
+
+Rotation, with the marker: toggle off, yaw is bit-identical over 3 s; toggle on,
+yaw moves 0.42 rad in 3 s (8°/s), and the backdrop goes from 0.05 to 0.19 rad/s
+— the camera's rate added, not substituted.
+
+**Commit:** [`7b32ba9`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/7b32ba9)
+
+**What happened:**
+I reported the transition fixed last turn on a measurement that could not have
+detected the defect. I sampled the centroid every 90 ms *starting 40 ms after
+the click* — with no baseline before it. A one-frame jump is folded into the
+first sample and then reads as a normal starting value, so the curve looked
+continuous because I had thrown away the only sample that could contradict it.
+The eased curve I quoted was real; it was also compatible with the bug. Adding
+one `before` reading is the entire difference between the two verdicts.
+
+The same turn I chose two rotation rates by feel and shipped them without ever
+putting a clock on them. "Camera rotation added" was true and useless. A rate is
+a number, and a number that was never measured is a guess wearing a constant's
+clothes.
+
+Two lessons, both about instruments rather than about the code: a probe that
+starts *after* the event cannot see a discontinuity at the event, and a probe
+that measures the whole canvas cannot tell the HUD from the data. Both are now
+`import.meta.env.DEV` markers in the source rather than throwaway scripts, so
+the next person to doubt this transition does not have to rebuild the
+instrument first.
