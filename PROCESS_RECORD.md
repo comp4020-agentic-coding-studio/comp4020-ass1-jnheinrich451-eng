@@ -2372,3 +2372,86 @@ the tail and the backdrop instead of by the framing. The supplied image is
 SYSTEM mode, and that is the view it describes. If the intent was for PLANET
 mode to also hold the star still, that is a different change and I have not made
 it — flagging rather than guessing twice.
+
+## 2026-08-12 01:15 — A clamp taken somewhere it had never been
+
+**Prompt:**
+
+> I find a severe bug, in this PLANET FIELD, the change of FIELD PROJECTION, it
+> will not back to central, and not from current state, but move to left bottom
+> location [...] I find you interpret the camera still and planet rotating, as
+> the planet is the central of this system right? [...] But wrong [...] the star
+> will be fixed as well for planet! Their relative space is fixed, and revolution
+> is expressed by the tail in the orbit, and the background starfield
+
+**Result:**
+The projection bug was mine, one turn old, and the mechanism is worth writing
+down because it is a shape I will meet again. `clampView` reads
+
+```js
+half = fitRight / (2 * zoom)
+cx   = min(fitRight - half, max(half, cx))
+```
+
+which is correct while `zoom ≥ 1`. Below 1 the frame is wider than the content,
+`half` exceeds `fitRight/2`, and **the two bounds cross** — the expression
+collapses onto `fitRight - half`, which at zoom 0.4 is −0.25. Down and to the
+left, exactly as reported. The function was never wrong before; widening the
+zoom range last turn to allow zooming out took it somewhere it had never been.
+When the content fits, the answer is to CENTRE it, not to pin it to a bound
+sitting behind the other bound.
+
+The clamp now also runs only when the fit rect is actually changing. On the
+three projections that share one it has nothing to correct, so it could only
+ever move a view the user had set — and "from where they are" was the whole
+requirement three turns ago.
+
+On the camera: the author is right and I had it backwards. I read "camera still,
+planet moving" as the planet being the centre everything turns around, so the
+star swung across the frame — the opposite of the ask. What was asked is that
+the star and planet BOTH hold their place: their relative geometry is fixed, so
+the pair should be fixed, and the revolution should be told by what genuinely
+moves relative to them — the orbit path sweeping past, the tail, the starfield.
+
+That turned out to be one line: carry the camera's azimuth by the planet's own
+orbital azimuth, weighted by `(1 − focusMix)` so SYSTEM keeps the inertial frame
+the author approved and the changeover rides the existing 700 ms focus tween.
+The star–planet axis is then constant in camera space by construction rather
+than by correction.
+
+The planet gets a procedural surface so its rotation is legible. A featureless
+sphere spins invisibly, which made `Rotation // ILLUSTRATIVE` a claim the picture
+could not support — and with the camera now still, the planet turning is one of
+the few motions left to read.
+
+**Verified:**
+At zoom 0.4, `cx` holds 0.631 across every frame of an ORBIT→EARTH DISTANCE
+change, and still slides 0.63 → 0.5 into DISCOVERY TIME with no first-frame
+jump — the earlier fix intact, the regression gone. The star's projected x in
+PLANET mode over ten seconds: 2.157, 2.147, 2.195, 2.169, 2.143. A 1% breath,
+which IS the eccentricity and is the one thing a flat ellipse cannot show; it
+previously swept across the frame. `pnpm check` 90/90.
+
+**Commit:** [`ce875e7`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/ce875e7)
+
+**What happened:**
+Two lessons, and they are the same lesson.
+
+The clamp bug is the second time this session that widening a range broke code
+that had only ever been exercised inside the old range. `clampView` was correct
+and tested-by-use for months of zoom values ≥ 1; nothing about it changed. What
+changed was the set of inputs it could receive, and I did not go looking for
+what assumed the old set. A range change is an interface change to every
+function downstream of it.
+
+The camera is the same failure in prose. I built the reading of "camera still"
+that was easiest to implement from where the code already was, flagged the
+ambiguity in the record last turn, and then did not act on my own flag — I wrote
+"if the intent was for PLANET mode to also hold the star still, that is a
+different change and I have not made it" rather than asking. Naming an
+ambiguity is not the same as resolving it, and a note in a file the author has
+to find is a worse instrument than a question.
+
+Smaller, but the same shape again: my first texture seeded its base colour from
+the equilibrium temperature and turned the planet the colour of a star — the one
+distinction this whole view exists to keep. Caught by looking at the render.
