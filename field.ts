@@ -47,6 +47,8 @@ import {
 import { initTarget, renderTarget, setCentreTarget, setFieldSnapshotter } from "./target";
 import { inPool, state, subscribe } from "./store";
 
+const TAU = Math.PI * 2;
+
 const PROJECTIONS: { id: Projection; label: string; axes: string }[] = [
   {
     id: "orbit",
@@ -438,21 +440,35 @@ export function initField(): void {
       // square of colour. Drawn as a rect at low alpha, not a gradient and not
       // shadowBlur — PERFORMANCE.md §2.6 names shadowBlur as roughly 50x an arc
       // fill and the single most common cause of a laggy scatter canvas.
+      // CIRCLES, not rects — planets are round, and at halo sizes the corners
+      // of a square were legible as corners.
+      //
+      // PERFORMANCE.md §6.2 recommends fillRect precisely because an arc costs
+      // more, so the cost is bought back by batching: ONE path per bucket with
+      // n subpaths, then a single fill(). That keeps the expensive thing —
+      // state changes and path submissions — at one per bucket rather than one
+      // per record, which was the whole point of bucketing in the first place.
+      // moveTo before each arc, or every circle is joined to the last by a
+      // stray line across the field.
       ctx!.fillStyle = g.colour;
       if (g.resolved) {
         ctx!.globalAlpha = base * tw * 0.16;
         const hr = r * 2.6;
-        const hd = hr * 2;
+        ctx!.beginPath();
         for (let k = 0; k < g.n; k++) {
-          ctx!.fillRect(g.xs[k] - hr, g.ys[k] - hr, hd, hd);
+          ctx!.moveTo(g.xs[k] + hr, g.ys[k]);
+          ctx!.arc(g.xs[k], g.ys[k], hr, 0, TAU);
         }
+        ctx!.fill();
       }
 
       ctx!.globalAlpha = base * tw;
-      const d = r * 2;
+      ctx!.beginPath();
       for (let k = 0; k < g.n; k++) {
-        ctx!.fillRect(g.xs[k] - r, g.ys[k] - r, d, d);
+        ctx!.moveTo(g.xs[k] + r, g.ys[k]);
+        ctx!.arc(g.xs[k], g.ys[k], r, 0, TAU);
       }
+      ctx!.fill();
     }
     ctx!.globalAlpha = 1;
 

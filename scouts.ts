@@ -36,11 +36,13 @@ export function placeScoutRoutes(): void {
   const titleTop = box.top - heroBox.top - floatY;
   const titleBottom = box.bottom - heroBox.top - floatY;
 
-  // §1, verbatim: one eighteenth of the distance from the top of the frame,
-  // taken as the clearance on both sides. It scales with the title's position
-  // rather than with its height, so the two routes stay symmetric about the word
-  // as the word grows.
-  const gap = titleTop / 18;
+  // One FIFTEENTH of the distance from the top of the frame, at the author's
+  // call — §1 said one eighteenth, and the routes sat further off the word than
+  // intended once the title stopped being so tall. Still taken as the clearance
+  // on BOTH sides from the same figure, which is what keeps the pair symmetric
+  // about the word: the trails are the word's boundary, so they have to move
+  // when it does.
+  const gap = titleTop / 15;
   hero.style.setProperty("--scout-top-y", `${titleTop - gap}px`);
   hero.style.setProperty("--scout-bot-y", `${titleBottom + gap}px`);
 }

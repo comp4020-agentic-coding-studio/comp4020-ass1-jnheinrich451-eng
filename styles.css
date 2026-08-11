@@ -269,7 +269,14 @@ which are squashed radial gradients rather than a conic sweep.
      condensed cut, and scaleY keeps the horizontal measurement fitTitle() just
      solved for exactly intact. This is the Control-style title: tall, heavy,
      white, more wall than label. */
-  --title-stretch: 1.42;
+
+  /* 5/6 of the original 1.42, at the author's call — the word read as
+     over-stretched. scaleY's origin is the element centre and the anchor is a
+     0x0 centred flex box, so it shrinks about its own middle and stays put; no
+     compensating offset is needed or wanted. The horizontal stretch is
+     untouched, because that one is load-bearing: it must equal
+     TITLE_LENGTH_GAIN in hero.ts or the fit and the render disagree. */
+  --title-stretch: 1.1833;
 
   /* Horizontal stretch: 7/6, so the word runs 1/6 longer. Must equal
      TITLE_LENGTH_GAIN in hero.ts — the fit targets the same figure, and the two

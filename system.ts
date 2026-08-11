@@ -304,6 +304,12 @@ function buildScene(
   const aAU = num(C.orbsmax, 0.05);
   // 1 AU / R_earth = 23 455. Compressed, and disclosed as such.
   let orbitScale = 1;
+  // EFFECT.md's table gives the orbit scale change 480 ms easeInOut. It was
+  // instant, which made ×1→×5 read as a different system rather than the same
+  // one drawn larger — the one thing the control exists to say.
+  let scaleFrom = 1;
+  let scaleTo = 1;
+  let scaleT0 = 0;
   const baseOrbitR = Math.max(starR * 2.2, planetR * 22);
   const ecc = Math.min(0.9, Math.max(0, num(C.ecc, 0)));
 
@@ -318,7 +324,9 @@ function buildScene(
     for (let i = 0; i < n; i++) {
       const th = Math.random() * Math.PI * 2;
       const ph = Math.acos(2 * Math.random() - 1);
-      const R = 900;
+      // Doubled. At ×5 orbit scale the camera pulls back far enough to reach
+      // the old shell, and a backdrop you can arrive at is a wall, not a sky.
+      const R = 1800;
       pos[i * 3] = R * Math.sin(ph) * Math.cos(th);
       pos[i * 3 + 1] = R * Math.cos(ph);
       pos[i * 3 + 2] = R * Math.sin(ph) * Math.sin(th);
@@ -344,6 +352,35 @@ function buildScene(
     new THREE.MeshStandardMaterial({ color: 0x9fb4d8, roughness: 0.92 }),
   );
   scene.add(planet);
+
+  // THE TAIL. The author's point is that with the camera locked, the planet's
+  // motion has to be visible in the SCENE rather than in the framing — so the
+  // planet carries a trail behind it and the backdrop drifts, and between them
+  // a still camera still reads as a system in motion.
+  //
+  // It trails the direction of travel by construction: the samples are the
+  // planet's own past positions, so the tail can never point the wrong way, and
+  // it stretches at periapsis and bunches at apoapsis because the planet does.
+  // Deriving it from history rather than from a velocity vector is what makes
+  // that free.
+  const TAIL = 96;
+  const tailPos = new Float32Array(TAIL * 3);
+  let tailN = 0;
+  const tailGeo = new THREE.BufferGeometry();
+  tailGeo.setAttribute("position", new THREE.BufferAttribute(tailPos, 3));
+  const tail = new THREE.Line(
+    tailGeo,
+    // Additive so the tail brightens where it overlaps itself near periapsis and
+    // never darkens the star behind it — a trail that occludes reads as solid.
+    new THREE.LineBasicMaterial({
+      color: 0xbcd0ff,
+      transparent: true,
+      opacity: 0.55,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+  scene.add(tail);
 
   const ring = new THREE.Line(
     new THREE.BufferGeometry(),
@@ -383,7 +420,21 @@ function buildScene(
   // guaranteed periapsis clearance, so the camera can never enter the planet
   // and never escape toward the star.
   const minDist = planetR * 1.9;
-  const maxDist = () => Math.max(planetR * 16, orbitR * 2.6);
+  const maxDist = () => Math.max(planetR * 16, orbitR * 3.4);
+
+  /** SYSTEM framing, computed rather than picked: back off until the orbit's
+   *  widest extent occupies 85% of the SHORTER screen axis, so the whole system
+   *  is in shot with room around it at any eccentricity, any star radius and any
+   *  orbit scale. A fixed multiple of orbitR cannot do that — it was chosen for
+   *  one aspect ratio and one ×1 orbit, and ×5 walked straight out of frame. */
+  function systemDist(): number {
+    const apo = orbitR * (1 + ecc) + orbitR * ecc; // furthest point from the star
+    const need = Math.max(apo, starR * 1.6);
+    const vFov = (camera.fov * Math.PI) / 180;
+    const hFov = 2 * Math.atan(Math.tan(vFov / 2) * Math.max(camera.aspect, 0.2));
+    const fov = Math.min(vFov, hFov);
+    return Math.min(maxDist(), Math.max(minDist, need / Math.tan(fov / 2) / 0.85));
+  }
 
   // Law IV: ONE signed direction, derived once, read by everything that turns.
   // +1 counter-clockwise. The orbit, the backdrop and the optional camera spin
@@ -446,12 +497,7 @@ function buildScene(
     distFrom = dist;
     if (spinning) {
       planetDist = dist;
-      // §3.4's own ceiling, which IS the system framing: max(planetR×16,
-      // orbitR×2.6) backs off far enough for the whole ellipse on a wide orbit
-      // and far enough for the star on a tight one. Chosen rather than invented
-      // — orbitR×2.2 left a 13.8 R☉ giant filling the frame, which is the same
-      // defect as before wearing a different size.
-      distTo = maxDist();
+      distTo = systemDist();
     } else {
       distTo = Math.min(maxDist(), Math.max(minDist, planetDist || dist));
     }
@@ -491,6 +537,21 @@ function buildScene(
       Math.sin(angle) * b,
     );
     planet.rotation.y += dt * 0.25; // ILLUSTRATIVE, and disclosed as such
+
+    // Push the planet's current position onto the trail. Ring buffer written as
+    // a straight shift: 96 entries a frame is nothing next to the scene, and a
+    // wrapped buffer would need the line split at the seam.
+    for (let i = (Math.min(tailN, TAIL - 1)) * 3; i >= 3; i -= 3) {
+      tailPos[i] = tailPos[i - 3];
+      tailPos[i + 1] = tailPos[i - 2];
+      tailPos[i + 2] = tailPos[i - 1];
+    }
+    tailPos[0] = planet.position.x;
+    tailPos[1] = planet.position.y;
+    tailPos[2] = planet.position.z;
+    tailN = Math.min(tailN + 1, TAIL);
+    tailGeo.setDrawRange(0, tailN);
+    tailGeo.attributes.position.needsUpdate = true;
     // Half a turn of backdrop per turn of orbit: enough that the revolution is
     // legible, little enough that it never competes with the planet.
     // With the camera still the backdrop turns at its own rate; with the camera
@@ -501,12 +562,24 @@ function buildScene(
     backdrop.rotation.y = backdropSpin - angle * 0.5;
     if (spinning) yaw += dt * DIR * CAMERA_RATE;
 
-    const d = Math.min(maxDist(), Math.max(minDist, dist));
-    const eye = new THREE.Vector3(
-      Math.sin(yaw) * Math.cos(pitch),
-      Math.sin(pitch),
-      Math.cos(yaw) * Math.cos(pitch),
-    ).multiplyScalar(d);
+    // The orbit scale is a tween, and re-framing follows it: in SYSTEM mode the
+    // distance is re-derived every frame from the CURRENT orbitR, so growing the
+    // orbit pulls the camera back with it and the 85% holds throughout the move
+    // rather than only at its ends.
+    if (scaleT0) {
+      const q = Math.min(1, (now - scaleT0) / 480);
+      const k = q < 0.5 ? 2 * q * q : 1 - (-2 * q + 2) ** 2 / 2;
+      orbitScale = scaleFrom + (scaleTo - scaleFrom) * k;
+      layoutOrbit();
+      tailN = 0; // the old trail belongs to the old orbit
+      if (q >= 1) scaleT0 = 0;
+      if (spinning) {
+        dist = systemDist();
+        distFrom = dist;
+        distTo = dist;
+      }
+    }
+
     // §3.3's focus tween. It runs after the approach block so it wins the
     // distance while it is live; the approach has already finished by the time
     // any toggle can be pressed.
@@ -518,10 +591,13 @@ function buildScene(
       if (fp >= 1) focusT0 = 0; // released, so the wheel owns distance again
     }
 
-    const focus = planet.position
-      .clone()
-      .lerp(BARYCENTRE, focusMix)
-      .add(new THREE.Vector3(panX, panY, 0));
+    const d = Math.min(maxDist(), Math.max(minDist, dist));
+    const eye = new THREE.Vector3(
+      Math.sin(yaw) * Math.cos(pitch),
+      Math.sin(pitch),
+      Math.cos(yaw) * Math.cos(pitch),
+    ).multiplyScalar(d);
+    const focus = planet.position.clone().lerp(BARYCENTRE, focusMix);
     camera.position.copy(focus).add(eye);
     camera.lookAt(focus);
 
@@ -569,8 +645,7 @@ function buildScene(
   // Rotation runs at a FIFTH of what it did (0.006 -> 0.0012). At the old rate a
   // small wrist movement threw the system past the terminator, which is the one
   // thing worth aiming carefully at in this view.
-  let panX = 0;
-  let panY = 0;
+
   canvas.addEventListener("pointerdown", (e) => {
     dragging = true;
     dragButton = e.button;
@@ -582,15 +657,13 @@ function buildScene(
     if (!dragging) return;
     const dx = e.clientX - px;
     const dy = e.clientY - py;
-    if (dragButton === 2) {
-      yaw -= dx * 0.0012;
-      pitch = Math.min(1.35, Math.max(-1.35, pitch + dy * 0.0012));
-    } else {
-      // Pan moves the framing, not the bodies: the offset is applied to the
-      // camera and its look-at together, so the planet stays the pivot.
-      panX -= dx * dist * 0.0016;
-      panY += dy * dist * 0.0016;
-    }
+    // BOTH buttons rotate, around the current target — the planet in PLANET
+    // mode, the star in SYSTEM mode. Pan is gone at the author's call, and it
+    // earns its removal: with a pivot that is already the thing you came to
+    // look at, panning could only ever move that thing off-centre, and the
+    // control that undid it was the same drag in the other direction.
+    yaw -= dx * 0.0012;
+    pitch = Math.min(1.35, Math.max(-1.35, pitch + dy * 0.0012));
     px = e.clientX;
     py = e.clientY;
   });
@@ -619,11 +692,18 @@ function buildScene(
   // setting and only the space around it changes.
   for (const b of scaleBtns) {
     b.addEventListener("click", () => {
-      orbitScale = Number(b.dataset.scale);
-      layoutOrbit();
+      const next = Number(b.dataset.scale);
+      if (next !== scaleTo) {
+        // Retarget from where the tween actually is, not from the last
+        // destination — clicking ×5 then ×1 mid-move must continue from the
+        // size on screen rather than jump to ×5 first.
+        scaleFrom = orbitScale;
+        scaleTo = next;
+        scaleT0 = performance.now();
+      }
       for (const o of scaleBtns) o.classList.toggle("is-active", o === b);
       scaleNote.textContent =
-        orbitScale === 1 ? "VISUALLY COMPRESSED" : `VISUALLY COMPRESSED · ×${orbitScale}`;
+        next === 1 ? "VISUALLY COMPRESSED" : `VISUALLY COMPRESSED · ×${next}`;
     });
   }
   scaleBtns[0].classList.add("is-active");
