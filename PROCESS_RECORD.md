@@ -1914,3 +1914,80 @@ that measures the whole canvas cannot tell the HUD from the data. Both are now
 `import.meta.env.DEV` markers in the source rather than throwaway scripts, so
 the next person to doubt this transition does not have to rebuild the
 instrument first.
+
+## 2026-08-11 18:32 — What the rotation turns, and a clamp that ate the pan
+
+**Prompt:**
+
+> the transition is now smooth! But one new issue, I cannot drag/pan the PLANET
+> FIELD! Zoom and rotation are still valid. And second bad news, the camera
+> rotation is still failed. [...] How you define the camera rotation? You use a
+> camera rotation, or you rotate the system? If you are rotating the system,
+> then my prompt is wrong.
+
+**Result:**
+The pan regression was mine, from the previous turn. At zoom 1 `clampView` pins
+`cx` to exactly `fitNow/2`, so running it unconditionally every frame nailed the
+view to the centre. Zoom and rotate survived because above zoom 1 the clamp has
+a range to move inside — which is exactly the shape of the report, and I should
+have read it that way immediately. The clamp is a projection-change correction,
+so it now runs only during the morph. Bounding a free pan is a different
+decision and this fix does not get to make it in passing.
+
+The rotation question was the better one, and the answer is that the author's
+instinct was right. It *was* a camera orbit — around the tracked planet — and
+that framing cannot show rotation, for two reasons that only showed up once I
+measured the picture instead of the variable. With the toggle OFF the camera was
+already swinging ±260 units, because its focus is the planet and the planet
+revolves. And the star projected off-frame in *every* sample. `lookAt` pins the
+planet dead centre by construction, so there was nothing on screen whose
+position depended on yaw. The toggle had been firing correctly the whole time.
+
+Offered three readings and the author chose the one that keeps the spec intact:
+rotation retargets the camera to the barycentre for as long as it runs, on
+EFFECT.md §3.3's terms — 700 ms easeInOutCubic on the target point and on
+distance, yaw and pitch untouched. It stays a camera move, so §3.1's ban on
+turning the scene to present itself holds; §3.3 already names a focus change as
+the one camera motion the design may initiate on request, and a toggle is a
+request. Distance goes to §3.4's own ceiling rather than a number I chose: my
+first attempt at `orbitR × 2.2` left a 13.8 R☉ giant filling the frame, which is
+the original defect wearing a different size.
+
+**Verified:**
+Pan: `cx` 0.63 → 0.789 at zoom 1, and again when zoomed. Both transition traces
+re-run and unchanged, so the morph fix survived the correction.
+
+Rotation, on the picture rather than the state: `starOnScreen` goes false →
+true, the star centres (`starX` 1.80 → −0.001), the camera sweeps a real
+680-unit orbit, and the screenshots show the whole ellipse with the star at
+centre while rotation is on and the planet with its terminator when it is off.
+
+One run had to be thrown away: HMR reloaded the page mid-probe, so the
+screenshot diff came back "differs: true" for the reload rather than for the
+rotation, and the saved frame was the hero. A diff that only reports *whether*
+something changed cannot tell you *what* changed — reading the image caught it,
+the boolean never would have.
+
+**Commit:** [`9e9c647`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/9e9c647), [`7e0a803`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/7e0a803)
+
+**What happened:**
+Second turn running, my verification proved something adjacent to the claim. I
+measured `yaw` moving at 8°/s and reported the rotation fixed; `yaw` was moving,
+and nothing visible was. The marker now publishes the star's *projected screen
+position*, because that is a statement about the frame rather than about a
+variable, and it is what would have caught this immediately.
+
+The pan regression is the sharper lesson. I considered exactly this failure
+while writing the clamp — the thought "at zoom 1 cx is always pinned, so panning
+is irrelevant" is in my reasoning — and dismissed it as pre-existing without
+checking. It was not pre-existing; I introduced it in the same edit. A doubt
+that occurs and is waved through is worse than one that never occurs, because
+the instrument to settle it was already open.
+
+Harness consequence rather than another retry: `agent-browser`, which CLAUDE.md
+names as the way to see the rendered page, is not installed on this machine and
+is not in the course plugin's cache. Every probe this session was built from
+scratch against the Chrome DevTools Protocol. Two of those probes were wrong
+before they were right — headless Chrome reports `prefers-reduced-motion:
+reduce`, so an un-emulated run measures a build with no animation at all. That
+is a fact about the sensor worth writing down where it will be read again.
