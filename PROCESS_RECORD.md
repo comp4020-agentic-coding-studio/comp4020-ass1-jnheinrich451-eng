@@ -2455,3 +2455,84 @@ to find is a worse instrument than a question.
 Smaller, but the same shape again: my first texture seeded its base colour from
 the equilibrium temperature and turned the planet the colour of a star — the one
 distinction this whole view exists to keep. Caught by looking at the render.
+
+## 2026-08-12 02:30 — The fourth fix was deleting the code
+
+**Prompt:**
+
+> the DISCOVERY TIME, it behaves different in transition with 3 rest parts
+> again. It will back to central, and transit to rest pages! I think you get the
+> formula to solve it. Second is I feel some lagging in zooming operation [...]
+> Could you solve the first one and probe second one?
+
+**Result:**
+The author's "I think you get the formula" was the right instinct and I had not
+followed it. The mapping is
+
+```
+sx(x) = pad + iw · (0.5 + (x − cx) · zoom / fit)
+```
+
+so `sx(cx) = pad + iw/2` **for any fit**. Changing the fit rect rescales the
+picture about the view's centre and cannot move that centre. Interpolating `fit`
+alone was always sufficient — there was never anything to correct.
+
+Every jump came from FIX.md #7b's clamp. At zoom 1 `clampView` pins `cx` to
+`fit/2`, so it snaps a panned view to centre the instant it runs. This is the
+fourth fix to the same transition and the first three were all versions of the
+same mistake: eager clamp → moving clamp → clamp only while morphing → clamp
+only when the rect changes. Each narrowed the scope and none questioned whether
+the clamp should exist. Once the pan was freed, any panned view is out of the
+clamp's range *by definition*, so the clamp could only ever yank it back. #7b's
+"a clamp is a correction, an interpolation is a hijack" is answering a question
+that does not arise. RESTORE FIELD is the recentring control, and it is the
+user's to press.
+
+On the lag, probed before touching anything. Paints against real frames:
+
+```
+idle            0 / 173      paint 0.0 ms
+wheel out      64 / 337      paint 4.1 ms
+wheel in      111 / 318      paint 0.2 ms
+CENTER TARGET 108 / 110      paint 0.9 ms
+```
+
+CENTER TARGET and the OPEN SYSTEM tweens already paint essentially every frame,
+and paint cost never exceeded 4.1 ms against a 16.7 ms budget. **Nothing was
+slow.** The wheel simply had no tween: each notch applied its whole step
+instantly and scheduled one repaint, so the field moved only as often as the
+wheel fired — and a wheel fires in notches, not in frames. There was no motion
+*between* the steps, which is exactly what "frame by frame instead of an
+animation" describes, and it is why every timing looked healthy.
+
+The wheel now writes a destination and the view is smoothed toward it on the
+same exponential approach the envelope already uses — CLAUDE.md §6 lists camera
+follow as "continuous, critically damped", so the shape came from there.
+Consecutive notches compose onto the destination rather than each restarting the
+glide, and a drag takes the view back, because two writers on one value need a
+rule about which wins.
+
+**Verified:**
+`cx` holds 0.631 through the entire DISCOVERY TIME change at zoom 0.4 — no
+recentre, no first-frame jump. One wheel notch is now a 14-frame eased curve
+(1.320, 1.333, 1.360, 1.405, … 1.476) where it was a single step followed by
+nothing. `pnpm check` 90/90.
+
+**Commit:** [`c755961`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/c755961)
+
+**What happened:**
+Four attempts at one transition, and the fix was deleting the thing I kept
+adjusting. Each round I asked "when should the clamp run?" and never "should
+it?" — the question was inherited from the spec line that introduced it, and a
+line in a document is not a reason to keep code that has failed four times. The
+arithmetic that settles it is three symbols long and was available at every one
+of those attempts.
+
+The lag is the counterweight, and worth keeping next to the above: this time I
+measured first and the measurement said the opposite of the report. Nothing was
+slow; something was *discontinuous*. Those feel identical to a user and have
+completely different fixes, and had I "optimised" the draw loop on the strength
+of the word "lagging" I would have made a fast thing faster and left the actual
+defect untouched — which is exactly what happened during the 3-FPS hunt earlier
+this week, when five optimisations measured as no change before I found the
+runaway rAF.
