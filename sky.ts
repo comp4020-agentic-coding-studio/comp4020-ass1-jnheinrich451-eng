@@ -25,7 +25,13 @@ const ECLIPTIC = "rgba(232,195,122,0.34)";
 /** §2.1: the 1 kpc shell, which contains ~97% of the archive. The grid is a
  *  CONTAINER, not a backdrop at infinity — a sphere drawn out at infinity would
  *  say the archive fills the sky, and it does not. */
-const R_SPHERE = Math.log(1 + 1000);
+// ×1.5 on the author's call, for the look. The whole sphere scales, not just
+// the two rings named: the equator IS the dec-0 parallel and the ecliptic is
+// the equator rotated, so growing some and not others would draw two concentric
+// versions of the same circle and invite the reader to find a meaning in the
+// gap. The shell is a container, and a container may be any size as long as it
+// is one size.
+const R_SPHERE = Math.log(1 + 1000) * 1.5;
 const TILT = (23.44 * Math.PI) / 180;
 const D2R = Math.PI / 180;
 
@@ -146,7 +152,9 @@ export function drawSkyFurniture(
 
     // §2.1 parallels.
     ctx.setLineDash([1, 5]);
-    for (const dec of [-60, -30, 0, 30, 60]) {
+    // No 0 here — §2.2's equator IS the dec-0 parallel, and drawing both put
+    // a dotted line under the one ring allowed to be solid.
+    for (const dec of [-60, -30, 30, 60]) {
       polyline(ctx, arc(f, cam, 72, (t) => onSphere(360 * t, dec)), cam, far);
     }
 
@@ -316,8 +324,22 @@ export function drawDropLine(
 /** §3.2 / §3.3: two ladders, in the units the coordinate is actually quoted in.
  *  RA is an HOUR ANGLE — labelling it in degrees is the single most common way
  *  an otherwise good sky view announces that nobody checked it. */
-const RA_LADDER = [90, 30, 15, 7.5, 3.75, 1.25, 0.5, 0.25]; // 6h … 1m, in degrees
+// Now that the labels are degrees, the rungs are round degrees too — an hour
+// ladder printed in degrees would tick at 7.5° and 3.75°, which is the old unit
+// showing through the new labels.
+const RA_LADDER = [90, 45, 30, 15, 10, 5, 2, 1, 0.5];
 const DEC_LADDER = [30, 15, 10, 5, 2, 1, 0.5, 1 / 6];
+
+/** The vertical tape runs ±180°, not ±90°.
+ *
+ *  §3.3 clamped at ±90 because the pitch did — "the tape simply runs out of
+ *  ticks, it does not wrap, because declination does not". The pitch is a full
+ *  rotation now, so a tape stopping at 90 would run out of index exactly when
+ *  the view goes over the pole and keeps turning: the instrument would go blank
+ *  at the moment it is hardest to tell where you are. Past ±90 the labels are
+ *  the camera's elevation continuing round, which is what the reader is
+ *  actually being told. */
+const DEC_SPAN = 180;
 
 /** §3.4's hysteresis. Promote at 58 px, demote at 44 px — a 14 px dead band,
  *  without which a slow dolly at the boundary flickers between two rungs every
@@ -341,13 +363,20 @@ function pickRung(
   return i;
 }
 
+/** DEGREES, at the author's explicit instruction, overriding §3.2 and §7's
+ *  "never label RA in degrees".
+ *
+ *  The convention exists and the reason for it is real — RA is quoted as an
+ *  hour angle in every catalogue — but the case against it here is also real:
+ *  this tape sits opposite a DEC tape in degrees, and one instrument reading two
+ *  units on its two axes asks the reader to convert in their head to compare
+ *  them. 15° per hour is the whole conversion, and it is now the reader's to
+ *  make once rather than the axis's to hide. Called out because it is a
+ *  deliberate departure from a stated rule, not an oversight. */
 const raLabel = (deg: number, rungDeg: number): string => {
   const d = ((deg % 360) + 360) % 360;
-  const h = d / 15;
-  const hh = Math.floor(h);
-  const mm = Math.round((h - hh) * 60);
-  if (rungDeg >= 15) return `${(hh + (mm === 60 ? 1 : 0)) % 24}h`;
-  return `${hh % 24}h ${(mm % 60).toString().padStart(2, "0")}m`;
+  if (rungDeg >= 1) return `${Math.round(d)}°`;
+  return `${d.toFixed(1)}°`;
 };
 
 const decLabel = (deg: number, rungDeg: number): string => {
@@ -458,7 +487,7 @@ export function drawSkyTapes(
     let last = -Infinity;
     // Clamped at ±90 and never wrapped, because declination does not wrap. The
     // tape simply runs out of ticks and fades through its end zone.
-    for (let d = -90; d <= 90; d += step) {
+    for (let d = -DEC_SPAN; d <= DEC_SPAN; d += step) {
       const y = midY - (d - pitchDeg) * pxDeg;
       if (y < box.y0 || y > ay) continue;
       const survivor =
@@ -529,7 +558,7 @@ export function drawSkyTapes(
   ctx.fillStyle = DIM;
   ctx.textAlign = "right";
   ctx.textBaseline = "bottom";
-  ctx.fillText("RA // HOURS", ax - 10, ay - 6);
+  ctx.fillText("RA // DEGREES", ax - 10, ay - 6);
   ctx.fillText("DEC // DEGREES", ax + 8, box.y0 - 6);
   ctx.restore();
 }

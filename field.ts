@@ -20,6 +20,7 @@ import {
   cloudFrame,
   loadArchive,
   missingFor,
+  hash01,
   positionOf,
   skyXYZ,
   verifySkyTransform,
@@ -169,7 +170,19 @@ export function initField(): void {
   // §2.4: allocated once and reused, so the draw loop creates no garbage. A
   // sawtooth heap shows up as periodic hitches rather than steady slowness.
   let methodIdx: Int32Array = new Int32Array(0);
+  // §4.3: 8 phase bands. Enough that the field shimmers rather than pulsing in
+  // unison, few enough that the draw loop stays bucketed.
+  const TWINKLE = 8;
+  /** PERFORMANCE.md §2.2 says there is no idle rAF, and a twinkle is by
+   *  definition idle animation — so this is a real departure and it is paid for
+   *  the only honest way: the loop runs ONLY while the field is actually on
+   *  screen, and not at all under prefers-reduced-motion. Off-screen it costs
+   *  nothing, which is the same bargain the hero's Mars loop makes. */
+  let fieldOnScreen = false;
+  const twinkling = (): boolean => fieldOnScreen && !reduceMotion();
+  let twinkleBand: Int32Array = new Int32Array(0);
   const groups: {
+    band: number;
     colour: string;
     wasIn: number;
     isIn: number;
@@ -369,6 +382,8 @@ export function initField(): void {
     //   §6.2  fillRect for the dots — at 2px the visual difference is nil and
     //         rects are markedly cheaper than arcs
     const zg = 1; // zoom gain; wheel zoom is not wired yet
+    const tSec = performance.now() / 1000;
+    const tw0 = twinkling();
     const ft = Math.min(1, (performance.now() - ftStart) / FILTER_MS);
     const fe = easeInOut(ft);
 
@@ -386,10 +401,12 @@ export function initField(): void {
       if (x < -20 || y < -20 || x > w + 20 || y > h + 20) continue; // §2.6
       const g =
         groups[
-          methodIdx[i] * 8 +
+          (methodIdx[i] * 8 +
             (prevIn[i] === false ? 4 : 0) +
             (nowIn[i] === false ? 2 : 0) +
-            (to.resolved ? 0 : 1)
+            (to.resolved ? 0 : 1)) *
+            TWINKLE +
+            twinkleBand[i]
         ];
       if (import.meta.env.DEV) {
         probeSum += x;
@@ -406,9 +423,32 @@ export function initField(): void {
       const weight = g.wasIn + (g.isIn - g.wasIn) * fe;
       // Unresolved records keep their dimmer, smaller treatment: §2 draws them
       // but must not let the holding cloud read as a dense cluster of findings.
-      const r = (g.resolved ? 1.2 + 0.8 * weight : 1.0 + 0.2 * weight) * zg;
-      ctx!.globalAlpha = g.resolved ? 0.1 + 0.7 * weight : 0.1 + 0.25 * weight;
+      const r = (g.resolved ? 1.0 + 0.6 * weight : 0.9 + 0.2 * weight) * zg;
+      const base = g.resolved ? 0.1 + 0.7 * weight : 0.1 + 0.25 * weight;
+      // §4.3's envelope exactly: alpha × (0.86 + 0.14·sin(t·f + φ)), f in
+      // [0.25, 0.7] Hz — "slow enough to be atmosphere, never a sparkle". The
+      // author asked for a blink; the spec already had the amplitude that keeps
+      // it from becoming one, so the number came from there rather than taste.
+      const ph = (g.band / TWINKLE) * Math.PI * 2;
+      const f = 0.25 + (0.45 * g.band) / (TWINKLE - 1);
+      const tw = tw0 ? 0.86 + 0.14 * Math.sin(tSec * f * Math.PI * 2 + ph) : 1;
+
+      // The halo, first and underneath: a soft ring the core sits inside, so a
+      // point reads as a small bright thing with air around it rather than as a
+      // square of colour. Drawn as a rect at low alpha, not a gradient and not
+      // shadowBlur — PERFORMANCE.md §2.6 names shadowBlur as roughly 50x an arc
+      // fill and the single most common cause of a laggy scatter canvas.
       ctx!.fillStyle = g.colour;
+      if (g.resolved) {
+        ctx!.globalAlpha = base * tw * 0.16;
+        const hr = r * 2.6;
+        const hd = hr * 2;
+        for (let k = 0; k < g.n; k++) {
+          ctx!.fillRect(g.xs[k] - hr, g.ys[k] - hr, hd, hd);
+        }
+      }
+
+      ctx!.globalAlpha = base * tw;
       const d = r * 2;
       for (let k = 0; k < g.n; k++) {
         ctx!.fillRect(g.xs[k] - r, g.ys[k] - r, d, d);
@@ -603,6 +643,10 @@ export function initField(): void {
     else pending.delete("filter");
     if (envSettled) pending.delete("envelope");
     else pending.add("envelope");
+    // The twinkle never settles, so it holds the tween set open for as long as
+    // the field is visible — and releases it the moment it is not.
+    if (tw0) pending.add("twinkle");
+    else pending.delete("twinkle");
     // paint() does NOT schedule. Re-entering the driver from inside the thing
     // the driver called is what created the runaway; the tail of tick() is the
     // one place a frame is queued.
@@ -926,13 +970,52 @@ export function initField(): void {
     // reach it — EXPAND FIELD while fitted, FIT FIELD once expanded. A control
     // that reads the same in both states cannot tell you which one you are in.
     (e.currentTarget as HTMLElement).textContent = expanded ? "Fit field" : "Expand field";
-    // FIELD.md §4: the canvas resizes after the layout commits and the HUD
-    // reserves are measured from the DOM, so redraw once it has settled.
-    for (const d of [0, 40, 160]) window.setTimeout(paint, d);
+    // The canvas is not in the transition — CSS moves the track, and the
+    // backing store only changes when we notice. So repaint every frame FOR the
+    // duration: three timeouts drew three of the ~31 frames the move takes, and
+    // the field visibly stepped while the rails slid.
+    const t0 = performance.now();
+    const follow = (): void => {
+      paint();
+      if (performance.now() - t0 < 560) requestAnimationFrame(follow);
+    };
+    requestAnimationFrame(follow);
+    void expanded;
   });
+  // Cheap and exact: the browser tells us, rather than a scroll handler
+  // guessing from offsets every frame.
+  new IntersectionObserver(
+    (entries) => {
+      fieldOnScreen = entries.some((en) => en.isIntersecting);
+      if (fieldOnScreen) drive();
+    },
+    { threshold: 0 },
+  ).observe(box);
+
+  // RESTORE FIELD tweens rather than snapping — PROJECTIONS.md §1.4 gives it
+  // 420ms easeInOut, and it is the same shape as the projection morph, which is
+  // what the author asked it to feel like. A reset that teleports is
+  // indistinguishable from a reload.
   document.querySelector("#fit-field")?.addEventListener("click", () => {
-    resetView(projectionOf(), fitRight);
-    schedulePaint();
+    const view = viewFor(projectionOf(), fitLive());
+    const from = { cx: view.cx, cy: view.cy, zoom: view.zoom };
+    const to = { cx: fitRight / 2, cy: 0.5, zoom: 1 };
+    if (reduceMotion()) {
+      resetView(projectionOf(), fitRight);
+      schedulePaint();
+      return;
+    }
+    const t0 = performance.now();
+    const step = (): void => {
+      const q = Math.min(1, (performance.now() - t0) / 420);
+      const k = easeInOut(q);
+      view.cx = from.cx + (to.cx - from.cx) * k;
+      view.cy = from.cy + (to.cy - from.cy) * k;
+      view.zoom = from.zoom + (to.zoom - from.zoom) * k;
+      schedulePaint();
+      if (q < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
   });
 
   document
@@ -973,11 +1056,22 @@ export function initField(): void {
       methodIdx = Int32Array.from(a.rows, (r) =>
         BUCKETS.indexOf(a.bucketOf[r[C.method] as number]),
       );
+      // §4.3's twinkle phase, deterministic per record so a point's rhythm is a
+      // property OF THAT RECORD and never re-rolls on a repaint. Quantised into
+      // TWINKLE bands rather than kept per point: a per-point alpha would mean
+      // one fillStyle per record, which is precisely the 115ms-a-frame the
+      // bucketing exists to prevent. Bands keep the loop bucketed and the eye
+      // cannot resolve the quantisation at 8 steps.
+      twinkleBand = Int32Array.from(a.rows, (r) =>
+        Math.min(TWINKLE - 1, Math.floor(hash01(String(r[C.name]), 23) * TWINKLE)),
+      );
       for (const b of BUCKETS) {
         for (const wasIn of [1, 0]) {
           for (const isIn of [1, 0]) {
             for (const resolved of [true, false]) {
+            for (let band = 0; band < TWINKLE; band++) {
             groups.push({
+              band,
               colour: BUCKET_COLOUR[b],
               wasIn,
               isIn,
@@ -986,6 +1080,7 @@ export function initField(): void {
               ys: new Float64Array(a.rows.length),
               n: 0,
             });
+            }
             }
           }
         }

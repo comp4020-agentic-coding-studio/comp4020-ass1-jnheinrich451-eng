@@ -1101,6 +1101,13 @@ which are squashed radial gradients rather than a conic sweep.
      missing — there was no overflow to scroll. */
   min-height: 0;
   grid-template-columns: 210px minmax(0, 1fr) 230px;
+
+  /* EXPAND FIELD is a movement, not a swap. The rails' widths are the thing
+     that changes, so the rails' widths are what animates — the plot column is
+     minmax(0,1fr) and absorbs whatever they give up, exactly as it does on a
+     viewport change. Nothing is repositioned by hand.
+     Fast then slow: the field opens decisively and arrives without a bump. */
+  transition: grid-template-columns 520ms cubic-bezier(0.16, 0.84, 0.24, 1);
   grid-template-rows: minmax(0, 1fr);
   gap: var(--gap);
 }
@@ -2201,13 +2208,34 @@ which are squashed radial gradients rather than a conic sweep.
 
 /* FIELD.md §4 — EXPAND FIELD. Unmounts both rails; the grid collapses to one
    column. The field keeps every bit of state. */
+
+/* Same three-track shape, two of them at zero — an interpolable change. A
+   one-track template would be a different structure and would snap. */
 .focus-mode .grid {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: 0 minmax(0, 1fr) 0;
+}
+
+/* The rails clip rather than reflow: their content keeps its own width while
+   the track closes over it, so nothing inside re-wraps on the way. A rail that
+   re-laid-out at every intermediate width would read as text thrashing. */
+.panel-left,
+.panel-right {
+  overflow: hidden;
+  transition: opacity 240ms linear;
 }
 
 .focus-mode .panel-left,
 .focus-mode .panel-right {
-  display: none;
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grid,
+  .panel-left,
+  .panel-right {
+    transition: none;
+  }
 }
 
 /* ---------------------------------------------------------------------------
