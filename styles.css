@@ -1150,12 +1150,17 @@ which are squashed radial gradients rather than a conic sweep.
   position: relative;
   z-index: 30; /* CONTRACT B: nothing paints between 30 and 39 but the field */
 
-  /* SOLID, and the ONLY surface this mode changes (FIELD.md line 60): the
-     PLANET FIELD's ground turns black and nothing else is touched — not the
-     rails, the margin or the footer, and no other area's opacity. rgba rather
-     than an opaque hex so the V still reads faintly beneath the data instead of
-     the field reading as a hole cut out of the section. */
-  background: rgb(0 0 0 / 85%);
+  /* SOLID, and the ONLY surface this mode changes: the PLANET FIELD gets its
+     own dark ground and nothing else is touched — not the rails, the margin,
+     the footer, or any other area's opacity.
+
+     OPAQUE, and #03040a because that is FIELD.md §1's own value. I had shipped
+     rgba(0,0,0,.85) here on my own initiative, reasoning that letting the V read
+     faintly through was prettier; at 15% the fan's saturated arms still crossed
+     the plot and competed with the data, which is the whole thing this ground
+     exists to prevent. The point of the mode is that colour means data, so
+     nothing behind it may carry colour. */
+  background: #03040a;
   min-width: 0;
   min-height: 0;
 
