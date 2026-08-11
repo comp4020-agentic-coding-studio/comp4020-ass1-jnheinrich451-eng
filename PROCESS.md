@@ -2,87 +2,55 @@
 
 ## What I built
 
-BLINDSPOTS is a one-page scrolling site. The Hero section opens on a rotating
-three.js Mars model in a twinkling starfield, with the BLINDSPOTS title sized
-and centred to Mars's actual on-screen diameter at any viewport, and an
-`[ ENTER OBSERVATORY ]` control that scrolls to the Observatory section below
-it (still a placeholder — its real content is scoped for a later commit).
+BLINDSPOTS is a two-page static site over the NASA Exoplanet Archive's 6,336
+confirmed worlds. The hero is symbolic: a three.js Mars, a scout-trail fan
+generated from `STRIPE.md`'s formula rather than drawn, and a title sized from
+Mars's own projected diameter. The archive page is the instrument — all 6,336
+records in one canvas, four projections that morph between each other, a method
+filter, search, a target readout, HUD tapes that read the exact expression that
+placed the points, and a system view you dive into and return from with the
+field untouched. Vite, TypeScript and three.js; 90 tests run from `pnpm check`.
 
 ## The moments that mattered
 
-Three or four for an assignment; fewer is fine for a weekly prototype. Keep the
-list short so each moment has room to do all four jobs:
+1. **The field ran at 3 FPS and I optimised the wrong thing five times.**
+   Dragging moved "frame by frame instead of an animation", so I did the obvious
+   work first: bucketed the draw loop, culled off-screen points, swapped `arc`
+   for `fillRect`, stopped reallocating the canvas. Every one measured as no
+   change, and I committed that honestly rather than claiming the win
+   ([`f1a5aec`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/f1a5aec)).
+   Instead of optimising a sixth thing I counted what the loop was *doing*:
+   5,067 rAF callbacks against 20 real frames. `paint()` re-entered its own
+   driver, so every frame scheduled two. Frames went 115 ms → 7 ms
+   ([`f1a5aec...7f0865a`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/compare/f1a5aec...7f0865a)).
 
-1. **what happened** --- the problem, or the thing the agent got wrong
-2. **what you did instead of the obvious thing** --- the call you made, and why
-   it beat the obvious one
-3. **how you knew it was right** --- the check you ran, the viewport you looked
-   at, what you read before accepting the diff
-4. **the citation** --- a commit or commit range, a `CLAUDE.md` change, a check
-   that went from red to green, a prompt paired with the commit it produced
+2. **Three bugs at 390×844 that were one bug.** A hot spot thrown off Mars's
+   limb, a scout trail cut early, glitch blocks colliding with the title. The
+   obvious fix is three better numbers. `CLAUDE.md` forbids fixing misalignment
+   with an absolute offset, so I treated them as one class instead: each was a
+   constant standing in for a relation, and the fix is the relation. I knew it
+   was right by measurement, not by eye — the flare's centroid on the phone read
+   174.3 px against a 174.0 px radius, a 0.29 px error, and the trail's mask
+   stops resolved to the limb exactly
+   ([`dc18440`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/dc18440)).
 
-Jobs 2 and 3 are the ones the repo can't tell a reader on its own, so they're
-where the marks are. The strongest moments are the ones where a correction
-landed in the **harness** rather than in another prompt --- a rule added to
-`CLAUDE.md`, a check wired up, an attempt thrown away: re-prompting until it
-passes is the routine case, and changing what the agent works against is the
-skilled one.
+3. **One root cause behind three symptoms, then a test so it cannot come back.**
+   Reference rules sat beside their own ticks and a 2026 record's cursor landed
+   on 2024. Rather than nudging the lines, I looked for what they shared:
+   `logNorm` already emits `0.06 + 0.88t`, and I had applied that padding a
+   second time by reading the spec's mapping line literally. The wrong version
+   renders as *plausible*, so a careful reader is the wrong guard — I added
+   three tests that fail on a double pad, then cropped the tape at 2× to watch
+   the cursor land exactly on 2007
+   ([`4e808db`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/4e808db)).
 
-Cite each moment as a link whose text is the commit hash or range and whose
-target is this repo's commit or compare URL, so a reader clicks straight to the
-evidence (see the worked moment below for the shape).
-
-To pair a prompt with the commit it produced, quote the prompt (curated, not a
-full transcript) next to the citation:
-
-> the prompt, verbatim
-
-Screenshots are welcome where one carries the verification better than a
-sentence does. Commit the file to this repo and link it with a **relative**
-path, which is what makes it render on GitHub: `![alt text](docs/before.png)`.
-Images don't count towards the word count and don't replace the citation.
-
-1. **The title's size was derived from Mars's on-screen radius, not a fixed
-   value** — `font-size: clamp(24px, calc(var(--mars-px) * 0.72), 220px)`, with
-   `--mars-px` set by projecting Mars's world-space edge through the camera on
-   load and on resize. That's correct at 1920×1080, where Mars is wide and
-   short. On a 390×844 phone, the same aspect-driven camera distance puts Mars
-   itself well within the screen, but the resulting `--mars-px` was still large
-   enough to push `BLINDSPOTS`'s ten letters past both edges of a 390px-wide
-   viewport. I only found this by actually loading the page at that viewport
-   with `agent-browser` and screenshotting it — the desktop render looked
-   correct and gave no reason to suspect it. I capped the formula with
-   `min(calc(var(--mars-px) * 0.72), 11vw)` so the viewport width, not just
-   Mars's projected size, bounds the title on narrow screens, and re-screenshot
-   both viewports to confirm the fix didn't change the desktop layout
-   ([`84090f9`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/84090f9)).
-
-2. **The hero's decorative graphic was built from a mental image of
-   `stripes.png`, not from the spec that actually defines its shape.** The
-   result was a decorative PNG stripe with no relationship to the design
-   system's real "scout-trail fan" — a six-band chevron generated by a
-   documented formula in `STRIPE.md`, not drawn freehand. I ported
-   `fanBands()` from `STRIPE.md` verbatim into `fan.ts` and rendered its six
-   literal paths as inline SVG, then wrote `spec/hero.test.ts` to numerically
-   compare the shipped path data against `fan.ts`'s own output — so the
-   markup can't silently drift from the generator the way the old PNG had
-   drifted from any spec at all. Getting the orientation right took a second
-   pass: `STRIPE.md`'s plain default anchors the apex at the bottom, but
-   rendering that literally produced a symmetric bullseye centred on Mars,
-   not the rising trail described. Screenshotting both viewports
-   (`agent-browser`, 1920×1080 and 390×844) showed the difference immediately
-   — flipping the fan (full spread at the bottom edge, apex near the top)
-   read as a single trail rising behind the title, which is what shipped
-   ([`ce08909`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/ce08909)).
-
-## Before you ship
-
-`pnpm check:evidence` verifies your citations resolve to real commits, that the
-current reflection entry is in `reflections/`, and that your `CLAUDE.md` is
-there --- before a marker ever opens the file. It checks that your map is
-traceable, not that it is good: the marker judges whether your small,
-deliberately chosen set of moments shows real judgement and reflection. A green
-check is not a substitute for that curation.
-
-Images are deliberately not checked, because whether one renders is visible the
-moment you look. Open this file on GitHub and look at it before you ship.
+4. **I fixed one transition four times; the fix was deleting the code.** Each
+   round I narrowed when a clamp should run — eagerly, then moving with the
+   rect, then only while morphing, then only when the rect changes — and never
+   asked whether it should exist. The arithmetic settles it in one line:
+   `sx(cx) = pad + iw/2` for any fit, so changing the fit rect rescales the
+   picture about the view's centre and cannot move that centre. Nothing needed
+   correcting. Deleted, and verified where the old code failed: `cx` holds 0.631
+   across every frame of the change at zoom 0.4, where it previously snapped to
+   centre first
+   ([`7b32ba9...c755961`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/compare/7b32ba9...c755961)).
