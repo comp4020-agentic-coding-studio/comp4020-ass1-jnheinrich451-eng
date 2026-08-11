@@ -2536,3 +2536,74 @@ of the word "lagging" I would have made a fast thing faster and left the actual
 defect untouched — which is exactly what happened during the 3-FPS hunt earlier
 this week, when five optimisations measured as no change before I found the
 runaway rAF.
+
+## 2026-08-12 03:20 — Two of three verbs were never implemented
+
+**Prompt:**
+
+> for phone interface, how to operate? I find drag is hard, and rotation is
+> undefined. We can use two fingers in a physical phone, but in Chrome
+> simulation cannot operate? How to fix this problem?
+
+**Result:**
+Three separate gaps wearing one symptom, and the author's phrasing already
+separated two of them — "drag is hard" and "rotation is undefined" are different
+faults.
+
+1. **Neither canvas set `touch-action`**, so the browser claimed every gesture
+   before the field saw it: a drag scrolled the section, a pinch zoomed the
+   document. Dragging felt like fighting the page because it *was* fighting the
+   page.
+2. **ROTATE was bound to `e.button === 2`.** A touch always reports button 0, so
+   the verb had no path to reach on a phone.
+3. **ZOOM was bound to `wheel`**, which a pinch does not produce.
+
+So two of the field's three verbs were unreachable on a phone — not undefined by
+accident, unimplemented.
+
+The grammar now puts each projection's PRIMARY verb on one finger: pan in the
+flat projections, orbit in SPATIAL, because a 3D view you cannot turn is a
+picture. Pinch zooms everywhere, anchored on the pinch's own midpoint the same
+way the wheel is anchored on the cursor — the thing between your fingers is the
+thing that must not move. Two-finger drag pans, including in SPATIAL where that
+is the verb the single finger gave up. Mouse behaviour is untouched: the two
+grammars are keyed on `pointerType`, so neither has to be a compromise for the
+other.
+
+On the emulator question specifically: a gesture is the one control that cannot
+be discovered by looking, and also the one a device emulator may not be able to
+produce. So the answer is not only "implement pinch" — zoom also gets explicit
+buttons and the NAV hint names the grammar the device actually has. Both are
+gated on `(pointer: coarse)`, which asks what the input device can *do* rather
+than guessing from viewport width, so a narrow window on a laptop keeps the
+mouse grammar.
+
+**Verified:**
+With CDP `Input.dispatchTouchEvent` at 390×844 — real multi-touch, which a mouse
+cannot fake and which is exactly the thing the author could not test:
+
+```
+one-finger drag   cx 0.630 → 0.958,  cy 0.500 → 0.573
+pinch out         zoom 1.0 → 2.8
+one finger SPATIAL  pitch 0.350 → 0.638
+fallback buttons  display: flex
+```
+
+`pnpm check` 90/90.
+
+**Commit:** [`e32d628`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/e32d628)
+
+**What happened:**
+Nothing broke this turn, but the finding is worth recording for what it says
+about the harness rather than the code. The site is marked at two viewports and
+one of them is a phone, and I had built every interaction against a mouse for
+the whole of section 2 without once dispatching a touch event. The checks could
+not catch it — none of them drives input — and looking at a screenshot at 390 px
+wide cannot catch it either, because the layout was always fine. It took the
+author picking up a phone.
+
+The sensor that was missing is now the one I used to verify: CDP touch
+dispatch is a few lines on top of the probe harness already in the scratchpad,
+and it can assert a gesture end to end. That is the shape of thing that belongs
+in `spec/` eventually — a check that the field's verbs are all reachable from a
+coarse pointer would have failed on day one and kept failing until today.
