@@ -394,8 +394,55 @@ function buildScene(
   const BACKDROP_RATE = 0.05;
   const CAMERA_RATE = 0.14;
   let spinning = false;
+
+  // WHAT THE ROTATION TURNS.
+  //
+  // Orbiting the camera around the TRACKED PLANET could not read as rotation,
+  // and the measurement says why rather than guesses: with the toggle off the
+  // camera already swings ±260 units, because its focus is the planet and the
+  // planet revolves; and the star projected off-frame in every sample. The
+  // planet is pinned dead centre by lookAt and the star is not in shot, so
+  // nothing whose position depends on yaw was ever visible. The toggle fired
+  // correctly the whole time — there was simply nothing on screen for it to
+  // move.
+  //
+  // So rotation now retargets the camera to the BARYCENTRE (the star sits at
+  // the ellipse's focus, i.e. the origin) for as long as it runs. The orbit
+  // ellipse and the star then sweep through the frame, which is the thing that
+  // reads. This stays a camera move: EFFECT.md §3.1 forbids turning the scene
+  // to present itself, and §3.3 already sanctions a focus change as the one
+  // camera motion the design may initiate on request — a toggle IS the request.
+  //
+  // §3.3's terms, carried exactly: 700 ms easeInOutCubic on the target point
+  // AND on distance, with yaw and pitch untouched. The viewing angle is the
+  // user's and a focus change does not get to take it.
+  const FOCUS_MS = 700;
+  const BARYCENTRE = new THREE.Vector3(0, 0, 0);
+  let focusMix = 0; // 0 = the planet, 1 = the barycentre
+  let focusFrom = 0;
+  let focusTo = 0;
+  let focusT0 = 0;
+  let distFrom = 0;
+  let distTo = 0;
+  let planetDist = 0; // the framing to give back when rotation stops
+
   spin.addEventListener("click", () => {
     spinning = !spinning;
+    focusFrom = focusMix;
+    focusTo = spinning ? 1 : 0;
+    focusT0 = performance.now();
+    distFrom = dist;
+    if (spinning) {
+      planetDist = dist;
+      // §3.4's own ceiling, which IS the system framing: max(planetR×16,
+      // orbitR×2.6) backs off far enough for the whole ellipse on a wide orbit
+      // and far enough for the star on a tight one. Chosen rather than invented
+      // — orbitR×2.2 left a 13.8 R☉ giant filling the frame, which is the same
+      // defect as before wearing a different size.
+      distTo = maxDist();
+    } else {
+      distTo = Math.min(maxDist(), Math.max(minDist, planetDist || dist));
+    }
     spin.textContent = spinning ? "Camera rotation on" : "Camera rotation off";
     spin.classList.toggle("is-active", spinning);
   });
@@ -444,7 +491,21 @@ function buildScene(
       Math.sin(pitch),
       Math.cos(yaw) * Math.cos(pitch),
     ).multiplyScalar(d);
-    const focus = planet.position.clone().add(new THREE.Vector3(panX, panY, 0));
+    // §3.3's focus tween. It runs after the approach block so it wins the
+    // distance while it is live; the approach has already finished by the time
+    // any toggle can be pressed.
+    if (focusT0) {
+      const fp = Math.min(1, (now - focusT0) / FOCUS_MS);
+      const fe = fp < 0.5 ? 4 * fp ** 3 : 1 - (-2 * fp + 2) ** 3 / 2;
+      focusMix = focusFrom + (focusTo - focusFrom) * fe;
+      dist = distFrom + (distTo - distFrom) * fe;
+      if (fp >= 1) focusT0 = 0; // released, so the wheel owns distance again
+    }
+
+    const focus = planet.position
+      .clone()
+      .lerp(BARYCENTRE, focusMix)
+      .add(new THREE.Vector3(panX, panY, 0));
     camera.position.copy(focus).add(eye);
     camera.lookAt(focus);
 
