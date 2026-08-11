@@ -10,6 +10,12 @@
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Poppins:wght@700&family=IBM+Plex+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
+    <!-- Referenced as a RELATIVE path so Vite hashes it into dist/assets/ and
+         rewrites the href under base "./". An absolute /assets/icon.png would
+         resolve to the domain root and 404 on GitHub Pages, which serves the
+         site from /<repo>/ — the one mistake this config exists to avoid. -->
+    <link rel="icon" href="./assets/icon.png" />
+    <link rel="apple-touch-icon" href="./assets/icon.png" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <!-- FIELD.md §5's toggle defaults to CLEAR, for the look: the fan then runs
