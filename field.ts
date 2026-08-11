@@ -179,10 +179,45 @@ export function initField(): void {
     return { w, h };
   }
 
+  // EFFECT.md §1.3 — warming. Law III: nothing is computed on frame 0. The
+  // destination positions used to be built synchronously inside the click, so
+  // the first frame of a 900ms tween did ~25ms of layout work exactly where the
+  // eye is most sensitive, and read as "lag and stuck".
+  //
+  // Each 2D projection's positions are a pure function of the archive and its
+  // extents, so they are computed ONCE PER LAYOUT, EVER, and cached. SPATIAL is
+  // excluded: it depends on the camera, so it is recomputed when the camera
+  // moves and cached only for the current camera.
+  const layoutCache = new Map<Projection, Pos[]>();
+
+  function buildLayout(p: Projection): Pos[] {
+    return archive!.rows.map((r) => positionOf(r, p, ext!, cam));
+  }
+
+  /** Compute a projection's destination positions if they are cold. */
+  function warm(p: Projection): void {
+    if (!archive || !ext) return;
+    if (p === "spatial") return; // camera-dependent; see syncSpatial below
+    if (!layoutCache.has(p)) layoutCache.set(p, buildLayout(p));
+  }
+
+  const idle = (fn: () => void): void => {
+    const ric = (window as unknown as { requestIdleCallback?: (f: () => void) => void })
+      .requestIdleCallback;
+    if (ric) ric(fn);
+    else window.setTimeout(fn, 0);
+  };
+
   function computeTargets(): void {
     if (!archive || !ext) return;
-    target = archive.rows.map((r) => positionOf(r, projectionOf(), ext!, cam));
-    fitRight = target.some((p) => !p.resolved) ? 1.26 : 1;
+    const p = projectionOf();
+    if (p === "spatial") {
+      target = buildLayout(p); // the camera decides it, so it is never cached
+    } else {
+      warm(p);
+      target = layoutCache.get(p)!;
+    }
+    fitRight = target.some((q) => !q.resolved) ? 1.26 : 1;
   }
 
   function paint(): void {
@@ -650,9 +685,19 @@ export function initField(): void {
   document
     .querySelectorAll<HTMLButtonElement>(".field-projection .pick")
     .forEach((b, i) => {
+      // §1.3: the cursor's ~200ms travel to the button is the compute window,
+      // and it is free.
+      b.addEventListener("pointerenter", () => {
+        const next = PROJECTIONS[i];
+        if (next) idle(() => warm(next.id));
+      });
       b.addEventListener("click", () => {
         const next = PROJECTIONS[i];
-        if (next) setProjection(next.id);
+        if (!next) return;
+        // Last chance: compute synchronously if still cold, so the work lands in
+        // the click rather than in the first frame of the tween.
+        warm(next.id);
+        setProjection(next.id);
       });
     });
 
@@ -663,6 +708,11 @@ export function initField(): void {
       archive = a;
       ext = extentsOf(a.rows);
       cam.dist = fitCameraDist(ext.dist[1]);
+      // §1.3: the default and DISCOVERY TIME are warmed at load, the rest in
+      // idle time once the first paint is out of the way.
+      warm("orbit");
+      warm("time");
+      idle(() => warm("distance"));
       prevIn = a.rows.map(() => true);
       nowIn = a.rows.map((r) => inPool(a, r));
       methodIdx = Int32Array.from(a.rows, (r) =>
