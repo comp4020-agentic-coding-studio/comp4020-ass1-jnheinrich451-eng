@@ -2607,3 +2607,46 @@ dispatch is a few lines on top of the probe harness already in the scratchpad,
 and it can assert a gesture end to end. That is the shape of thing that belongs
 in `spec/` eventually — a check that the field's verbs are all reachable from a
 coarse pointer would have failed on day one and kept failing until today.
+
+## 2026-08-12 04:05 — A cap tuned to a phrase
+
+**Prompt:**
+
+> maybe last adjustment, this RETURN TO FIELD, should scale down in phone view!
+
+**Result:**
+At 390 px a long catalogue name — KMT-2016-BLG-0212L b — ran straight under
+[ RETURN TO FIELD ]. The two were absolutely positioned to the same row and
+neither knew about the other, so scaling the button alone would only have moved
+the width at which it happens rather than removing the failure.
+
+The label is `[ ← Field ]` at phone width, and the head is capped to what that
+leaves. The short label is not a workaround: at 390 px the full phrase was a
+third of the screen for a single control, and the arrow says the same thing.
+
+While there: the system legend still read "Drag to inspect · Wheel to zoom · Esc
+to return" on a phone — a wheel and an Esc key the reader does not have. It now
+names the gestures that exist.
+
+**Verified:**
+Measured at 390×844 with the longest name the archive has: gap **+11 px** where
+it was **−14**, and the head clears the foot at 65 against 96. Screenshot read
+rather than diffed.
+
+**Commit:** [`bd6ab4b`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/bd6ab4b)
+
+**What happened:**
+My first fix capped the head at `calc(100% - 160px)` and **still overlapped by
+14 px**. The 160 was a guess at the button's width, and a button's width is
+whatever the font makes it — so I had replaced one pair of numbers that happened
+to clear each other with another pair that happened not to. That is precisely
+the absolute-offset fix CLAUDE.md §6 rules out, and I wrote a comment claiming
+the two now "had a relationship" while shipping exactly the thing the comment
+denied. The measurement caught it immediately; my own reasoning had not.
+
+The legend is the smaller and more useful lesson. I fixed this same fault in the
+field's NAV hint two turns ago — a control hint naming an input device the
+reader does not have — and did not think to look for the second instance twenty
+lines away in another file. Fixing a bug is not the same as fixing its class,
+and the cheap moment to look for siblings is while the first one is still in
+your hands.
