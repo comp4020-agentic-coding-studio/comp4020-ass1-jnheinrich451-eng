@@ -505,6 +505,16 @@
 
               <p class="field-caption" data-placeholder>6,336 confirmed worlds</p>
               <p class="field-nav" data-placeholder>Nav // Drag · Wheel zoom</p>
+
+              <!-- Touch fallback. Pinch is implemented, but a gesture is the one
+                   control that cannot be discovered by looking, and it is also
+                   the one a device emulator may not be able to produce — so the
+                   zoom gets explicit buttons at phone width. They are hidden on
+                   pointer-fine devices, where the wheel already says it. -->
+              <div class="field-touch" aria-label="Zoom">
+                <button id="touch-out" type="button" aria-label="Zoom out">−</button>
+                <button id="touch-in" type="button" aria-label="Zoom in">+</button>
+              </div>
             </div>
 
             <!-- §4 right column. SECTION2-RIGHT-TARGET.md owns the body. -->

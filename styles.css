@@ -1204,6 +1204,15 @@ which are squashed radial gradients rather than a conic sweep.
   display: block;
   width: 100%;
   height: 100%;
+
+  /* THE PAGE MUST NOT CLAIM THE GESTURE.
+     Without this the browser owns every touch on the canvas — a drag scrolls
+     the section and a pinch zooms the document, so the field's own handlers
+     never see either. It is the reason dragging on a phone felt like fighting
+     the page: it WAS fighting the page. `none` because the canvas implements
+     pan, pinch and rotate itself; there is no axis left for the browser to
+     have. */
+  touch-action: none;
 }
 
 .field-title {
@@ -1992,12 +2001,45 @@ which are squashed radial gradients rather than a conic sweep.
   opacity: 1;
 }
 
+/* Only where there is no wheel to reach for. `pointer: coarse` is the honest
+   test — it asks what the input device can do rather than guessing from the
+   viewport width, so a small window on a laptop keeps the mouse grammar. */
+.field-touch {
+  position: absolute;
+  right: 14px;
+  bottom: 52px;
+  z-index: 4;
+  display: none;
+  gap: 6px;
+}
+
+@media (pointer: coarse) {
+  .field-touch {
+    display: flex;
+  }
+}
+
+.field-touch button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgb(150 170 255 / 32%);
+  background: rgb(3 4 10 / 72%);
+  color: #cfd6f6;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
 .system-canvas {
   position: absolute;
   inset: 0;
   display: block;
   width: 100%;
   height: 100%;
+
+  /* Same reason as #field-canvas: it orbits and dollies on its own. */
+  touch-action: none;
 }
 
 .system-head {

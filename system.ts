@@ -717,13 +717,36 @@ function buildScene(
   // small wrist movement threw the system past the terminator, which is the one
   // thing worth aiming carefully at in this view.
 
+  // Touch: one finger orbits (both mouse buttons already do), two fingers
+  // pinch to dolly. Without this the system view had no zoom on a phone at all,
+  // since its only zoom was the wheel.
+  const active = new Map<number, { x: number; y: number }>();
+  let pinchDist = 0;
+
   canvas.addEventListener("pointerdown", (e) => {
+    active.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (active.size === 2) {
+      const [a, b] = [...active.values()];
+      pinchDist = Math.hypot(a.x - b.x, a.y - b.y);
+      dragging = false;
+      return;
+    }
     dragging = true;
     px = e.clientX;
     py = e.clientY;
     canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener("pointermove", (e) => {
+    if (active.has(e.pointerId)) active.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (active.size === 2) {
+      const [a, b] = [...active.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinchDist > 8 && d > 8) {
+        dist = Math.min(maxDist(), Math.max(minDist, dist * (pinchDist / d)));
+      }
+      pinchDist = d;
+      return;
+    }
     if (!dragging) return;
     const dx = e.clientX - px;
     const dy = e.clientY - py;
@@ -738,9 +761,14 @@ function buildScene(
     py = e.clientY;
   });
   canvas.addEventListener("contextmenu", (e) => e.preventDefault());
-  const endDrag = (): void => void (dragging = false);
+  const endDrag = (e?: Event): void => {
+    dragging = false;
+    if (e) active.delete((e as PointerEvent).pointerId);
+    if (active.size < 2) pinchDist = 0;
+  };
   canvas.addEventListener("pointerup", endDrag);
   canvas.addEventListener("pointercancel", endDrag);
+  canvas.addEventListener("pointerleave", endDrag);
   // Non-passive, per §3, because the wheel is a control here.
   canvas.addEventListener(
     "wheel",

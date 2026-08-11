@@ -843,7 +843,51 @@ export function initField(): void {
   let lastX = 0;
   let lastY = 0;
 
+  /** TOUCH.
+   *
+   *  Three separate gaps, not one: the page kept the gesture (no touch-action),
+   *  ROTATE was bound to `e.button === 2` and a touch always reports button 0,
+   *  and ZOOM was bound to `wheel`, which a pinch does not produce. So on a
+   *  phone the field could be dragged only by fighting the page scroll, and two
+   *  of its three verbs were simply unreachable — not undefined by accident,
+   *  unimplemented.
+   *
+   *  The grammar is chosen so the PRIMARY verb of each projection is the
+   *  one-finger one: pan in the flat projections, orbit in SPATIAL, because a
+   *  3D view you cannot turn is a picture. Pinch is zoom everywhere, and a
+   *  two-finger drag pans — including in SPATIAL, where that is the verb the
+   *  single finger gave up.
+   *
+   *  Mouse behaviour is untouched: LEFT translate, RIGHT rotate, wheel zoom.
+   *  The two grammars coexist because they are keyed on pointerType, so neither
+   *  has to be a compromise for the other. */
+  const active = new Map<number, { x: number; y: number }>();
+  let pinchDist = 0;
+  let pinchMidX = 0;
+  let pinchMidY = 0;
+
+  const spread = (): { d: number; mx: number; my: number } => {
+    const [a, b] = [...active.values()];
+    return {
+      d: Math.hypot(a.x - b.x, a.y - b.y),
+      mx: (a.x + b.x) / 2,
+      my: (a.y + b.y) / 2,
+    };
+  };
+
   canvas.addEventListener("pointerdown", (e) => {
+    active.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (active.size === 2) {
+      const g = spread();
+      pinchDist = g.d;
+      pinchMidX = g.mx;
+      pinchMidY = g.my;
+      // A second finger cancels the click AND the one-finger drag: the gesture
+      // that started is not the gesture happening now.
+      dragMoved = true;
+      dragging = false;
+      return;
+    }
     dragging = true;
     dragMoved = false;
     dragButton = e.button;
@@ -854,6 +898,50 @@ export function initField(): void {
 
   canvas.addEventListener("pointermove", (e) => {
     const r = canvas.getBoundingClientRect();
+
+    if (active.has(e.pointerId)) active.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (active.size === 2) {
+      const g = spread();
+      const view = viewFor(projectionOf(), fitLive());
+      zoomTo = null;
+      distTo = null;
+      if (pinchDist > 8 && g.d > 8) {
+        const ratio = g.d / pinchDist;
+        if (projectionOf() === "spatial") {
+          cam.dist = Math.min(
+            distForZoom(ZOOM.min),
+            Math.max(distForZoom(ZOOM.max), cam.dist / ratio),
+          );
+          computeTargets();
+        } else {
+          // Anchored on the pinch's own midpoint, the same way the wheel is
+          // anchored on the cursor — the thing between your fingers is the
+          // thing that must not move.
+          zoomAt(
+            view,
+            -Math.log(ratio) / 0.0015,
+            g.mx - r.left,
+            g.my - r.top,
+            box!.clientWidth,
+            box!.clientHeight,
+            26,
+            fitLive(),
+          );
+        }
+      }
+      // Two-finger drag pans in every projection, including SPATIAL, where it
+      // is the verb the single finger gave up to rotation.
+      const mdx = g.mx - pinchMidX;
+      const mdy = g.my - pinchMidY;
+      view.cx -= (mdx / (box!.clientWidth - 52)) * (fitLive() / view.zoom);
+      view.cy -= mdy / (box!.clientHeight - 52) / view.zoom;
+      pinchDist = g.d;
+      pinchMidX = g.mx;
+      pinchMidY = g.my;
+      schedulePaint();
+      return;
+    }
+
     if (!dragging) {
       // §1: hover PREVIEWS. It writes previewIdx — the same field a FIND row
       // hover writes, so the two can never disagree about what is previewed.
@@ -878,7 +966,10 @@ export function initField(): void {
     zoomTo = null;
     distTo = null;
     const view = viewFor(projectionOf(), fitLive());
-    if (dragButton === 2 && projectionOf() === "spatial") {
+    // A finger in SPATIAL rotates. The mouse still needs its right button,
+    // because on a mouse the left button already means translate everywhere and
+    // that consistency is worth more than a shortcut.
+    if ((dragButton === 2 || e.pointerType !== "mouse") && projectionOf() === "spatial") {
       // §2: RIGHT = ROTATE, and only where an orientation exists. The verb that
       // costs the most is the one you must ask for.
       cam.yaw -= dx * 0.006;
@@ -929,6 +1020,12 @@ export function initField(): void {
     schedulePaint();
   });
   canvas.addEventListener("pointercancel", endDrag);
+  for (const t of ["pointerup", "pointercancel", "pointerleave"]) {
+    canvas.addEventListener(t, (e) => {
+      active.delete((e as PointerEvent).pointerId);
+      if (active.size < 2) pinchDist = 0;
+    });
+  }
   canvas.addEventListener("pointerleave", () => {
     endDrag();
     if (state.previewIdx !== null) {
@@ -1081,6 +1178,58 @@ export function initField(): void {
   // 420ms easeInOut, and it is the same shape as the projection morph, which is
   // what the author asked it to feel like. A reset that teleports is
   // indistinguishable from a reload.
+  // The hint has to name the grammar the device actually has, or it is telling
+  // a phone user about a wheel they do not own. Same `pointer: coarse` test the
+  // buttons use, so the words and the controls can never disagree.
+  {
+    const nav = document.querySelector(".field-nav");
+    if (nav && window.matchMedia("(pointer: coarse)").matches) {
+      nav.textContent =
+        projectionOf() === "spatial"
+          ? "Nav // Drag orbit · Two-finger pan · Pinch zoom"
+          : "Nav // Drag pan · Pinch zoom";
+      nav.removeAttribute("data-placeholder");
+      subscribe(() => {
+        nav.textContent =
+          projectionOf() === "spatial"
+            ? "Nav // Drag orbit · Two-finger pan · Pinch zoom"
+            : "Nav // Drag pan · Pinch zoom";
+      });
+    }
+  }
+
+  // The touch fallback drives the SAME destination the wheel writes, so the two
+  // cannot diverge and a tap glides exactly as a notch does.
+  for (const [id, dir] of [
+    ["#touch-in", -1],
+    ["#touch-out", 1],
+  ] as [string, number][]) {
+    document.querySelector(id)?.addEventListener("click", () => {
+      if (!box) return;
+      if (projectionOf() === "spatial") {
+        distTo = Math.min(
+          distForZoom(ZOOM.min),
+          Math.max(distForZoom(ZOOM.max), (distTo ?? cam.dist) * Math.exp(dir * 260 * 0.0012)),
+        );
+      } else {
+        const to: View = zoomTo ? { ...zoomTo } : { ...viewFor(projectionOf(), fitLive()) };
+        zoomAt(
+          to,
+          dir * 260,
+          box.clientWidth / 2,
+          box.clientHeight / 2,
+          box.clientWidth,
+          box.clientHeight,
+          26,
+          fitLive(),
+        );
+        zoomTo = to;
+      }
+      pending.add("zoom");
+      drive();
+    });
+  }
+
   document.querySelector("#fit-field")?.addEventListener("click", () => {
     const view = viewFor(projectionOf(), fitLive());
     const from = { cx: view.cx, cy: view.cy, zoom: view.zoom };
