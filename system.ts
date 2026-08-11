@@ -381,8 +381,18 @@ function buildScene(
   // The backdrop turns even with the camera still — that is the innate speed
   // the author asked for, and it is what makes a stationary view still read as
   // a system in motion rather than a diagram.
-  const BACKDROP_RATE = 0.012;
-  const CAMERA_RATE = 0.05;
+  // Rates in rad/s, chosen against the clock rather than by feel — the first
+  // pair were not, and measured out at 2.9°/s for the camera and 0.7°/s for the
+  // backdrop: a revolution every 126 s and every 8.7 min. The toggle worked; it
+  // just could not be SEEN to work, which is indistinguishable from broken.
+  //
+  //   camera   ≈ 8°/s  — one revolution in ~45 s. Slow enough to aim through,
+  //                      fast enough that a still frame a second later differs.
+  //   backdrop ≈ 3°/s  — a trim ON TOP of the orbital term below, which is the
+  //                      one that carries revolution (§4.2). This is the drift
+  //                      the author asked for when the camera is off.
+  const BACKDROP_RATE = 0.05;
+  const CAMERA_RATE = 0.14;
   let spinning = false;
   spin.addEventListener("click", () => {
     spinning = !spinning;
@@ -444,6 +454,11 @@ function buildScene(
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
+    }
+    if (import.meta.env.DEV) {
+      // Marker (CLAUDE.md §6): the toggle either does not fire or does not
+      // move the camera enough to see, and those two need different fixes.
+      (window as unknown as { __sys?: unknown }).__sys = { yaw, spinning, backdropSpin };
     }
     renderer.render(scene, camera);
     requestAnimationFrame(frame);

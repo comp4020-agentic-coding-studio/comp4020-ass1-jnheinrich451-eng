@@ -94,11 +94,20 @@ export function initField(): void {
   // projection has unresolved records, and DISCOVERY TIME is the only one with
   // none — so switching to or from it changed the divisor in the mapping, and
   // every point's screen x rescaled in a single frame BEFORE the tween began.
-  // That is the "aligns to the centre first, then transitions" the author saw:
-  // a jump followed by a slide, which is precisely what EFFECT.md §1.2 names as
-  // the way this effect goes wrong. Interpolated on the morph's own clock now,
-  // so the frame and the points move together as one motion.
+  // Interpolated on the morph's own clock, so the rect and the points move
+  // together. That was necessary and NOT sufficient — the clamp that reads the
+  // rect had to move with it too, which is the note in paint().
   let fitFrom = 1;
+
+  /** The fit rect ACTUALLY ON SCREEN this instant, interpolated on the morph's
+   *  own clock. Everything that maps normalised space to pixels — the draw, the
+   *  hit test, the drag, the wheel, the dive — must read this and not
+   *  `fitRight`, or it computes against a rect the user is not looking at. */
+  function fitLive(): number {
+    if (!morphing) return fitRight;
+    const p = Math.min(1, (performance.now() - morphStart) / MORPH_MS);
+    return fitFrom + (fitRight - fitFrom) * easeInOut(p);
+  }
 
   // LOAD_DATA.md §9 / LEFT-OBSERVE.md §4: a filter change is ANIMATED, not
   // switched. Radius and alpha interpolate between the previous filter's
@@ -246,10 +255,38 @@ export function initField(): void {
       : 1;
     const e = p < 1 ? easeInOut(p) : 1;
 
-    const fitNow = fitFrom + (fitRight - fitFrom) * e;
+    let probeSum = 0;
+    let probeN = 0;
+    const fitNow = fitLive();
+    // THE CLAMP MOVES WITH THE RECT.
+    //
+    // Interpolating the rect alone was not enough, and the author was right
+    // that the align-to-centre survived it. #7b clamps the view into the new
+    // rect on the projection change, and at zoom 1 clampView pins cx to exactly
+    // fitRight/2 — so switching to DISCOVERY TIME, the only projection with no
+    // unresolved records and therefore the only one whose rect is 1 rather than
+    // 1.26, moved cx from 0.63 to 0.5 in a single frame BEFORE the tween began.
+    // The cloud snapped to the centre, then slid. That is the whole effect: the
+    // rect was interpolated, the centre it was measured from was not.
+    //
+    // Clamping here, against the LIVE rect, keeps #7b's meaning exactly — it is
+    // still a clamp, never an interpolation toward the new centre — while
+    // making the correction land over the same 900 ms the rect takes. The other
+    // three projections share a rect, so their clamp is a no-op and they were
+    // always smooth; that is why this was exclusive to DISCOVERY TIME, and why
+    // the author's "look at how the other three transit to each other" was the
+    // right place to look.
+    clampView(view, fitNow);
     const map = mapping(view, w, h, pad, fitNow);
     const sx = map.sx;
     const sy = map.sy;
+
+    // A MARKER, not a feature (CLAUDE.md §6). The transition bug survived one
+    // fix because the only instrument available was a pixel centroid, and that
+    // number moves when the HUD furniture changes as well as when the cloud
+    // does — so it could not say WHICH had jumped. This publishes the mapping
+    // itself, so a probe can read the frame the user is actually looking at.
+    // DEV only: it never reaches the deployed bundle.
 
 
     // §7 step 2 — furniture UNDER the points.
@@ -311,6 +348,10 @@ export function initField(): void {
             (nowIn[i] === false ? 2 : 0) +
             (to.resolved ? 0 : 1)
         ];
+      if (import.meta.env.DEV) {
+        probeSum += x;
+        probeN++;
+      }
       g.xs[g.n] = x;
       g.ys[g.n] = y;
       g.n++;
@@ -331,6 +372,25 @@ export function initField(): void {
       }
     }
     ctx!.globalAlpha = 1;
+
+    if (import.meta.env.DEV) {
+      (window as unknown as { __field?: unknown }).__field = {
+        fitNow,
+        fitFrom,
+        fitRight,
+        cx: view.cx,
+        cy: view.cy,
+        zoom: view.zoom,
+        e,
+        morphing,
+        // where normalised x=0 and x=1 actually land this frame
+        x0: sx(0),
+        x1: sx(1),
+        // the CLOUD alone, in pixels — no HUD, no furniture, no tapes
+        cloud: probeN ? probeSum / probeN : 0,
+        n: probeN,
+      };
+    }
 
     // §7 step 5: marked records are held back and painted LAST. In a dense
     // region the selected point was being overpainted by every later index —
@@ -453,8 +513,19 @@ export function initField(): void {
     if (next === projectionOf()) return;
     // Freeze what is on screen right now as the morph's origin (§8) — both the
     // positions AND the rect they are being drawn through.
-    drawn = target.length ? target.map((t) => ({ ...t })) : [];
-    fitFrom = fitRight;
+    // Both of these were reading the DESTINATION, not the screen. Mid-morph
+    // `target` is where the points are going and `fitRight` is the rect they
+    // are going into, so switching projections during a morph restarted from a
+    // state that had never been drawn — the comment above already claimed
+    // "currently drawn", and the code did not do it.
+    const me = morphing
+      ? easeInOut(Math.min(1, (performance.now() - morphStart) / MORPH_MS))
+      : 1;
+    fitFrom = fitLive();
+    drawn = target.map((t, i) => {
+      const f = drawn[i] ?? t;
+      return { ...t, x: f.x + (t.x - f.x) * me, y: f.y + (t.y - f.y) * me };
+    });
     state.projection = next;
     computeTargets();
     if (drawn.length && !reduceMotion()) {
@@ -464,9 +535,8 @@ export function initField(): void {
     } else {
       drawn = target.map((t) => ({ ...t }));
     }
-    // #7b: the view is NOT interpolated. Clamp it into the new fit rect, which
-    // is a correction; interpolating toward the new centre would be a hijack.
-    clampView(viewFor(next, fitRight), fitRight);
+    // #7b's clamp now lives in paint(), against the live rect — see the note
+    // there. Clamping to the destination rect here is what produced the jump.
     syncChrome();
     renderTarget(); // §4's note names the CURRENT projection, so it must follow
     drive();
@@ -514,7 +584,8 @@ export function initField(): void {
   function nearest(px: number, py: number, radius: number): number | null {
     if (!archive || !box) return null;
     const { clientWidth: w, clientHeight: h } = box;
-    const map = mapping(viewFor(projectionOf(), fitRight), w, h, 26, fitRight);
+    const f = fitLive();
+    const map = mapping(viewFor(projectionOf(), f), w, h, 26, f);
     let best: number | null = null;
     let bestD = radius * radius;
     for (let i = 0; i < target.length; i++) {
@@ -568,7 +639,7 @@ export function initField(): void {
       dragMoved = dragMoved || Math.hypot(dx, dy) > 3;
     lastX = e.clientX;
     lastY = e.clientY;
-    const view = viewFor(projectionOf(), fitRight);
+    const view = viewFor(projectionOf(), fitLive());
     if (dragButton === 2 && projectionOf() === "spatial") {
       // §2: RIGHT = ROTATE, and only where an orientation exists. The verb that
       // costs the most is the one you must ask for.
@@ -577,7 +648,7 @@ export function initField(): void {
       computeTargets();
     } else if (box) {
       // §2: LEFT = TRANSLATE, in every projection, so muscle memory carries.
-      view.cx -= (dx / (box.clientWidth - 52)) * (fitRight / view.zoom);
+      view.cx -= (dx / (box.clientWidth - 52)) * (fitLive() / view.zoom);
       view.cy -= dy / (box.clientHeight - 52) / view.zoom;
     }
     schedulePaint();
@@ -625,14 +696,14 @@ export function initField(): void {
         computeTargets();
       } else if (box) {
         zoomAt(
-          viewFor(projectionOf(), fitRight),
+          viewFor(projectionOf(), fitLive()),
           e.deltaY,
           e.clientX - r.left,
           e.clientY - r.top,
           box.clientWidth,
           box.clientHeight,
           26,
-          fitRight,
+          fitLive(),
         );
       }
       schedulePaint();
@@ -648,7 +719,7 @@ export function initField(): void {
     if (i === null) return;
     const t = target[i];
     if (!t || !t.resolved) return;
-    const view = viewFor(projectionOf(), fitRight);
+    const view = viewFor(projectionOf(), fitLive());
     const from = { ...view };
     const to: View = {
       cx: t.x,
@@ -765,7 +836,7 @@ export function initField(): void {
         // Save { cx, cy, zoom } before anything moves, tween into the point at
         // zoom x11 over 720ms accelerating, and hand the same saved view back
         // on the way out as a decelerating surfacing tween.
-        const view = viewFor(projectionOf(), fitRight);
+        const view = viewFor(projectionOf(), fitLive());
         const saved = { ...view, projection: projectionOf() };
         const i = state.selectedIdx;
         const pt = i !== null ? target[i] : null;
