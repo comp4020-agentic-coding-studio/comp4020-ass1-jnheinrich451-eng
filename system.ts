@@ -582,6 +582,7 @@ function buildScene(
   let last = start;
   let angle = 0;
   let backdropSpin = 0;
+  let residWarned = false;
   const periodDays = num(C.orbper, 365);
 
   function frame(now: number): void {
@@ -596,40 +597,21 @@ function buildScene(
     const target = entryDist + (Math.max(orbitR * 1.35, entryDist * 4) - entryDist) * (1 - eased);
     if (t < 1) dist = target;
 
-    // §3: revolution is read from the planet moving, never from camera motion.
-    angle += (dt * Math.PI * 2) / Math.max(periodDays / 40, 2);
-    const b = orbitR * Math.sqrt(1 - ecc * ecc);
-    planet.position.set(
-      Math.cos(angle) * orbitR - orbitR * ecc,
-      0,
-      Math.sin(angle) * b,
-    );
-    planet.rotation.y += dt * 0.25; // ILLUSTRATIVE, and disclosed as such
-
-    // Push the planet's current position onto the trail. Ring buffer written as
-    // a straight shift: 96 entries a frame is nothing next to the scene, and a
-    // wrapped buffer would need the line split at the seam.
-    for (let i = (Math.min(tailN, TAIL - 1)) * 3; i >= 3; i -= 3) {
-      tailPos[i] = tailPos[i - 3];
-      tailPos[i + 1] = tailPos[i - 2];
-      tailPos[i + 2] = tailPos[i - 1];
-    }
-    tailPos[0] = planet.position.x;
-    tailPos[1] = planet.position.y;
-    tailPos[2] = planet.position.z;
-    tailN = Math.min(tailN + 1, TAIL);
-    tailGeo.setDrawRange(0, tailN);
-    tailGeo.attributes.position.needsUpdate = true;
-    // Half a turn of backdrop per turn of orbit: enough that the revolution is
-    // legible, little enough that it never competes with the planet.
-    // With the camera still the backdrop turns at its own rate; with the camera
-    // spinning it is carried the SAME way, so the two add rather than fight and
-    // the sky appears to accelerate. Both read DIR, so neither can reverse
-    // relative to the other.
-    backdropSpin += dt * DIR * (BACKDROP_RATE + (spinning ? CAMERA_RATE : 0));
-    backdrop.rotation.y = backdropSpin - angle * 0.5;
-    if (spinning) yaw += dt * DIR * CAMERA_RATE;
-
+    // THE SCALE MUST BE SETTLED BEFORE THE PLANET IS PLACED.
+    //
+    // This block used to run AFTER the planet's position was computed, so
+    // within one frame the ring was rebuilt at the new orbitR while the planet
+    // still sat on the old one. At rest that is invisible, because the two ends
+    // of the tween agree; mid-tween, where the ease is fastest, orbitR can move
+    // several percent in a single frame and the planet visibly falls inside its
+    // own orbit. Measured: the ellipse residual, exactly 1.0000 at rest, sagged
+    // to 0.9101 during a ×1 → ×5 change and recovered only when the tween
+    // landed — which is the "short period the planet is not on the orbit" the
+    // author reported.
+    //
+    // One value, written once, then read by everyone who needs it that frame.
+    // The tail's rescale stays here too, so the old samples are converted before
+    // the new one is pushed below.
     // The orbit scale is a tween, and re-framing follows it: in SYSTEM mode the
     // distance is re-derived every frame from the CURRENT orbitR, so growing the
     // orbit pulls the camera back with it and the 85% holds throughout the move
@@ -669,6 +651,41 @@ function buildScene(
 
     tailScale = orbitScale; // every frame, tween or not — the trail is now in
     // the current orbit's units by construction.
+
+    // §3: revolution is read from the planet moving, never from camera motion.
+    angle += (dt * Math.PI * 2) / Math.max(periodDays / 40, 2);
+    const b = orbitR * Math.sqrt(1 - ecc * ecc);
+    planet.position.set(
+      Math.cos(angle) * orbitR - orbitR * ecc,
+      0,
+      Math.sin(angle) * b,
+    );
+    planet.rotation.y += dt * 0.25; // ILLUSTRATIVE, and disclosed as such
+
+    // Push the planet's current position onto the trail. Ring buffer written as
+    // a straight shift: 96 entries a frame is nothing next to the scene, and a
+    // wrapped buffer would need the line split at the seam.
+    for (let i = (Math.min(tailN, TAIL - 1)) * 3; i >= 3; i -= 3) {
+      tailPos[i] = tailPos[i - 3];
+      tailPos[i + 1] = tailPos[i - 2];
+      tailPos[i + 2] = tailPos[i - 1];
+    }
+    tailPos[0] = planet.position.x;
+    tailPos[1] = planet.position.y;
+    tailPos[2] = planet.position.z;
+    tailN = Math.min(tailN + 1, TAIL);
+    tailGeo.setDrawRange(0, tailN);
+    tailGeo.attributes.position.needsUpdate = true;
+    // Half a turn of backdrop per turn of orbit: enough that the revolution is
+    // legible, little enough that it never competes with the planet.
+    // With the camera still the backdrop turns at its own rate; with the camera
+    // spinning it is carried the SAME way, so the two add rather than fight and
+    // the sky appears to accelerate. Both read DIR, so neither can reverse
+    // relative to the other.
+    backdropSpin += dt * DIR * (BACKDROP_RATE + (spinning ? CAMERA_RATE : 0));
+    backdrop.rotation.y = backdropSpin - angle * 0.5;
+    if (spinning) yaw += dt * DIR * CAMERA_RATE;
+
 
     // §3.3's focus tween. It runs after the approach block so it wins the
     // distance while it is live; the approach has already finished by the time
@@ -740,6 +757,19 @@ function buildScene(
       const resid =
         ((planet.position.x + orbitR * ecc) / orbitR) ** 2 +
         (planet.position.z / bb) ** 2;
+      // A RUNTIME INVARIANT, not a unit test. The two formulas were always
+      // identical — what broke was the ORDER they ran in, and no test of a pure
+      // function can see that. This can: the planet must satisfy its own
+      // orbit's equation on every frame, including every frame of a tween.
+      // Warns once, so a regression announces itself the first time it happens
+      // rather than waiting to be noticed in a screenshot.
+      if (Math.abs(resid - 1) > 0.01 && !residWarned) {
+        residWarned = true;
+        console.warn(
+          `[system] planet is off its orbit: residual ${resid.toFixed(4)} (expected 1). ` +
+            `Something read orbitR before the scale tween settled it.`,
+        );
+      }
       (window as unknown as { __sys?: unknown }).__sys = {
         yaw,
         spinning,
