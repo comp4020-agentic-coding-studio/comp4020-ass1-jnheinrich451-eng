@@ -347,9 +347,58 @@ function buildScene(
   scene.add(star);
   scene.add(new THREE.PointLight(0xffffff, 2.4, 0, 0));
 
+  // §5's PROCEDURAL surface, already disclosed as such in the block. Its job is
+  // exactly one thing: make the rotation legible. A featureless sphere spins
+  // invisibly, so "Rotation // ILLUSTRATIVE" was a claim the picture could not
+  // support — and once the camera stops moving, the planet turning is one of
+  // the few motions left to read.
+  //
+  // Bands plus blobs, seeded from the record's name, so a planet's face is a
+  // property of that planet and identical on every visit. Deliberately low
+  // contrast: it must read as texture at a glance and never as a map.
+  const planetTex = (() => {
+    const c = document.createElement("canvas");
+    c.width = 256;
+    c.height = 128;
+    const g = c.getContext("2d");
+    if (!g) return null;
+    const name = String(row[C.name]);
+    // WHITE base, so the map only MODULATES. Seeding it from the equilibrium
+    // temperature made the planet the colour of a star, which is the one thing
+    // the system view must never blur: the material's own colour stays the
+    // planet's, and the texture multiplies into it.
+    g.fillStyle = "#ffffff";
+    g.fillRect(0, 0, 256, 128);
+    // Latitude bands — the one structure every gas envelope has, and the one
+    // that makes an axis of rotation visible.
+    for (let i = 0; i < 9; i++) {
+      const y = (i / 9) * 128;
+      const h = 128 / 9;
+      const k = hash01(name, 40 + i);
+      g.fillStyle = `rgba(${k > 0.5 ? "255,255,255" : "0,0,0"},${0.04 + k * 0.07})`;
+      g.fillRect(0, y, 256, h);
+    }
+    for (let i = 0; i < 26; i++) {
+      const x = hash01(name, 80 + i) * 256;
+      const y = hash01(name, 120 + i) * 128;
+      const r = 4 + hash01(name, 160 + i) * 16;
+      g.fillStyle = `rgba(0,0,0,${0.05 + hash01(name, 200 + i) * 0.08})`;
+      g.beginPath();
+      g.ellipse(x, y, r, r * 0.55, 0, 0, Math.PI * 2);
+      g.fill();
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = THREE.RepeatWrapping;
+    return t;
+  })();
+
   const planet = new THREE.Mesh(
     new THREE.SphereGeometry(planetR, 48, 48),
-    new THREE.MeshStandardMaterial({ color: 0x9fb4d8, roughness: 0.92 }),
+    new THREE.MeshStandardMaterial({
+      color: 0x9fb4d8,
+      map: planetTex,
+      roughness: 0.92,
+    }),
   );
   scene.add(planet);
 
@@ -591,11 +640,34 @@ function buildScene(
       if (fp >= 1) focusT0 = 0; // released, so the wheel owns distance again
     }
 
+    // PLANET MODE CO-ROTATES WITH THE PLANET.
+    //
+    // The correction the author made: I had read "camera still, planet moving"
+    // as the planet being the centre everything turns around — so the star swung
+    // across the frame, which is the opposite of what was asked. What was asked
+    // is that the star and the planet BOTH hold their place on screen: their
+    // relative geometry is fixed, so the pair should be fixed, and the
+    // revolution should be told by the things that are genuinely moving relative
+    // to them — the orbit path sweeping past, the tail, and the starfield.
+    //
+    // That is one line: carry the camera's azimuth by the planet's own orbital
+    // azimuth. Then the star-planet axis is constant in camera space by
+    // construction rather than by correction, and the ellipse and sky rotate
+    // because they really are rotating relative to a frame that turns with the
+    // planet. The distance to the star still breathes with eccentricity, and it
+    // should — that breathing IS the eccentricity, and it is the one thing an
+    // ellipse drawn flat cannot show.
+    //
+    // Weighted by (1 − focusMix), so SYSTEM keeps the fixed inertial frame the
+    // author approved and the changeover rides the same 700 ms focus tween.
+    const planetAz = Math.atan2(planet.position.x, planet.position.z);
+    const effYaw = yaw + planetAz * (1 - focusMix);
+
     const d = Math.min(maxDist(), Math.max(minDist, dist));
     const eye = new THREE.Vector3(
-      Math.sin(yaw) * Math.cos(pitch),
+      Math.sin(effYaw) * Math.cos(pitch),
       Math.sin(pitch),
-      Math.cos(yaw) * Math.cos(pitch),
+      Math.cos(effYaw) * Math.cos(pitch),
     ).multiplyScalar(d);
     const focus = planet.position.clone().lerp(BARYCENTRE, focusMix);
     camera.position.copy(focus).add(eye);
@@ -635,7 +707,6 @@ function buildScene(
   // §3: camera orbit is USER-DRIVEN ONLY. Nothing moves the viewing angle on
   // its own, so every unprompted motion on screen belongs to the planet.
   let dragging = false;
-  let dragButton = 0;
   let px = 0;
   let py = 0;
   // §3, and INTERACTION.md §2's grammar carried in unchanged: LEFT = translate,
@@ -648,7 +719,6 @@ function buildScene(
 
   canvas.addEventListener("pointerdown", (e) => {
     dragging = true;
-    dragButton = e.button;
     px = e.clientX;
     py = e.clientY;
     canvas.setPointerCapture(e.pointerId);

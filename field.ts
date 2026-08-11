@@ -308,7 +308,11 @@ export function initField(): void {
     // The clamp is a projection-change correction, so it belongs to the
     // projection change. Bounding a free pan is a different decision and is not
     // one this fix gets to make on the way past.
-    if (morphing) clampView(view, fitNow);
+    // ...and only when the RECT IS ACTUALLY CHANGING. The clamp exists to carry
+    // the view across a change of fit rect; on the three projections that share
+    // one it has nothing to correct, so running it there could only ever move a
+    // view the user had set. "From where they are" is the whole requirement.
+    if (morphing && fitFrom !== fitRight) clampView(view, fitNow);
     const map = mapping(view, w, h, pad, fitNow);
     const sx = map.sx;
     const sy = map.sy;

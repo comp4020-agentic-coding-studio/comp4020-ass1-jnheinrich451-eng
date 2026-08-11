@@ -266,8 +266,8 @@ export function drawAxes(
     // PROJECTIONS.md §3: references BEFORE the tapes, so a tick never has to
     // compete with a rule drawn over it.
     orbitReferences(ctx, f, ext, box);
-    horizontalLog(ctx, f, ext.orbper, box, ay, f.narrow ? "PERIOD [D]" : "ORBITAL PERIOD [D]");
-    verticalLog(ctx, f, ext.rade, top, ay, ax, f.narrow ? "R⊕" : "PLANET RADIUS [R⊕]");
+    horizontalLog(ctx, f, ext.orbper, box, ay);
+    verticalLog(ctx, f, ext.rade, top, ay, ax);
     axisTitles(
       ctx,
       ay,
@@ -316,7 +316,6 @@ function horizontalLog(
   span: [number, number],
   env: Env,
   ay: number,
-  title: string,
 ): void {
   ctx.strokeStyle = LINE;
   ctx.beginPath();
@@ -357,7 +356,6 @@ function verticalLog(
   top: number,
   ay: number,
   ax: number,
-  title: string,
 ): void {
   ctx.strokeStyle = LINE;
   ctx.beginPath();
@@ -387,7 +385,6 @@ function verticalLog(
     }
   }
 
-  void title; // drawn by axisTitles, under one rule for all four
 }
 
 function horizontalYear(

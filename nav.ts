@@ -96,10 +96,21 @@ export function resetView(_p: Projection, fitRight: number): View {
  *  into the new rect rather than interpolating toward its centre. "A clamp is a
  *  correction, an interpolation is a hijack." */
 export function clampView(v: View, fitRight: number): void {
+  // BELOW ZOOM 1 THERE IS NO RANGE TO CLAMP INTO.
+  //
+  // The frame is then wider than the content, so `half` exceeds `fitRight/2`
+  // and the two bounds cross: `fitRight - half` is the SMALLER of them, and
+  // min(smaller, max(larger, cx)) collapses to `fitRight - half` — which at
+  // zoom 0.4 is −0.25. That is the projection change dragging the field down
+  // and left before the tween, and it only existed because widening the zoom
+  // range to allow zooming out took the clamp somewhere it had never been.
+  //
+  // When the content fits, the answer is to centre it, not to pin it to a
+  // bound that is behind the other bound.
   const half = fitRight / (2 * v.zoom);
-  v.cx = Math.min(fitRight - half, Math.max(half, v.cx));
+  v.cx = half * 2 >= fitRight ? fitRight / 2 : Math.min(fitRight - half, Math.max(half, v.cx));
   const halfY = 1 / (2 * v.zoom);
-  v.cy = Math.min(1 - halfY, Math.max(halfY, v.cy));
+  v.cy = halfY * 2 >= 1 ? 0.5 : Math.min(1 - halfY, Math.max(halfY, v.cy));
 }
 
 export interface Mapping {
