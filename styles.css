@@ -1510,7 +1510,7 @@ which are squashed radial gradients rather than a conic sweep.
   display: none;
 }
 
-/* §2: heading to list is 12px, row to row is 2px. */
+/* §2: heading to list is 12px, row to row is 2px — scaled with the panel. */
 .methods,
 .requirements {
   display: flex;
@@ -1530,7 +1530,7 @@ which are squashed radial gradients rather than a conic sweep.
   gap: 8px;
   align-items: center;
   width: 100%;
-  padding: 5px 4px;
+  padding: calc(5px * var(--find-lead, 1)) 4px;
   border: 0;
   background: none;
   font-family: inherit;
@@ -1555,9 +1555,16 @@ which are squashed radial gradients rather than a conic sweep.
   color: rgb(150 170 255 / 45%);
 }
 
-/* LEFT-FIND.md §1 — column gap 11px top to bottom. */
+/* LEFT-FIND.md §1 gives 11px top to bottom. The panel is denser than that
+   wants, so the whole vertical rhythm is scaled by ONE ratio rather than each
+   measure being re-picked by hand. Every gap keeps its relative weight — the
+   heading still reads as further from its list than the rows are from each
+   other — which is the thing a set of new fixed numbers would have destroyed.
+   Change the ratio, not the twelve values below it. */
 .find {
-  gap: 11px;
+  --find-lead: 0.62;
+
+  gap: calc(11px * var(--find-lead));
 }
 
 /* One style for both controls, matching the rail's own furniture: transparent
@@ -1582,7 +1589,7 @@ which are squashed radial gradients rather than a conic sweep.
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: calc(4px * var(--find-lead, 1)) 4px;
 }
 
 .chip {
@@ -1650,6 +1657,19 @@ which are squashed radial gradients rather than a conic sweep.
   justify-content: space-between;
 }
 
+/* The count had NO rule at all, so it inherited the body face and rendered
+   large and sentence-case — a number set as prose, which CLAUDE.md §5 forbids
+   outright ("every number is mono, no exceptions"). It also wrapped to two
+   tall lines and was the loosest thing in the panel, which is why it showed up
+   the moment the rest was tightened. */
+.readout {
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: #8f9ad4;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 /* §5: the empty state names WHICH constraint bit, in the caution colour. */
 .find-empty:not(:empty) {
   display: flex;
@@ -1674,12 +1694,15 @@ which are squashed radial gradients rather than a conic sweep.
   list-style: none;
 }
 
-/* §3 — the result row. flex: 0 0 auto because the COLUMN scrolls, not this. */
+/* §3 — the result row. flex: 0 0 auto because the COLUMN scrolls, not this.
+   Only the VERTICAL padding takes the ratio: squeezing the horizontal padding
+   too would pull the text off its own left rule, and the row's problem was
+   never its width. */
 .find-row {
   flex: 0 0 auto;
-  padding: 9px 9px 10px;
+  padding: calc(9px * var(--find-lead, 1)) 9px calc(10px * var(--find-lead, 1));
   border-left: 2px solid transparent;
-  line-height: 1.45;
+  line-height: calc(1.45 * var(--find-line, 0.92));
 }
 
 .find-row .l1 {
@@ -2205,7 +2228,7 @@ which are squashed radial gradients rather than a conic sweep.
 .find-foot {
   display: flex;
   flex-direction: column;
-  gap: 11px;
+  gap: calc(11px * var(--find-lead, 1));
   min-height: 0;
 }
 

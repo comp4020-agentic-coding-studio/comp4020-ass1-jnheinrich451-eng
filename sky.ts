@@ -11,6 +11,7 @@
 // a value goes.
 
 import { type Camera, project } from "./data";
+import { referenceDist } from "./nav";
 import type { Env, Frame } from "./axes";
 
 const LINE = "rgba(150,170,255,0.42)";
@@ -393,7 +394,7 @@ export function drawSkyTapes(
   // constant chosen for the tape — it is the camera's field width, and the
   // strip is quoting it.
   const plotW = box.x1 - box.x0;
-  const pxDeg = plotW / (48 * (cam.dist / 2.75));
+  const pxDeg = plotW / (48 * (cam.dist / referenceDist()));
   const midX = (box.x0 + box.x1) / 2;
   const midY = (box.y0 + ay) / 2;
   const yawDeg = (cam.yaw * 180) / Math.PI;
@@ -522,16 +523,13 @@ export function drawSkyTapes(
   ctx.textBaseline = "middle";
   ctx.fillText(decLabel(pitchDeg, 0.5), ax - 5, midY);
 
+  // Same rule as the other three (axes.ts axisTitles): horizontal title clear
+  // of the vertical tape, vertical title above the axis it names.
   ctx.font = '9.5px "IBM Plex Mono", monospace';
   ctx.fillStyle = DIM;
   ctx.textAlign = "right";
   ctx.textBaseline = "bottom";
-  ctx.fillText("RA // HOURS", box.x1, ay - 4);
-  ctx.save();
-  ctx.translate(ax - 4, box.y0);
-  ctx.rotate(Math.PI / 2);
-  ctx.textAlign = "left";
-  ctx.fillText("DEC // DEGREES", 0, 0);
-  ctx.restore();
+  ctx.fillText("RA // HOURS", ax - 10, ay - 6);
+  ctx.fillText("DEC // DEGREES", ax + 8, box.y0 - 6);
   ctx.restore();
 }

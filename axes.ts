@@ -70,7 +70,11 @@ export interface Tick {
 export interface AxisExtras {
   cam: Camera | null;
   cursor: { year: number; locked: boolean } | null;
-  cloud: { label: string; count: number } | null;
+  cloud: {
+    label: string;
+    count: number;
+    frame: { cx: number; rx: number; ry: number };
+  } | null;
 }
 
 /** §5.3's chevron is the ONE piece of field furniture that takes a pointer, so
@@ -184,6 +188,43 @@ export function plotRect(f: Frame, env: Env): { l: number; r: number; t: number;
   return { l, r, t: Math.min(tp, b - 120), b };
 }
 
+/** ONE rule for both titles, in every projection.
+ *
+ *  They were each written where their own tape happened to end: the horizontal
+ *  title right-aligned at env.x1, which IS the vertical tape's x, so the two
+ *  overlapped; and the vertical title rotated along its own axis line, so at
+ *  some zooms it sat under the ticks and could not be read at all.
+ *
+ *  The rule the author asked for, and it is the right one because it is stated
+ *  in terms of the OTHER axis rather than in terms of offsets:
+ *    horizontal — right-aligned, ending CLEAR of the vertical tape
+ *    vertical   — on top, above the axis, so it never crosses the line it names
+ *  Both are still inside the plot's span, so neither tape needs outer
+ *  clearance, which is what §2 was protecting. */
+function axisTitles(
+  ctx: CanvasRenderingContext2D,
+  ay: number,
+  ax: number,
+  top: number,
+  xTitle: string | null,
+  yTitle: string | null,
+): void {
+  ctx.save();
+  ctx.fillStyle = DIM;
+  if (xTitle) {
+    ctx.textAlign = "right";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(xTitle, ax - 10, ay - 6);
+  }
+  if (yTitle) {
+    // Right-aligned to the axis it names, sitting above its top end.
+    ctx.textAlign = "right";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(yTitle, ax + 8, top - 6);
+  }
+  ctx.restore();
+}
+
 /** Draw the tapes for a projection. Returns nothing: it is furniture. */
 export function drawAxes(
   ctx: CanvasRenderingContext2D,
@@ -227,15 +268,27 @@ export function drawAxes(
     orbitReferences(ctx, f, ext, box);
     horizontalLog(ctx, f, ext.orbper, box, ay, f.narrow ? "PERIOD [D]" : "ORBITAL PERIOD [D]");
     verticalLog(ctx, f, ext.rade, top, ay, ax, f.narrow ? "R⊕" : "PLANET RADIUS [R⊕]");
+    axisTitles(
+      ctx,
+      ay,
+      ax,
+      top,
+      f.narrow ? "PERIOD [D]" : "ORBITAL PERIOD [D]",
+      f.narrow ? "R⊕" : "PLANET RADIUS [R⊕]",
+    );
   } else if (projection === "time") {
     horizontalYear(ctx, f, ext.year, box, ay);
     // §6: the right side is the rule made visible. y here is a display spread,
     // so it gets a SHAPE AND A DISCLOSURE, never a scale — ticks would invent a
     // measurement that does not exist.
     bracket(ctx, f, top, ay, ax);
+    axisTitles(ctx, ay, ax, top, "T // DISCOVERY YEAR", bracketCaption(ctx, ax - rect.l));
     if (x.cursor) timeCursor(ctx, f, ext.year, box, x.cursor);
   } else if (projection === "distance") {
     rings(ctx, f, ext.dist, box);
+    // EARTH DISTANCE has no tapes — its index is the rings — so the only title
+    // it can honestly carry is the radial one.
+    axisTitles(ctx, ay, ax, top, null, "R // LOG DISTANCE [PC]");
     solMarker(ctx, f, box, "0 PC");
   } else {
     // SPATIAL.md supersedes PROJECTIONS.md §6.1 for this projection: the scale
@@ -295,11 +348,6 @@ function horizontalLog(
     }
   }
 
-  // §5: the title sits INSIDE the tape, so the tape needs no outer clearance.
-  ctx.fillStyle = DIM;
-  ctx.textAlign = "right";
-  ctx.textBaseline = "bottom";
-  ctx.fillText(title, env.x1, ay - 4);
 }
 
 function verticalLog(
@@ -339,14 +387,7 @@ function verticalLog(
     }
   }
 
-  ctx.save();
-  ctx.translate(ax - 4, top);
-  ctx.rotate(Math.PI / 2);
-  ctx.fillStyle = DIM;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "bottom";
-  ctx.fillText(title, 0, 0);
-  ctx.restore();
+  void title; // drawn by axisTitles, under one rule for all four
 }
 
 function horizontalYear(
@@ -390,10 +431,6 @@ function horizontalYear(
     }
   }
 
-  ctx.fillStyle = DIM;
-  ctx.textAlign = "right";
-  ctx.textBaseline = "bottom";
-  ctx.fillText("T // DISCOVERY YEAR", env.x1, ay - 4);
 }
 
 /** §6's unnumbered bracket: a shape and a disclosure for an axis that carries
@@ -414,23 +451,24 @@ function bracket(
   ctx.lineTo(ax - 6, ay);
   ctx.stroke();
 
-  const height = ay - top;
-  const options = [
-    "Y // DISPLAY SPREAD · NO DATA AXIS",
-    "Y // DISPLAY SPREAD",
-    "DISPLAY SPREAD",
-    "SPREAD",
-  ];
-  const fits = options.find((s) => ctx.measureText(s).width <= height - 8);
-  if (!fits) return;
-  ctx.save();
-  ctx.translate(ax - 4, ay);
-  ctx.rotate(-Math.PI / 2);
-  ctx.fillStyle = DIM;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "bottom";
-  ctx.fillText(fits, 0, 0);
-  ctx.restore();
+  // The caption is this projection's y-axis label, so it takes the same
+  // placement as every other one rather than running down the bracket, where it
+  // crossed the ticks at some zooms and could not be read. The BRACKET still
+  // carries the shape; the words are just legible now.
+  return;
+}
+
+/** §6's caption, longest that fits the width the title slot allows. If none
+ *  fits, none is drawn — the footer already says Y: DISPLAY DISTRIBUTION. */
+function bracketCaption(ctx: CanvasRenderingContext2D, room: number): string | null {
+  return (
+    [
+      "Y // DISPLAY SPREAD · NO DATA AXIS",
+      "Y // DISPLAY SPREAD",
+      "DISPLAY SPREAD",
+      "SPREAD",
+    ].find((s) => ctx.measureText(s).width <= room) ?? null
+  );
 }
 
 /** §5.1: constant-distance loci. Under FIX.md #5 Option B they are drawn through
@@ -729,11 +767,15 @@ function timeCursor(
 function cloudAnnotation(
   ctx: CanvasRenderingContext2D,
   f: Frame,
-  cloud: { label: string; count: number },
+  cloud: { label: string; count: number; frame: { cx: number; rx: number; ry: number } },
 ): void {
-  const left = f.sx(1.15) - Math.abs(f.sx(0.072) - f.sx(0)) - 12;
-  const y = f.sy(0.5);
-  ctx.textAlign = "right";
+  // BENEATH the ellipse, centred on it, rather than floating off its left edge.
+  // Beside it, the two lines read as a label for whatever they happened to sit
+  // next to — which at some zooms was the scientific region. Under the boundary
+  // they can only be about the thing they are under.
+  const left = f.sx(cloud.frame.cx);
+  const y = f.sy(0.5) + Math.abs(f.sy(cloud.frame.ry) - f.sy(0)) + 18;
+  ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = TEXT;
   ctx.fillText("UNRESOLVED", left, y - 7);

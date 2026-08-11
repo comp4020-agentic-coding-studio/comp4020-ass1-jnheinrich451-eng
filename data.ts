@@ -215,14 +215,45 @@ export interface Pos {
 /** §4's holding cloud: a disc around cx (default 1.15) with radii 0.072k and
  *  0.15k, so it sits deliberately OUTSIDE the 0–1 scientific region and can
  *  never be read as a measured position. */
-export function unresolvedPos(name: string, cx = 1.15, k = 1): Pos {
+export function unresolvedPos(name: string, cx = 1.15, rx = 0.072, ry = 0.15): Pos {
   const a = hash01(name, 11) * Math.PI * 2;
   const rr = Math.sqrt(hash01(name, 13));
   return {
-    x: cx + Math.cos(a) * 0.072 * k * rr,
-    y: 0.5 + Math.sin(a) * 0.15 * k * rr,
+    x: cx + Math.cos(a) * rx * rr,
+    y: 0.5 + Math.sin(a) * ry * rr,
     resolved: false,
   };
+}
+
+const F = 1 / Math.tan((24 * Math.PI) / 180);
+
+/** Where the holding cloud sits and how big it is, in NORMALISED space, for a
+ *  given camera.
+ *
+ *  In the three 2D projections this is the constant the spec gives. In SPATIAL
+ *  it is derived from the SAME expression that places the sky — 0.45·F/dist —
+ *  so the cloud and the archive scale at one rate. They did not before: the sky
+ *  scaled on 1/ze while the cloud only grew on sqrt(2.75/dist) about a centre
+ *  pinned at 1.15, so dollying slid them apart and the cloud read as a separate
+ *  diagram pasted beside the instrument.
+ *
+ *  Rotation is deliberately NOT applied. The cloud is not a place — it is where
+ *  records go when the projection cannot place them — so swinging it behind the
+ *  sphere on a yaw would be the furniture claiming a position it does not have.
+ *  It shares the dolly, which is what "connected" means here, and nothing else. */
+export function cloudFrame(
+  projection: Projection,
+  camDist: number,
+): { cx: number; rx: number; ry: number } {
+  if (projection !== "spatial") return { cx: 1.15, rx: 0.072, ry: 0.15 };
+  const s = (0.45 * F) / Math.max(camDist, 0.05);
+  // Anchored in WORLD units, to the archive's own outer radius. Matching the 2D
+  // constant at dist 2.75 instead was wrong and looked it: at that dolly the sky
+  // spans far more than the 0–1 region, so a cloud pinned near 1.15 sat INSIDE
+  // the data. Placed just outside r_max it stays beside the archive at every
+  // dolly, which is the only definition of "outside" that survives a zoom.
+  const rMax = Math.log(1 + 8500); // the archive's furthest record, ≈9.05
+  return { cx: 0.5 + s * rMax * 1.34, rx: s * rMax * 0.155, ry: s * rMax * 0.33 };
 }
 
 export interface Camera {
@@ -246,8 +277,6 @@ export function skyXYZ(distPc: number, raDeg: number, decDeg: number) {
     z: r * Math.cos(dec) * Math.sin(ra),
   };
 }
-
-const F = 1 / Math.tan((24 * Math.PI) / 180);
 
 /** §5's camera: yaw about +Y, then pitch about +X, sitting at `dist` on the view
  *  axis and always looking at the origin (SOL). It never writes back into the
@@ -288,8 +317,10 @@ export function positionOf(
   cam: Camera,
 ): Pos {
   const name = String(row[C.name]);
-  const k = projection === "spatial" ? cloudK(cam.dist) : 1;
-  if (!isResolved(row, projection)) return unresolvedPos(name, 1.15, k);
+  if (!isResolved(row, projection)) {
+    const c = cloudFrame(projection, cam.dist);
+    return unresolvedPos(name, c.cx, c.rx, c.ry);
+  }
 
   const n = (i: number): number => row[i] as number;
 

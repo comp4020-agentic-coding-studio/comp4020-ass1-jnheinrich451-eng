@@ -38,6 +38,38 @@ export const MS = {
  *  tighter because committing should be deliberate. */
 export const HIT = { hover: 18, click: 16 } as const;
 
+/** ONE zoom range for all four projections.
+ *
+ *  The 2D views were clamped to [1, 6] — 1 being "fitted", so they could not
+ *  zoom OUT at all — while SPATIAL dollied 1.25→7 in distance, which is a
+ *  factor of 2.2 in and 0.39 out. Three projections that stopped where the
+ *  fourth kept going is the field contradicting itself about what zoom means.
+ *
+ *  SPATIAL's dolly is expressed as the same number: dist = 2.75 / zoom, so the
+ *  reference dolly IS zoom 1 and both ends match by construction. This widens
+ *  SPATIAL.md §6's clamp of [1.25, 7]; the author asked for parity explicitly
+ *  and parity is not reachable while one projection keeps its own bounds. */
+export const ZOOM = { min: 0.4, max: 6 } as const;
+
+/** Zoom 1 means "fitted" in the 2D projections, so it must mean fitted in
+ *  SPATIAL too — and SPATIAL's fitted distance is DERIVED FROM THE ARCHIVE
+ *  (fitCameraDist), not the spec's nominal 2.75. Measured: this archive fits at
+ *  ~29.8, so clamping the dolly around 2.75 snapped the first wheel click
+ *  inward by 4x and then buried the camera inside the cloud. The reference is
+ *  set once at load, and everything asking "how far out are we, relative to
+ *  fitted" reads it — the tape's px/deg included. */
+let refDist = 2.75;
+export const setReferenceDist = (d: number): void => void (refDist = d);
+export const referenceDist = (): number => refDist;
+/** Wrap to (−π, π]. SPATIAL's pitch is now a full rotation, so the raw value
+ *  would otherwise grow without bound across a long drag and lose precision. */
+export const wrapPi = (a: number): number => {
+  const t = (a + Math.PI) % (Math.PI * 2);
+  return (t < 0 ? t + Math.PI * 2 : t) - Math.PI;
+};
+
+export const distForZoom = (zoom: number): number => refDist / zoom;
+
 const defaults = (fitRight: number): View => ({
   cx: fitRight / 2,
   cy: 0.5,
@@ -114,7 +146,7 @@ export function zoomAt(
   const before = mapping(v, w, h, pad, fitRight);
   const wx = before.ix(px);
   const wy = before.iy(py);
-  v.zoom = Math.min(6, Math.max(1, v.zoom * Math.exp(-deltaY * 0.0015)));
+  v.zoom = Math.min(ZOOM.max, Math.max(ZOOM.min, v.zoom * Math.exp(-deltaY * 0.0015)));
   const iw = w - pad * 2;
   const ih = h - pad * 2;
   v.cx = wx - ((px - pad) / iw - 0.5) * (fitRight / v.zoom);

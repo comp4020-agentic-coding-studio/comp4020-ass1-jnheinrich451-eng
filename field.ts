@@ -17,6 +17,7 @@ import {
   auditSky3D,
   extentsOf,
   fitCameraDist,
+  cloudFrame,
   loadArchive,
   missingFor,
   positionOf,
@@ -29,13 +30,17 @@ import { initPanels } from "./panels";
 import {
   HIT,
   MS,
+  ZOOM,
+  distForZoom,
   type View,
   clampView,
   easeInOut,
   mapping,
   reduceMotion,
   resetView,
+  setReferenceDist,
   viewFor,
+  wrapPi,
   zoomAt,
 } from "./nav";
 import { initTarget, renderTarget, setCentreTarget, setFieldSnapshotter } from "./target";
@@ -315,12 +320,16 @@ export function initField(): void {
       ctx!.save();
       ctx!.strokeStyle = "rgba(150,170,255,0.18)";
       ctx!.setLineDash([2, 5]);
+      // From the SAME cloudFrame the points are placed by, so in SPATIAL the
+      // boundary dollies with the sky instead of holding still around a cloud
+      // that has moved out from under it.
+      const cf = cloudFrame(projectionOf(), cam.dist);
       ctx!.beginPath();
       ctx!.ellipse(
-        sx(1.15),
+        sx(cf.cx),
         sy(0.5),
-        Math.abs(sx(0.072) - sx(0)),
-        Math.abs(sy(0.15) - sy(0)),
+        Math.abs(sx(cf.rx) - sx(0)),
+        Math.abs(sy(cf.ry) - sy(0)),
         0,
         0,
         Math.PI * 2,
@@ -417,6 +426,8 @@ export function initField(): void {
         zoom: view.zoom,
         e,
         morphing,
+        dist: cam.dist,
+        pitch: cam.pitch,
         // where normalised x=0 and x=1 actually land this frame
         x0: sx(0),
         x1: sx(1),
@@ -536,7 +547,12 @@ export function initField(): void {
       const curYear = curRow && typeof curRow[C.year] === "number"
         ? (curRow[C.year] as number)
         : null;
-      const unresolvedNow = target.reduce((n, q) => (q && !q.resolved ? n + 1 : n), 0);
+      // Same pool as the footer — two counts of the same thing that disagree is
+      // worse than either being wrong.
+      let unresolvedNow = 0;
+      for (let i = 0; i < target.length; i++) {
+        if ((nowIn[i] ?? true) && target[i] && !target[i].resolved) unresolvedNow++;
+      }
       const extras = {
         cam: projectionOf() === "spatial" ? cam : null,
         cursor:
@@ -556,6 +572,7 @@ export function initField(): void {
                     projectionOf(),
                   )[0] ?? "unresolved",
                 count: unresolvedNow,
+                frame: cloudFrame(projectionOf(), cam.dist),
               }
             : null,
       };
@@ -643,8 +660,18 @@ export function initField(): void {
     // VISIBLE counts records with the data this projection needs; UNRESOLVED
     // counts those without it. A record behind the camera is neither missing
     // nor mis-measured, so it never lands in the UNRESOLVED tally.
-    const visible = target.filter((t) => t.resolved).length;
-    const unresolved = target.length - visible;
+    // Both counts are over the FILTERED pool. They were over the whole archive,
+    // so switching to Wobble left UNRESOLVED reading 27 — a number describing a
+    // population the reader is no longer looking at. The filter is a statement
+    // about which records are in play; a tally that ignores it is answering a
+    // question nobody asked.
+    let visible = 0;
+    let unresolved = 0;
+    for (let i = 0; i < target.length; i++) {
+      if (!(nowIn[i] ?? true)) continue;
+      if (target[i]?.resolved) visible++;
+      else unresolved++;
+    }
     const n = (v: number): string => v.toLocaleString("en-AU");
     const set = (sel: string, text: string): void => {
       const el = document.querySelector(sel);
@@ -734,7 +761,17 @@ export function initField(): void {
       // §2: RIGHT = ROTATE, and only where an orientation exists. The verb that
       // costs the most is the one you must ask for.
       cam.yaw -= dx * 0.006;
-      cam.pitch = Math.min(1.45, Math.max(-1.45, cam.pitch + dy * 0.006));
+      // FULLY ROTATES about the vertical too, at the author's request. This
+      // supersedes SPATIAL.md §6's ±1.45 clamp, which existed to stop the view
+      // going over the pole and inverting.
+      //
+      // Going over the pole DOES invert the picture — that is what a rotation
+      // past 90° means, not a bug in it — and the DEC tape reads the same
+      // signed pitch, so the index inverts with the sky rather than
+      // contradicting it. Wrapped into [−π, π] so the number stays bounded
+      // however long the drag runs; the seam is at the pole, where a wrap is
+      // invisible because both sides of it are the same view.
+      cam.pitch = wrapPi(cam.pitch + dy * 0.006);
       computeTargets();
     } else if (box) {
       // §2: LEFT = TRANSLATE, in every projection, so muscle memory carries.
@@ -794,7 +831,12 @@ export function initField(): void {
       e.preventDefault();
       const r = canvas.getBoundingClientRect();
       if (projectionOf() === "spatial") {
-        cam.dist = Math.min(60, Math.max(1.25, cam.dist * Math.exp(e.deltaY * 0.0012)));
+        // Same range as the other three, expressed as a dolly: the wheel moves
+        // one zoom number in every projection (nav.ts ZOOM).
+        cam.dist = Math.min(
+          distForZoom(ZOOM.min),
+          Math.max(distForZoom(ZOOM.max), cam.dist * Math.exp(e.deltaY * 0.0012)),
+        );
         computeTargets();
       } else if (box) {
         zoomAt(
@@ -919,6 +961,8 @@ export function initField(): void {
       archive = a;
       ext = extentsOf(a.rows);
       cam.dist = fitCameraDist(ext.dist[1]);
+      // Zoom 1 is this distance in every projection (nav.ts).
+      setReferenceDist(cam.dist);
       // §1.3: the default and DISCOVERY TIME are warmed at load, the rest in
       // idle time once the first paint is out of the way.
       warm("orbit");
