@@ -1753,10 +1753,22 @@ which are squashed radial gradients rather than a conic sweep.
   gap: 14px;
   min-height: 0;
 
-  /* §1's own padding, folded in now that the two rules are one. */
+  /* RIGHT-TARGET.md §1's own padding, folded in now that the two rules are one. */
   padding: 16px 14px;
   overflow-y: auto;
-  overscroll-behavior: contain;
+
+  /* `contain` here meant the wheel did nothing at all over this panel. With a
+     short record it has no overflow of its own — scrollHeight equals
+     clientHeight — and a scroll container that cannot scroll is at both of its
+     boundaries at once, so `contain` blocked the chain to the page and the
+     wheel was swallowed entirely.
+
+     `auto` lets it chain: the panel scrolls itself when a long record overflows
+     it, and hands the wheel to the page when there is nothing left to scroll.
+     FIND's list keeps `contain`, because LEFT-FIND.md §1 asks for it there by
+     name — a 6,336-row list running past its end and dragging the page with it
+     is the case that rule exists for, and this panel is not that case. */
+  overscroll-behavior: auto;
 }
 
 .panel-right::-webkit-scrollbar {
