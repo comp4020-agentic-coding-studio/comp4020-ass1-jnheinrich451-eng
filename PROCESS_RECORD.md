@@ -1991,3 +1991,71 @@ scratch against the Chrome DevTools Protocol. Two of those probes were wrong
 before they were right — headless Chrome reports `prefers-reduced-motion:
 reduce`, so an un-emulated run measures a build with no animation at all. That
 is a fact about the sensor worth writing down where it will be read again.
+
+## 2026-08-11 19:05 — The index SPATIAL never had
+
+**Prompt:**
+
+> the minor improvement is the CAMERA ROTATION OFF and ON, I think we need to
+> change a name, about TARGET? FOCUS PLANET and switch to SYSTEM. And we keep
+> the TARGET as plain text, it is the same as ORBIT SCALE [...] Before that, we
+> enter PROJECTIONS.md. I think it contains new design for axes
+
+**Result:**
+Read PROJECTIONS.md (515 lines) and implemented the per-projection furniture. The
+tape formula from AXES.md was already there and correct; what was missing was
+everything each projection owns on top of it.
+
+The real hole was SPATIAL. Its "strips" were two lines and two titles with
+nothing on them to read — the missing angle index EFFECT.md §2 kept pointing at,
+and which I had noted twice without fixing. Now §6.1's spec: fixed px/deg, ticks
+every 10° with majors at 30°, RA labelled in **hours** because RA is an hour
+angle and printing degrees would be the axis changing units on the reader,
+cyclic in an unwrapped space so there is no seam at whatever angle happens to be
+zero, fade zones at both ends, and a **fixed** caret with a live readout under
+it. That last part is the whole idea: rotating flips the index past a stationary
+mark rather than sliding a mark along a stationary index, which is the
+difference between a heading tape and a data axis.
+
+Also landed: §5.2's OBSERVER // SOL marker, fixed in screen pixels at every zoom
+(a marker that grows is a data point; a marker that holds is an instrument);
+§5.3's off-screen chevron with a 32 px hit area that recentres in 420 ms with
+zoom unchanged; §3's 1 R⊕ and 1 YR references; §5.1's 1-2-5 pc rings with the
+26 px pitch guard and label gaps all on one −38° bearing, so the breaks line up
+as a radial corridor and read as an index line rather than as damage; §4's
+target cursor; §7's dashed cloud boundary and two-line annotation naming the
+field that is actually absent.
+
+TARGET replaces CAMERA ROTATION, as asked and for the right reason: after the
+last turn the control's real effect is which body the camera is pointed at, so
+the label now says the thing it sets. Plain word plus two buttons, built the way
+ORBIT SCALE is.
+
+**Verified:**
+Screenshots at 1920×1080 of all four projections, read rather than diffed.
+SPATIAL: `18h 20h 22h 0h 2h 4h 6h 8h 10h` with the caret at centre reading
+`02h 17m`, DEC `+90 … −90` reading `+20.1°`. EARTH DISTANCE: rings with the
+labels forming one straight radial corridor. ORBIT × SIZE: both references drawn
+and labelled. DISCOVERY TIME: §9's own check — no ellipse, no annotation, no
+1.26 rect, and the footer reads `UNRESOLVED: NONE`.
+
+**Commit:** [`a6a242f`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/a6a242f)
+
+**What happened:**
+The first SPATIAL strip was unreadable — a solid smear of overlapping labels. I
+had read §6.1's "≈2.4 px/° at reference dolly, scaled with the camera's field
+width" as `2.4 × (2.75 / dist)`, which gives 0.33 px/deg at the distance the
+archive actually fits at: ticks every 3 px. The tiebreak was in the same
+paragraph I had already quoted in a comment — *a heading tape has a constant
+scale or it is not a heading tape*. Scale now comes from the plot's own span
+(360 × 2.4 = 864 px is the plot width at the reference layout, which is what the
+constant was describing) and does not move with the wheel.
+
+I added §2's collision guard to that loop as well, even though the fixed scale
+makes it redundant. The smear was a scale error, and a guard that would have
+caught it anyway is worth four lines — the same argument as the shader test.
+
+Two things I did not do, stated rather than left to be discovered: §5.2 says SOL
+is drawn **under** the points, and it is currently drawn over them, because all
+furniture goes through one pass after the draw loop; splitting that pass is a
+structural change, not a tweak. And §6.3's three axis stubs are not built.
