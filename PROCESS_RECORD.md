@@ -2059,3 +2059,74 @@ Two things I did not do, stated rather than left to be discovered: §5.2 says SO
 is drawn **under** the points, and it is currently drawn over them, because all
 furniture goes through one pass after the draw loop; splitting that pass is a
 structural change, not a tweak. And §6.3's three axis stubs are not built.
+
+## 2026-08-11 19:55 — Reading the spec line and applying it twice
+
+**Prompt:**
+
+> the ORBIT × SIZE, it has two abrupt lines [...] I think if they are misplaced?
+> And for DISCOVERY TIME [...] I clicked a 2026 line, it shows correctly about
+> DISCOVERED // 2026, but index on axis, is on 2024 [...] the right ellipse
+> group, should be UNRESOLVED as title [...] I have a separate file SPATIAL.md
+
+**Result:**
+Three of the four items were **one bug**, and it was mine. Every projection's
+mapping is written in the specs as `0.06 + 0.88·norm(v)`, and `logNorm`/`linNorm`
+in data.ts **already bake that in** via `pad()`. I read the spec line literally
+and wrote `0.06 + 0.88 * logNorm(v)` in the two ORBIT references and the
+DISCOVERY TIME cursor — padding twice. The rules slid inward off their own ticks
+and a 2026 record's cursor landed on 2024, precisely as reported.
+
+One fix, three call sites. Plus three tests that fail on a second pad, because
+the wrong version looked plausible in both cases — a careful reader is not the
+right guard for something that renders as "slightly off".
+
+The cloud annotation now leads with UNRESOLVED and carries the missing field as
+the detail line. §7 asks the first line to name the field; the author's point is
+that the state is what a reader needs first, and the disclosure survives
+underneath rather than being replaced.
+
+Then SPATIAL.md, as its own module (`sky.ts`) because none of it is a tape
+formula — it is geometry projected through the camera, and mixing it into
+axes.ts would put world-space maths in the one file whose whole guarantee is
+that it only asks the mapping where a value goes. §2's reference furniture: 12
+dotted meridians, 5 parallels, the celestial equator as the **one** solid ring,
+the ecliptic dashed in the Transit amber at 23.44° with its equinox nodes and
+pole — all drawn UNDER the points and split into a far pass at 0.45 alpha and a
+near pass at 1.0. That split is what makes the sphere read as a sphere instead
+of a flat mandala. §3's interval ladders with hysteresis and value-keyed
+survivors, so zooming *adds* subdivisions between the labels you were already
+reading. §4's axis stubs. §2.6's selection drop line.
+
+SPATIAL.md also settles the px/deg question I got wrong twice:
+`plotWidth / (48° · dist/2.75)`, which **is** the camera's field width. My
+constant-scale reading was the right instinct against the wrong formula.
+
+**Verified:**
+Screenshots read, not diffed. ORBIT × SIZE: 1 YR now sits between the 100 and 1K
+ticks and 1 R⊕ aligns with the radius axis's `1`. DISCOVERY TIME: selected a
+record and cropped the tape at 2× — the cursor and caret sit exactly on 2007,
+midway between the 2006 and 2008 ticks, with that record's own column of points
+on the same line. SPATIAL: the graticule, equator, ecliptic and VERNAL EQUINOX
+node all render, and the cloud reads `UNRESOLVED / NO DISTANCE · 27 RECORDS`.
+`pnpm check` 90/90.
+
+**Commit:** [`4e808db`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/4e808db)
+
+**What happened:**
+Verifying SPATIAL caught a second bug before the author could: the DEC label
+pitch guard used a **signed** difference, `y - last >= 26`. The loop walks
+declination from −90 upward and screen y therefore *decreases*, so the test was
+negative for every tick after the first and exactly one label survived. The
+horizontal version got away with the same code because x happens to run the same
+way as its loop. A pitch guard is a distance, and a distance has no sign.
+
+I only found it by cropping the strip at 3× and looking. The full-page screenshot
+showed "−90°" and I had read the rest as "faint at this size" — which is the same
+mistake as trusting a boolean diff, one zoom level up. Two probe runs were also
+thrown away: one caught the page mid-recompile after an HMR edit, showing
+`UNRESOLVED` placeholders everywhere and no panels, which for a moment looked
+like I had broken the archive load. Sleeping longer after an edit fixed it. Worth
+recording because a screenshot taken too early is indistinguishable from a
+screenshot of a broken build, and I nearly went hunting for a bug that was not
+there.
