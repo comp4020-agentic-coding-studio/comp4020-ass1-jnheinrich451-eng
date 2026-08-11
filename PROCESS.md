@@ -17,7 +17,7 @@ field untouched. Vite, TypeScript and three.js; 90 tests run from `pnpm check`.
    Dragging moved "frame by frame instead of an animation", so I did the obvious
    work first: bucketed the draw loop, culled off-screen points, swapped `arc`
    for `fillRect`, stopped reallocating the canvas. Every one measured as no
-   change, and I committed that honestly rather than claiming the win
+   change, and I committed that result rather than claiming a win
    ([`f1a5aec`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/f1a5aec)).
    Instead of optimising a sixth thing I counted what the loop was *doing*:
    5,067 rAF callbacks against 20 real frames. `paint()` re-entered its own
@@ -34,23 +34,28 @@ field untouched. Vite, TypeScript and three.js; 90 tests run from `pnpm check`.
    stops resolved to the limb exactly
    ([`dc18440`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/dc18440)).
 
-3. **One root cause behind three symptoms, then a test so it cannot come back.**
-   Reference rules sat beside their own ticks and a 2026 record's cursor landed
-   on 2024. Rather than nudging the lines, I looked for what they shared:
-   `logNorm` already emits `0.06 + 0.88t`, and I had applied that padding a
-   second time by reading the spec's mapping line literally. The wrong version
-   renders as *plausible*, so a careful reader is the wrong guard — I added
-   three tests that fail on a double pad, then cropped the tape at 2× to watch
-   the cursor land exactly on 2007
-   ([`4e808db`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/4e808db)).
+3. **Six attempts at one camera, because I had modelled the wrong thing.** A
+   CAMERA ROTATION control "did nothing". The obvious answer is a bigger number,
+   so I measured instead: 2.9°/s, one revolution every 126 seconds — on, but
+   invisible. Raising it to 8°/s changed nothing in the report. So I stopped
+   reading variables and measured the *picture*: the star projected off-frame in
+   every sample, and the camera already swung ±260 units with the toggle
+   **off**, because it tracked the planet. Retargeting to the barycentre made
+   rotation visible but fixed only the system view. The root was my model, and
+   it took my author's correction to see it: I was rotating the *camera* when
+   what turns is the *frame*. Star and planet hold fixed relative to each other,
+   so the frame co-rotates with the planet and the orbit, tail and starfield
+   carry the revolution. The star's projected x then held 2.157 → 2.143 over ten
+   seconds — a 1 % breath which *is* the eccentricity — where it had swept
+   across the frame
+   ([`efe5ba8...ce875e7`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/compare/efe5ba8...ce875e7)).
 
 4. **I fixed one transition four times; the fix was deleting the code.** Each
    round I narrowed when a clamp should run — eagerly, then moving with the
    rect, then only while morphing, then only when the rect changes — and never
    asked whether it should exist. The arithmetic settles it in one line:
    `sx(cx) = pad + iw/2` for any fit, so changing the fit rect rescales the
-   picture about the view's centre and cannot move that centre. Nothing needed
-   correcting. Deleted, and verified where the old code failed: `cx` holds 0.631
-   across every frame of the change at zoom 0.4, where it previously snapped to
-   centre first
+   picture about the view's centre and cannot move it. Deleted, and verified
+   where the old code failed: `cx` holds 0.631 across every frame of the change
+   at zoom 0.4, where it previously snapped to centre first
    ([`7b32ba9...c755961`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/compare/7b32ba9...c755961)).
