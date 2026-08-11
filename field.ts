@@ -90,6 +90,15 @@ export function initField(): void {
   // unresolved records, so a complete projection is not squeezed to leave room
   // for a cloud that is not there.
   let fitRight = 1;
+  // The fit rect the morph STARTS from. fitRight widens to 1.26 only when a
+  // projection has unresolved records, and DISCOVERY TIME is the only one with
+  // none — so switching to or from it changed the divisor in the mapping, and
+  // every point's screen x rescaled in a single frame BEFORE the tween began.
+  // That is the "aligns to the centre first, then transitions" the author saw:
+  // a jump followed by a slide, which is precisely what EFFECT.md §1.2 names as
+  // the way this effect goes wrong. Interpolated on the morph's own clock now,
+  // so the frame and the points move together as one motion.
+  let fitFrom = 1;
 
   // LOAD_DATA.md §9 / LEFT-OBSERVE.md §4: a filter change is ANIMATED, not
   // switched. Radius and alpha interpolate between the previous filter's
@@ -232,14 +241,16 @@ export function initField(): void {
     const view = viewFor(projectionOf(), fitRight);
     // §4: interpolate the MAPPING too. Switching the fit rect at morph start
     // made the field jump before any point had moved.
-    const map = mapping(view, w, h, pad, fitRight);
-    const sx = map.sx;
-    const sy = map.sy;
-
     const p = morphing
       ? Math.min(1, (performance.now() - morphStart) / MORPH_MS)
       : 1;
     const e = p < 1 ? easeInOut(p) : 1;
+
+    const fitNow = fitFrom + (fitRight - fitFrom) * e;
+    const map = mapping(view, w, h, pad, fitNow);
+    const sx = map.sx;
+    const sy = map.sy;
+
 
     // §7 step 2 — furniture UNDER the points.
     // No bounding box. It was drawn from the envelope, so it tracked the cloud
@@ -434,13 +445,16 @@ export function initField(): void {
     if (p >= 1 && morphing) {
       morphing = false;
       drawn = target.map((t) => ({ ...t }));
+      fitFrom = fitRight;
     }
   }
 
   function setProjection(next: Projection): void {
     if (next === projectionOf()) return;
-    // Freeze what is on screen right now as the morph's origin (§8).
+    // Freeze what is on screen right now as the morph's origin (§8) — both the
+    // positions AND the rect they are being drawn through.
     drawn = target.length ? target.map((t) => ({ ...t })) : [];
+    fitFrom = fitRight;
     state.projection = next;
     computeTargets();
     if (drawn.length && !reduceMotion()) {

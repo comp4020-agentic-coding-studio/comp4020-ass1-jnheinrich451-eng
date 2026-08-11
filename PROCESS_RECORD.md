@@ -1763,3 +1763,61 @@ Same probe, before and after: rAF scheduled 5067 → 219, frames observed 20 →
    optimisation after that point was measured through a renderer running an
    exponential number of paints — which is why the whole list reads as "no
    change".
+
+## 2026-08-11 17:40 — The jump before the slide, and the system's own motion
+
+**Prompt:**
+
+> the animation from or to DISCOVERY TIME […] the source part, will align to the
+> center first, not from the location it is, and then performing the transition
+> […] I need to add a button toggle on the right of *1, *3, *5 buttons, with
+> CAMERA ROTATION ON […] Default is OFF […] And the background starfield, its
+> speed […] You can assign a speed when camera rotation is off.
+
+**Result:**
+The author's description named the defect precisely enough to find it without
+searching: "aligns to the centre first, *then* transitions" is a mapping change
+landing on frame 0. `fitRight` widens to 1.26 only when a projection has
+unresolved records, and DISCOVERY TIME is the only one of the four with none —
+so switching to or from it changed the divisor in the mapping, every point's
+screen x rescaled in a single frame, and only then did the tween begin. A jump
+followed by a slide, which is exactly the failure EFFECT.md §1.2 names. It is
+interpolated on the morph's own clock now, so the frame and the points move as
+one motion.
+
+OPEN SYSTEM gains a CAMERA ROTATION toggle beside the orbit-scale buttons,
+defaulting to OFF so entering a system starts it still. The backdrop turns at
+its own innate rate with the camera stationary, and the camera's rate is *added*
+when the toggle is on, so the sky accelerates rather than fights. Both read one
+signed direction constant — Law IV — so they cannot disagree about which way the
+system goes.
+
+**Verified:**
+Sampled the cloud's centroid every 90 ms across a morph into DISCOVERY TIME:
+495 → 505 → 540 → 598 → 690 → 800 → 889 → 932 → 933. A continuous eased curve
+with no discontinuity on the first frame, which is what the jump would have
+shown as. `pnpm check` green 87/87.
+
+**Commit:** [`e2b9e97`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-jnheinrich451-eng/commit/e2b9e97)
+
+**What happened:** three things.
+
+1. **A user description that located a bug faster than instrumentation would
+   have.** "Aligns to the centre first, then transitions" is not a guess about
+   the cause — it is an exact account of the symptom's *order*, and order is
+   what distinguishes a mapping change from a tween problem. I went straight to
+   the one value that differs between DISCOVERY TIME and the other three.
+   **When someone describes a defect in terms of sequence, that sequence is
+   usually the diagnosis.**
+
+2. **My own optimisation caused it to matter.** The fit rect always switched
+   instantly; it only became visible once the points began tweening smoothly
+   around it. Making one thing smooth is what exposed the thing beside it that
+   was not — worth expecting rather than being surprised by.
+
+3. **Recording lapsed under context pressure, and the author had to ask.** The
+   last several turns — the runaway rAF fix, the stacking context, the warming —
+   went in as commits with full reasoning but no entry here. The commits are not
+   a substitute: they are per-change, and this file is where the thread between
+   changes lives. Noted as a failure of the harness rather than of memory: the
+   skill exists precisely so this does not depend on my remembering under load.

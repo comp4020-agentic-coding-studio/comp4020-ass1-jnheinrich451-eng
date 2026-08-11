@@ -232,12 +232,19 @@ function buildShell(
     foot.append(b);
     return b;
   });
+  // Two states on one control, naming the state it is IN rather than the action
+  // — the same convention EXPAND FIELD uses, so the two read alike. Default OFF:
+  // entering a system starts it still, and any camera motion after that has an
+  // author (Law I).
+  const spin = el("button", "sys-btn sys-spin", "Camera rotation off");
+  spin.type = "button";
+  foot.append(spin);
   foot.append(
     el("span", "sys-legend", "Drag to inspect · Wheel to zoom · Esc to return"),
   );
   shell.append(foot);
 
-  const scene = buildScene(canvas, row, zoomIn, zoomOut, scaleBtns, scaleNote);
+  const scene = buildScene(canvas, row, zoomIn, zoomOut, scaleBtns, scaleNote, spin);
   shell.addEventListener("keydown", (e) => {
     if (e.key === "Escape") onReturn(); // §5
   });
@@ -265,6 +272,7 @@ function buildScene(
   zoomOut: HTMLButtonElement,
   scaleBtns: HTMLButtonElement[],
   scaleNote: HTMLElement,
+  spin: HTMLButtonElement,
 ): { stop: () => void } {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -366,10 +374,27 @@ function buildScene(
   const minDist = planetR * 1.9;
   const maxDist = () => Math.max(planetR * 16, orbitR * 2.6);
 
+  // Law IV: ONE signed direction, derived once, read by everything that turns.
+  // +1 counter-clockwise. The orbit, the backdrop and the optional camera spin
+  // all read it, so they cannot disagree about which way the system goes.
+  const DIR = 1;
+  // The backdrop turns even with the camera still — that is the innate speed
+  // the author asked for, and it is what makes a stationary view still read as
+  // a system in motion rather than a diagram.
+  const BACKDROP_RATE = 0.012;
+  const CAMERA_RATE = 0.05;
+  let spinning = false;
+  spin.addEventListener("click", () => {
+    spinning = !spinning;
+    spin.textContent = spinning ? "Camera rotation on" : "Camera rotation off";
+    spin.classList.toggle("is-active", spinning);
+  });
+
   let stopped = false;
   const start = performance.now();
   let last = start;
   let angle = 0;
+  let backdropSpin = 0;
   const periodDays = num(C.orbper, 365);
 
   function frame(now: number): void {
@@ -395,7 +420,13 @@ function buildScene(
     planet.rotation.y += dt * 0.25; // ILLUSTRATIVE, and disclosed as such
     // Half a turn of backdrop per turn of orbit: enough that the revolution is
     // legible, little enough that it never competes with the planet.
-    backdrop.rotation.y = -angle * 0.5;
+    // With the camera still the backdrop turns at its own rate; with the camera
+    // spinning it is carried the SAME way, so the two add rather than fight and
+    // the sky appears to accelerate. Both read DIR, so neither can reverse
+    // relative to the other.
+    backdropSpin += dt * DIR * (BACKDROP_RATE + (spinning ? CAMERA_RATE : 0));
+    backdrop.rotation.y = backdropSpin - angle * 0.5;
+    if (spinning) yaw += dt * DIR * CAMERA_RATE;
 
     const d = Math.min(maxDist(), Math.max(minDist, dist));
     const eye = new THREE.Vector3(

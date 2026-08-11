@@ -2254,3 +2254,13 @@ which are squashed radial gradients rather than a conic sweep.
 #hero.is-idle::after {
   animation-play-state: paused;
 }
+
+/* The camera-rotation toggle is wider than the icon buttons beside it, since it
+   states its state in words rather than a glyph. */
+.sys-spin {
+  width: auto;
+  padding: 0 10px;
+  margin-left: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
