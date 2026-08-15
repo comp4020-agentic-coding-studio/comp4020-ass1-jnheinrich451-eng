@@ -18,8 +18,9 @@
          in a tab, so shipping 910 KB meant ~99.9% of those bytes were decoded
          and thrown away on every visit — more than the CSS and the archive
          JSON combined. 32 for the tab, 256 for bookmarks and the iOS home
-         screen; the browser picks. The 1254px original stays in assets/ as the
-         source it is, and is not served. -->
+         screen; the browser picks. The 1254px original is not kept in the tree —
+         it is 910 KB the site never serves — but it stays retrievable from the
+         history at b4227dc if these ever need regenerating. -->
     <link rel="icon" sizes="32x32" href="./assets/icon-32.png" />
     <link rel="icon" sizes="256x256" href="./assets/icon-256.png" />
     <link rel="apple-touch-icon" href="./assets/icon-256.png" />
