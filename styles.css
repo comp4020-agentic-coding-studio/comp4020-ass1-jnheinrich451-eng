@@ -1240,9 +1240,14 @@ which are squashed radial gradients rather than a conic sweep.
   margin: -8px 0 0 -12px;
   padding: 8px 12px 10px;
 
-  /* The scrim: the picker must survive being read over the fan. In CLEAR it
-     swaps for a text-shadow instead (§5 rule 3). */
-  background: linear-gradient(180deg, rgb(3 4 10 / 90%), rgb(3 4 10 / 72%));
+  /* NO SCRIM. It shares the field's own ground instead.
+     In SOLID this painted rgb(3 4 10 / 90%) over a ground that is ALREADY
+     #03040a — the same colour, twice, the second time at 90% — so it bought no
+     contrast and cost a rectangle of dimmed records behind it. In CLEAR it was
+     already transparent, which is the state that turned out to be right for
+     both: §5 rule 3 says what the ground stops occluding must earn its own
+     legibility, and the text-shadow below is that, unconditionally rather than
+     only when the ground goes. */
 }
 
 .field-projection .sub {
@@ -2287,14 +2292,11 @@ which are squashed radial gradients rather than a conic sweep.
   opacity: 0;
 }
 
-/* §5 rule 3: anything the ground stops occluding must earn its own legibility.
-   The picker swaps its scrim for a text-shadow. */
-.ground-clear .field-projection {
-  background: transparent;
-}
-
-.ground-clear .field-projection .pick,
-.ground-clear .field-projection .sub {
+/* §5 rule 3, now unconditional: the picker has no scrim in either ground, so it
+   carries its own legibility in both. Costs nothing in SOLID, where it is read
+   against #03040a anyway, and is load-bearing in CLEAR over the fan. */
+.field-projection .pick,
+.field-projection .sub {
   text-shadow: 0 1px 3px rgb(0 0 0 / 85%);
 }
 
